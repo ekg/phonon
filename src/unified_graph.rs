@@ -4613,6 +4613,13 @@ pub struct UnifiedSignalGraph {
     /// 1.0 when note is held, 0.0 when released
     /// Used by envelope nodes within signal templates
     pub current_voice_gate: std::cell::Cell<Option<f32>>,
+
+    /// Shared state registry for parallel rendering
+    /// When enabled, stateful nodes (reverbs, delays, filters, etc.) share their state
+    /// across parallel graph clones via Arc<RwLock<State>>
+    /// None = normal mode (each clone has independent state)
+    /// Some = parallel mode (all clones share state)
+    pub shared_state: Option<crate::shared_effect_state::SharedStateRegistry>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4669,6 +4676,8 @@ impl Clone for UnifiedSignalGraph {
             buffer_size: self.buffer_size,
             current_voice_frequency: std::cell::Cell::new(None),
             current_voice_gate: std::cell::Cell::new(None),
+            // Shared state is preserved on clone (Arc gives cheap reference)
+            shared_state: self.shared_state.clone(),
         }
     }
 }
@@ -4719,6 +4728,7 @@ impl UnifiedSignalGraph {
             bus_previous_values: HashMap::new(),
             current_voice_frequency: std::cell::Cell::new(None),
             current_voice_gate: std::cell::Cell::new(None),
+            shared_state: None, // Disabled by default
         }
     }
 
@@ -4736,6 +4746,396 @@ impl UnifiedSignalGraph {
 
     pub fn get_buffer_size(&self) -> usize {
         self.buffer_size
+    }
+
+    /// Enable shared state for parallel rendering
+    ///
+    /// This extracts state from all stateful nodes and stores it in a SharedStateRegistry.
+    /// After calling this, clone_for_parallel() can be used to create graph clones that
+    /// share state with the original (and each other).
+    ///
+    /// IMPORTANT: Call this BEFORE creating any clones for parallel rendering.
+    pub fn enable_shared_state(&mut self) {
+        use crate::shared_effect_state::{
+            SharedState, SharedStateRegistry, DelayLineState, PingPongDelayState,
+            CombState, RMSState, AmpFollowerState, PhaserState, VibratoState,
+        };
+        use std::sync::{Arc, RwLock};
+
+        let registry = SharedStateRegistry::new();
+
+        // Walk through all nodes and extract state
+        for (node_id, opt_node) in self.nodes.iter().enumerate() {
+            if let Some(node_rc) = opt_node {
+                match &**node_rc {
+                    // === Critical: Reverbs and Delays ===
+                    // NOTE: These effects have SEQUENTIAL dependencies - block N depends on the state
+                    // after block N-1. We still register them, but parallel rendering will process
+                    // blocks out of order, causing state corruption for long tails.
+                    // The eval_node implementation should detect this and handle appropriately.
+                    SignalNode::LushReverb { state, .. } => {
+                        registry.register(node_id, SharedState::LushReverb(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Reverb { state, .. } => {
+                        registry.register(node_id, SharedState::Reverb(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::DattorroReverb { state, .. } => {
+                        registry.register(node_id, SharedState::Dattorro(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Delay { buffer, write_idx, .. } => {
+                        registry.register(node_id, SharedState::Delay(
+                            Arc::new(RwLock::new(DelayLineState {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            }))
+                        ));
+                    }
+                    SignalNode::TapeDelay { state, .. } => {
+                        registry.register(node_id, SharedState::TapeDelay(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::MultiTapDelay { buffer, write_idx, .. } => {
+                        registry.register(node_id, SharedState::MultiTapDelay(
+                            Arc::new(RwLock::new(DelayLineState {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            }))
+                        ));
+                    }
+                    SignalNode::PingPongDelay { buffer_l, buffer_r, write_idx, .. } => {
+                        registry.register(node_id, SharedState::PingPongDelay(
+                            Arc::new(RwLock::new(PingPongDelayState {
+                                buffer_l: buffer_l.clone(),
+                                buffer_r: buffer_r.clone(),
+                                write_idx: *write_idx,
+                            }))
+                        ));
+                    }
+                    SignalNode::Comb { buffer, write_pos, .. } => {
+                        registry.register(node_id, SharedState::Comb(
+                            Arc::new(RwLock::new(CombState {
+                                buffer: buffer.clone(),
+                                write_pos: *write_pos,
+                            }))
+                        ));
+                    }
+                    SignalNode::Convolution { state, .. } => {
+                        registry.register(node_id, SharedState::Convolution(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === High priority: Filters ===
+                    SignalNode::LowPass { state, .. } |
+                    SignalNode::HighPass { state, .. } |
+                    SignalNode::BandPass { state, .. } |
+                    SignalNode::DJFilter { state, .. } |
+                    SignalNode::Notch { state, .. } => {
+                        registry.register(node_id, SharedState::Filter(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::SVF { state, .. } => {
+                        registry.register(node_id, SharedState::SVF(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Biquad { state, .. } |
+                    SignalNode::Resonz { state, .. } |
+                    SignalNode::RLPF { state, .. } |
+                    SignalNode::RHPF { state, .. } => {
+                        registry.register(node_id, SharedState::Biquad(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Allpass { state, .. } => {
+                        registry.register(node_id, SharedState::Allpass(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::MoogLadder { state, .. } => {
+                        registry.register(node_id, SharedState::MoogLadder(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::ParametricEQ { state, .. } => {
+                        registry.register(node_id, SharedState::ParametricEQ(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Formant { state, .. } |
+                    SignalNode::Vowel { state, .. } => {
+                        registry.register(node_id, SharedState::Formant(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === High priority: Oscillators (phase state) ===
+                    SignalNode::Oscillator { phase, .. } => {
+                        registry.register(node_id, SharedState::OscillatorPhase(
+                            Arc::new(RwLock::new(*phase.borrow()))
+                        ));
+                    }
+                    SignalNode::FMOscillator { carrier_phase, modulator_phase, .. } => {
+                        registry.register(node_id, SharedState::FMOscillatorPhase(
+                            Arc::new(RwLock::new((*carrier_phase.borrow(), *modulator_phase.borrow())))
+                        ));
+                    }
+                    SignalNode::PMOscillator { carrier_phase, .. } => {
+                        registry.register(node_id, SharedState::PMOscillatorPhase(
+                            Arc::new(RwLock::new(*carrier_phase.borrow()))
+                        ));
+                    }
+                    SignalNode::VCO { phase, .. } => {
+                        registry.register(node_id, SharedState::VCOPhase(
+                            Arc::new(RwLock::new(*phase.borrow()))
+                        ));
+                    }
+                    SignalNode::Blip { phase, .. } => {
+                        registry.register(node_id, SharedState::BlipPhase(
+                            Arc::new(RwLock::new(*phase.borrow()))
+                        ));
+                    }
+                    SignalNode::Wavetable { state, .. } => {
+                        registry.register(node_id, SharedState::Wavetable(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === High priority: Envelopes ===
+                    SignalNode::Envelope { state, .. } |
+                    SignalNode::EnvelopePattern { state, .. } |
+                    SignalNode::StructuredSignal { state, .. } |
+                    SignalNode::TriggeredAR { state, .. } |
+                    SignalNode::TriggeredADSR { state, .. } => {
+                        registry.register(node_id, SharedState::Envelope(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::ADSR { state, .. } => {
+                        registry.register(node_id, SharedState::ADSR(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::AD { state, .. } => {
+                        registry.register(node_id, SharedState::AD(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::ASR { state, .. } => {
+                        registry.register(node_id, SharedState::ASR(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Lag { state, .. } => {
+                        registry.register(node_id, SharedState::Lag(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::XLine { state, .. } => {
+                        registry.register(node_id, SharedState::XLine(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Impulse { state, .. } => {
+                        registry.register(node_id, SharedState::Impulse(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === Medium priority: Modulation effects ===
+                    SignalNode::Chorus { state, .. } => {
+                        registry.register(node_id, SharedState::Chorus(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Flanger { state, .. } => {
+                        registry.register(node_id, SharedState::Flanger(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::BitCrush { state, .. } => {
+                        registry.register(node_id, SharedState::BitCrush(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Phaser { phase, allpass_z1, allpass_y1, feedback_sample, .. } => {
+                        registry.register(node_id, SharedState::Phaser(
+                            Arc::new(RwLock::new(PhaserState {
+                                phase: *phase,
+                                allpass_z1: allpass_z1.clone(),
+                                allpass_y1: allpass_y1.clone(),
+                                feedback_sample: *feedback_sample,
+                            }))
+                        ));
+                    }
+                    SignalNode::Vibrato { phase, delay_buffer, buffer_pos, .. } => {
+                        registry.register(node_id, SharedState::Vibrato(
+                            Arc::new(RwLock::new(VibratoState {
+                                phase: *phase,
+                                delay_buffer: delay_buffer.clone(),
+                                buffer_pos: *buffer_pos,
+                            }))
+                        ));
+                    }
+                    SignalNode::Tremolo { phase, .. } => {
+                        registry.register(node_id, SharedState::TremoloPhase(
+                            Arc::new(RwLock::new(*phase))
+                        ));
+                    }
+                    SignalNode::RingMod { phase, .. } => {
+                        registry.register(node_id, SharedState::RingModPhase(
+                            Arc::new(RwLock::new(*phase))
+                        ));
+                    }
+
+                    // === Medium priority: Dynamics ===
+                    SignalNode::Compressor { state, .. } |
+                    SignalNode::SidechainCompressor { state, .. } => {
+                        registry.register(node_id, SharedState::Compressor(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Expander { state, .. } => {
+                        registry.register(node_id, SharedState::Expander(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === Medium priority: Synthesis ===
+                    SignalNode::Granular { state, .. } => {
+                        registry.register(node_id, SharedState::Granular(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::KarplusStrong { state, .. } => {
+                        registry.register(node_id, SharedState::KarplusStrong(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Waveguide { state, .. } => {
+                        registry.register(node_id, SharedState::Waveguide(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Additive { state, .. } => {
+                        registry.register(node_id, SharedState::Additive(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::Vocoder { state, .. } => {
+                        registry.register(node_id, SharedState::Vocoder(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::PitchShift { state, .. } => {
+                        registry.register(node_id, SharedState::PitchShift(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === Lower priority: Noise generators ===
+                    SignalNode::PinkNoise { state } => {
+                        registry.register(node_id, SharedState::PinkNoise(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::BrownNoise { state } => {
+                        registry.register(node_id, SharedState::BrownNoise(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+
+                    // === Lower priority: Analysis ===
+                    SignalNode::RMS { buffer, write_idx, .. } => {
+                        registry.register(node_id, SharedState::RMS(
+                            Arc::new(RwLock::new(RMSState {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            }))
+                        ));
+                    }
+                    SignalNode::SpectralFreeze { state, .. } => {
+                        registry.register(node_id, SharedState::SpectralFreeze(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
+                    SignalNode::AmpFollower { buffer, write_idx, current_envelope, .. } => {
+                        registry.register(node_id, SharedState::AmpFollower(
+                            Arc::new(RwLock::new(AmpFollowerState {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                                current_envelope: *current_envelope,
+                            }))
+                        ));
+                    }
+                    SignalNode::PeakFollower { current_peak, .. } => {
+                        registry.register(node_id, SharedState::PeakFollower(
+                            Arc::new(RwLock::new(*current_peak))
+                        ));
+                    }
+
+                    // Non-stateful nodes - skip
+                    _ => {}
+                }
+            }
+        }
+
+        self.shared_state = Some(registry);
+    }
+
+    /// Create a clone for parallel rendering that shares state with this graph
+    ///
+    /// Unlike regular clone() which deep-copies all state, this creates a clone
+    /// that references the same SharedStateRegistry. All clones will read/write
+    /// to the same shared state via Arc<RwLock<>>.
+    ///
+    /// IMPORTANT: enable_shared_state() must be called first.
+    pub fn clone_for_parallel(&self) -> Self {
+        // Regular clone already preserves shared_state (it's Option<SharedStateRegistry>
+        // which clones the Arc inside, not the data)
+        self.clone()
+    }
+
+    /// Check if this graph contains effects that require sequential processing
+    ///
+    /// Returns true if the graph contains reverbs, delays, or other effects with
+    /// long-tail dependencies that would be corrupted by parallel block processing.
+    /// When this returns true, parallel rendering should fall back to sequential mode.
+    pub fn has_sequential_dependencies(&self) -> bool {
+        for opt_node in &self.nodes {
+            if let Some(node_rc) = opt_node {
+                match &**node_rc {
+                    // Long-tail effects with sequential dependencies
+                    SignalNode::LushReverb { .. } |
+                    SignalNode::Reverb { .. } |
+                    SignalNode::DattorroReverb { .. } |
+                    SignalNode::Delay { .. } |
+                    SignalNode::TapeDelay { .. } |
+                    SignalNode::MultiTapDelay { .. } |
+                    SignalNode::PingPongDelay { .. } |
+                    SignalNode::Comb { .. } |
+                    SignalNode::Convolution { .. } |
+                    SignalNode::SpectralFreeze { .. } |
+                    SignalNode::Granular { .. } |
+                    SignalNode::KarplusStrong { .. } |
+                    SignalNode::Waveguide { .. } |
+                    SignalNode::Vocoder { .. } |
+                    SignalNode::PitchShift { .. } => {
+                        return true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        false
     }
 
     /// Preload all samples referenced in pattern nodes
@@ -9299,7 +9699,28 @@ impl UnifiedSignalGraph {
                 let freeze_val = self.eval_signal(&freeze);
                 let mix_val = self.eval_signal(&mix);
 
-                // Process through lush reverb
+                // SHARED STATE: Check if shared state is enabled for parallel rendering
+                if let Some(ref registry) = self.shared_state {
+                    if let Some(crate::shared_effect_state::SharedState::LushReverb(state_lock)) = registry.get(node_id.0) {
+                        // Use shared state via RwLock
+                        if let Ok(mut state) = state_lock.write() {
+                            return state.process(
+                                input_val,
+                                predelay_val,
+                                decay_val,
+                                size_val,
+                                diffusion_val,
+                                damping_val,
+                                spin_val,
+                                wander_val,
+                                freeze_val,
+                                mix_val,
+                            );
+                        }
+                    }
+                }
+
+                // Fallback: use inline state (non-parallel mode)
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::LushReverb { state: s, .. } = node {

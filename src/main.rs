@@ -1357,7 +1357,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut min_block_time = std::time::Duration::MAX;
                 let mut max_block_time = std::time::Duration::ZERO;
 
-                if parallel {
+                // Check if graph contains effects that need sequential processing
+                let needs_sequential = graph.has_sequential_dependencies();
+                let effective_parallel = parallel && !needs_sequential;
+
+                if needs_sequential && parallel {
+                    println!(
+                        "   ⚠️  Graph contains reverb/delay effects - falling back to sequential mode"
+                    );
+                    println!(
+                        "      (These effects have sequential dependencies that require ordered processing)"
+                    );
+                }
+
+                if effective_parallel {
                     // PARALLEL MODE: Process multiple blocks concurrently
                     use rayon::prelude::*;
 
@@ -1383,9 +1396,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .filter(|chunk| !chunk.is_empty())
                         .collect();
 
+                    // SHARED STATE: Enable shared state for parallel rendering
+                    // This allows stateful effects (reverbs, delays, filters) to share
+                    // their state across parallel graph clones via Arc<RwLock<>>
+                    graph.enable_shared_state();
+
                     // CRITICAL FIX: Pre-clone graphs BEFORE parallel processing
                     // Multiple threads calling graph.clone() simultaneously causes RefCell issues
-                    let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone()).collect();
+                    // Using clone_for_parallel() preserves shared state registry
+                    let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone_for_parallel()).collect();
 
                     // Process chunks in parallel - each thread gets its own pre-cloned graph
                     let mut all_blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = chunks

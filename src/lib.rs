@@ -328,6 +328,7 @@ pub mod pattern_tonal;
 pub mod phonon_lang;
 pub mod render;
 pub mod sample_loader;
+pub mod shared_effect_state;
 pub mod signal_executor;
 pub mod signal_graph;
 pub mod signal_parser;
