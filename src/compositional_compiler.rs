@@ -2840,6 +2840,7 @@ fn compile_function_call(
         "multitap" => compile_multitap(ctx, args),
         "pingpong" => compile_pingpong(ctx, args),
         "plate" => compile_plate(ctx, args),
+        "lush" => compile_lush(ctx, args),
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
@@ -5555,6 +5556,96 @@ fn compile_plate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         mod_depth: Signal::Node(mod_depth_node),
         mix: Signal::Node(mix_node),
         state: DattorroState::new(ctx.sample_rate),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Lush reverb - rich algorithmic reverb with complex modulation
+/// Usage: signal # lush decay diffusion damping spin wander mix
+/// Or with pre-delay: signal # lush predelay decay diffusion damping spin wander mix
+fn compile_lush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // lush decay [diffusion] [damping] [spin] [wander] [freeze] [mix]
+    // Default seed based on sample rate for variation
+    let seed = (ctx.sample_rate as u64) * 42;
+
+    // Required parameter: decay
+    if params.is_empty() {
+        return Err("lush requires at least 1 parameter (decay)".to_string());
+    }
+
+    let decay_node = compile_expr(ctx, params[0].clone())?;
+
+    // Optional parameters with sensible defaults
+    let predelay_node = if params.len() > 7 {
+        // If 8+ params, first is predelay
+        compile_expr(ctx, params[0].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.02 }) // 20ms default
+    };
+
+    // Shift params if predelay was specified
+    let param_offset = if params.len() > 7 { 1 } else { 0 };
+
+    let decay_node = if param_offset == 1 {
+        compile_expr(ctx, params[1].clone())?
+    } else {
+        decay_node
+    };
+
+    let diffusion_node = if params.len() > param_offset + 1 {
+        compile_expr(ctx, params[param_offset + 1].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.7 }) // Good diffusion
+    };
+
+    let damping_node = if params.len() > param_offset + 2 {
+        compile_expr(ctx, params[param_offset + 2].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 }) // Moderate damping
+    };
+
+    let spin_node = if params.len() > param_offset + 3 {
+        compile_expr(ctx, params[param_offset + 3].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 }) // Some fast modulation
+    };
+
+    let wander_node = if params.len() > param_offset + 4 {
+        compile_expr(ctx, params[param_offset + 4].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.2 }) // Some slow drift
+    };
+
+    let freeze_node = if params.len() > param_offset + 5 {
+        compile_expr(ctx, params[param_offset + 5].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.0 }) // Not frozen
+    };
+
+    let mix_node = if params.len() > param_offset + 6 {
+        compile_expr(ctx, params[param_offset + 6].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 }) // 50/50 mix
+    };
+
+    // Size is always 1.0 for now (could be exposed later)
+    let size_node = ctx.graph.add_node(SignalNode::Constant { value: 1.0 });
+
+    let node = SignalNode::LushReverb {
+        input: input_signal,
+        predelay: Signal::Node(predelay_node),
+        decay: Signal::Node(decay_node),
+        size: Signal::Node(size_node),
+        diffusion: Signal::Node(diffusion_node),
+        damping: Signal::Node(damping_node),
+        spin: Signal::Node(spin_node),
+        wander: Signal::Node(wander_node),
+        freeze: Signal::Node(freeze_node),
+        mix: Signal::Node(mix_node),
+        state: crate::nodes::lush_reverb::LushReverbState::new(ctx.sample_rate, seed),
     };
 
     Ok(ctx.graph.add_node(node))

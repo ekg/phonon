@@ -1528,6 +1528,23 @@ pub enum SignalNode {
         state: DattorroState,
     },
 
+    /// Lush Reverb - Rich algorithmic reverb with complex modulation
+    /// Combines diffuser + FDN + pink/brown noise modulation
+    /// Inspired by Lexicon, Valhalla, and modern reverb design
+    LushReverb {
+        input: Signal,
+        predelay: Signal,   // Pre-delay time in seconds (0-0.5)
+        decay: Signal,      // Decay amount (0.0-0.9999)
+        size: Signal,       // Room size multiplier (0.5-2.0)
+        diffusion: Signal,  // Input diffusion (0.0-1.0)
+        damping: Signal,    // High-frequency damping (0.0-1.0)
+        spin: Signal,       // Fast modulation depth (0.0-1.0)
+        wander: Signal,     // Slow modulation depth (0.0-1.0)
+        freeze: Signal,     // Freeze mode (>0.5 = frozen)
+        mix: Signal,        // Dry/wet mix (0.0-1.0)
+        state: crate::nodes::lush_reverb::LushReverbState,
+    },
+
     /// Convolution Reverb
     Convolution {
         input: Signal,
@@ -9255,6 +9272,55 @@ impl UnifiedSignalGraph {
                 // Mix stereo output (average L+R for mono)
                 let wet = (left_out + right_out) * 0.5;
                 input_val * (1.0 - mix_val) + wet * mix_val
+            }
+
+            SignalNode::LushReverb {
+                input,
+                predelay,
+                decay,
+                size,
+                diffusion,
+                damping,
+                spin,
+                wander,
+                freeze,
+                mix,
+                state: _,
+            } => {
+                // Evaluate all parameters
+                let input_val = self.eval_signal(&input);
+                let predelay_val = self.eval_signal(&predelay);
+                let decay_val = self.eval_signal(&decay);
+                let size_val = self.eval_signal(&size);
+                let diffusion_val = self.eval_signal(&diffusion);
+                let damping_val = self.eval_signal(&damping);
+                let spin_val = self.eval_signal(&spin);
+                let wander_val = self.eval_signal(&wander);
+                let freeze_val = self.eval_signal(&freeze);
+                let mix_val = self.eval_signal(&mix);
+
+                // Process through lush reverb
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::LushReverb { state: s, .. } = node {
+                        s.process(
+                            input_val,
+                            predelay_val,
+                            decay_val,
+                            size_val,
+                            diffusion_val,
+                            damping_val,
+                            spin_val,
+                            wander_val,
+                            freeze_val,
+                            mix_val,
+                        )
+                    } else {
+                        input_val
+                    }
+                } else {
+                    input_val
+                }
             }
 
             SignalNode::Convolution { input, state } => {

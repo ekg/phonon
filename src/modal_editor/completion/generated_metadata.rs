@@ -674,6 +674,26 @@ pub fn get_all_nodes() -> HashMap<String, GeneratedNodeMetadata> {
         ],
     });
 
+    // diffuser
+    map.insert("diffuser".to_string(), GeneratedNodeMetadata {
+        name: "diffuser".to_string(),
+        description: "Multi-channel Hadamard diffuser".to_string(),
+        params: vec![
+            GeneratedParamMetadata {
+                name: "input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "diffusion_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "sample_rate".to_string(),
+                param_type: "f32".to_string(),
+            },
+        ],
+    });
+
     // stereosplitter
     map.insert("stereosplitter".to_string(), GeneratedNodeMetadata {
         name: "stereosplitter".to_string(),
