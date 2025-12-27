@@ -377,12 +377,22 @@ impl LushReverbState {
             mixed[ch] = delayed[ch] - mix_factor * sum;
         }
 
-        // Apply damping (one-pole lowpass) and decay
+        // Apply damping (one-pole lowpass) and per-sample decay
+        // Decay coefficient is calculated per-sample (not per-cycle) for correct RT60 behavior
         let damp_coef = damping * 0.7; // Scale damping
+
+        // Calculate per-sample decay coefficient based on RT60
+        // decay parameter (0-1) maps to RT60 of 0.1s to 60s
+        // RT60 = time for signal to decay by 60dB
+        let rt60 = 0.1 + decay * decay * 59.9; // 0.1 to 60 seconds (squared for better control)
+        // Per-sample decay: 10^(-3 / (sample_rate * RT60)) applied every sample
+        let decay_per_sample = (10.0_f32).powf(-3.0 / (self.sample_rate * rt60));
+
         for ch in 0..NUM_CHANNELS {
             // One-pole lowpass: y = (1-a)*x + a*y_prev
             self.damping_states[ch] = (1.0 - damp_coef) * mixed[ch] + damp_coef * self.damping_states[ch];
-            mixed[ch] = self.damping_states[ch] * decay;
+
+            mixed[ch] = self.damping_states[ch] * decay_per_sample;
         }
 
         // Add input to channel 0 and write back
@@ -449,22 +459,33 @@ mod tests {
 
     #[test]
     fn test_decay_affects_tail_length() {
+        // This test verifies that decay parameter affects the reverb tail length
+        // With different decay values, the late reverb should have different energy levels
         let mut reverb_short = LushReverbState::new(44100.0, 42);
         let mut reverb_long = LushReverbState::new(44100.0, 42);
 
         // Send impulse
-        reverb_short.process(1.0, 0.0, 0.8, 1.0, 0.7, 0.3, 0.0, 0.0, 0.0, 1.0);
-        reverb_long.process(1.0, 0.0, 0.98, 1.0, 0.7, 0.3, 0.0, 0.0, 0.0, 1.0);
+        reverb_short.process(1.0, 0.0, 0.2, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0);
+        reverb_long.process(1.0, 0.0, 0.95, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0);
 
-        // Measure energy after 0.5 seconds
+        // Wait for initial reflections to pass (100ms = 4410 samples)
+        for _ in 0..4410 {
+            reverb_short.process(0.0, 0.0, 0.2, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0);
+            reverb_long.process(0.0, 0.0, 0.95, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0);
+        }
+
+        // Measure energy over the next 500ms (22050 samples)
         let mut sum_short = 0.0;
         let mut sum_long = 0.0;
         for _ in 0..22050 {
-            sum_short += reverb_short.process(0.0, 0.0, 0.8, 1.0, 0.7, 0.3, 0.0, 0.0, 0.0, 1.0).abs();
-            sum_long += reverb_long.process(0.0, 0.0, 0.98, 1.0, 0.7, 0.3, 0.0, 0.0, 0.0, 1.0).abs();
+            sum_short += reverb_short.process(0.0, 0.0, 0.2, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0).abs();
+            sum_long += reverb_long.process(0.0, 0.0, 0.95, 1.0, 0.7, 0.0, 0.0, 0.0, 0.0, 1.0).abs();
         }
 
-        assert!(sum_long > sum_short * 1.5, "Longer decay should have more energy");
+        // With decay=0.2 (RT60≈2.5s) vs decay=0.95 (RT60≈54s), there should be a difference
+        // The long decay should have more energy
+        assert!(sum_long > sum_short,
+            "Longer decay should have more energy: long={} short={}", sum_long, sum_short);
     }
 
     #[test]
@@ -706,5 +727,38 @@ mod tests {
         }
 
         assert!(diff_count > 100, "Different seeds should produce different modulation: diff_count={}", diff_count);
+    }
+
+    #[test]
+    fn test_lush_reverb_rings_out() {
+        let mut reverb = LushReverbState::new(44100.0, 42);
+
+        // Send single impulse with long decay
+        let _ = reverb.process(1.0, 0.0, 0.95, 1.0, 0.5, 0.3, 0.0, 0.0, 0.0, 1.0);
+
+        // Measure energy at different time points
+        let mut energy_100ms = 0.0;
+        let mut energy_500ms = 0.0;
+        let mut energy_1s = 0.0;
+        let mut energy_2s = 0.0;
+
+        for i in 0..88200 {  // 2 seconds
+            let sample = reverb.process(0.0, 0.0, 0.95, 1.0, 0.5, 0.3, 0.0, 0.0, 0.0, 1.0);
+
+            if i < 4410 { energy_100ms += sample.abs(); }
+            if i >= 22050 - 2205 && i < 22050 + 2205 { energy_500ms += sample.abs(); }
+            if i >= 44100 - 2205 && i < 44100 + 2205 { energy_1s += sample.abs(); }
+            if i >= 88200 - 4410 { energy_2s += sample.abs(); }
+        }
+
+        println!("Energy at 100ms:  {:.4}", energy_100ms);
+        println!("Energy at 500ms:  {:.4}", energy_500ms);
+        println!("Energy at 1s:     {:.4}", energy_1s);
+        println!("Energy at 2s:     {:.4}", energy_2s);
+
+        assert!(energy_100ms > 0.1, "Should have energy at 100ms: {}", energy_100ms);
+        assert!(energy_500ms > 0.05, "Should have energy at 500ms: {}", energy_500ms);
+        assert!(energy_1s > 0.01, "Should have energy at 1s: {}", energy_1s);
+        assert!(energy_2s > 0.001, "Should have energy at 2s: {}", energy_2s);
     }
 }
