@@ -946,13 +946,13 @@ pub enum SignalNode {
         pattern: Pattern<String>,
         last_trigger_time: f32,
         waveform: Waveform,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
-        filter_cutoff: f32,      // Base filter cutoff frequency in Hz (20000 = no filter)
-        filter_resonance: f32,   // Filter resonance/Q (0.0-1.0)
-        filter_env_amount: f32,  // Filter envelope modulation amount in Hz
+        attack: Signal,          // ADSR attack time in seconds (pattern-modulatable)
+        decay: Signal,           // ADSR decay time in seconds (pattern-modulatable)
+        sustain: Signal,         // ADSR sustain level 0.0-1.0 (pattern-modulatable)
+        release: Signal,         // ADSR release time in seconds (pattern-modulatable)
+        filter_cutoff: Signal,   // Filter cutoff frequency in Hz (pattern-modulatable, 20000 = no filter)
+        filter_resonance: Signal, // Filter resonance/Q 0.0-1.0 (pattern-modulatable)
+        filter_env_amount: Signal, // Filter envelope modulation amount in Hz (pattern-modulatable)
         gain: Signal,
         pan: Signal,
     },
@@ -962,13 +962,13 @@ pub enum SignalNode {
     /// Note-off releases the voice's envelope
     MidiSynth {
         waveform: Waveform,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
-        filter_cutoff: f32,
-        filter_resonance: f32,
-        channel: Option<u8>,  // None = all channels
+        attack: Signal,          // ADSR attack time (pattern-modulatable)
+        decay: Signal,           // ADSR decay time (pattern-modulatable)
+        sustain: Signal,         // ADSR sustain level (pattern-modulatable)
+        release: Signal,         // ADSR release time (pattern-modulatable)
+        filter_cutoff: Signal,   // Filter cutoff (pattern-modulatable)
+        filter_resonance: Signal, // Filter resonance (pattern-modulatable)
+        channel: Option<u8>,     // None = all channels
         event_queue: crate::midi_input::MidiEventQueue,
         /// Maps MIDI note number to voice index for proper release
         note_to_voice: RefCell<HashMap<u8, usize>>,
@@ -993,10 +993,10 @@ pub enum SignalNode {
     MidiPolySynth {
         /// Waveform type for per-voice oscillators
         waveform: Waveform,
-        /// Attack time in seconds
-        attack: f32,
-        /// Release time in seconds
-        release: f32,
+        /// Attack time in seconds (pattern-modulatable)
+        attack: Signal,
+        /// Release time in seconds (pattern-modulatable)
+        release: Signal,
         /// Per-voice state including note, frequency, phase, envelope
         voices: RefCell<Vec<MidiPolyVoice>>,
         /// Shared event queue from MIDI input handler
@@ -1021,10 +1021,10 @@ pub enum SignalNode {
         pattern: Pattern<String>,
         last_trigger_time: f32,
         last_cycle: i32,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
+        attack: Signal,          // ADSR attack time (pattern-modulatable)
+        decay: Signal,           // ADSR decay time (pattern-modulatable)
+        sustain: Signal,         // ADSR sustain level (pattern-modulatable)
+        release: Signal,         // ADSR release time (pattern-modulatable)
         state: EnvState,
     },
 
@@ -1037,10 +1037,10 @@ pub enum SignalNode {
         bool_pattern: Pattern<bool>,
         last_trigger_time: f32,
         last_cycle: i32,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
+        attack: Signal,          // ADSR attack time (pattern-modulatable)
+        decay: Signal,           // ADSR decay time (pattern-modulatable)
+        sustain: Signal,         // ADSR sustain level (pattern-modulatable)
+        release: Signal,         // ADSR release time (pattern-modulatable)
         state: EnvState,
     },
 
@@ -12642,9 +12642,20 @@ impl UnifiedSignalGraph {
                 use crate::pattern_tonal::{midi_to_freq, note_to_midi};
                 use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
 
-                // Evaluate DSP parameters
+                // Evaluate DSP parameters (all pattern-modulatable at sample rate)
                 let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
                 let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
+
+                // Evaluate envelope parameters (sampled at trigger time for each note)
+                let attack_val = self.eval_signal(&attack).max(0.0001);
+                let decay_val = self.eval_signal(&decay).max(0.0);
+                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(&release).max(0.0001);
+
+                // Evaluate filter parameters (sampled at trigger time for each note)
+                let filter_cutoff_val = self.eval_signal(&filter_cutoff).max(20.0).min(20000.0);
+                let filter_resonance_val = self.eval_signal(&filter_resonance).clamp(0.0, 1.0);
+                let filter_env_amount_val = self.eval_signal(&filter_env_amount);
 
                 // Query pattern for note events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -12707,21 +12718,21 @@ impl UnifiedSignalGraph {
                             Waveform::Triangle => SynthWaveform::Triangle,
                         };
 
-                        // ADSR parameters (same for all chord notes)
+                        // ADSR parameters (evaluated at trigger time - pattern modulatable)
                         let adsr = ADSRParams {
-                            attack: *attack,
-                            decay: *decay,
-                            sustain: *sustain,
-                            release: *release,
+                            attack: attack_val,
+                            decay: decay_val,
+                            sustain: sustain_val,
+                            release: release_val,
                         };
 
-                        // Filter parameters (same for all chord notes)
+                        // Filter parameters (evaluated at trigger time - pattern modulatable)
                         // Enable filter if cutoff is below Nyquist-ish OR if there's envelope modulation
                         let filter = FilterParams {
-                            cutoff: *filter_cutoff,
-                            resonance: *filter_resonance,
-                            env_amount: *filter_env_amount,
-                            enabled: *filter_cutoff < 19000.0 || *filter_env_amount != 0.0,
+                            cutoff: filter_cutoff_val,
+                            resonance: filter_resonance_val,
+                            env_amount: filter_env_amount_val,
+                            enabled: filter_cutoff_val < 19000.0 || filter_env_amount_val != 0.0,
                         };
 
                         // TRIGGER VOICES FOR EACH NOTE IN CHORD
@@ -12792,7 +12803,14 @@ impl UnifiedSignalGraph {
                 use crate::midi_input::MidiMessageType;
                 use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
 
+                // Evaluate all parameters (pattern-modulatable at sample rate)
                 let gain_val = self.eval_signal(gain).max(0.0).min(10.0);
+                let attack_val = self.eval_signal(&attack).max(0.0001);
+                let decay_val = self.eval_signal(&decay).max(0.0);
+                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(&release).max(0.0001);
+                let filter_cutoff_val = self.eval_signal(&filter_cutoff).max(20.0).min(20000.0);
+                let filter_resonance_val = self.eval_signal(&filter_resonance).clamp(0.0, 1.0);
 
                 // Process MIDI events from queue
                 if let Ok(mut queue) = event_queue.lock() {
@@ -12817,18 +12835,20 @@ impl UnifiedSignalGraph {
                                     Waveform::Triangle => SynthWaveform::Triangle,
                                 };
 
+                                // ADSR parameters (evaluated at trigger time - pattern modulatable)
                                 let adsr_params = ADSRParams {
-                                    attack: *attack,
-                                    decay: *decay,
-                                    sustain: *sustain,
-                                    release: *release,
+                                    attack: attack_val,
+                                    decay: decay_val,
+                                    sustain: sustain_val,
+                                    release: release_val,
                                 };
 
+                                // Filter parameters (evaluated at trigger time - pattern modulatable)
                                 let filter_params = FilterParams {
-                                    cutoff: *filter_cutoff,
-                                    resonance: *filter_resonance,
+                                    cutoff: filter_cutoff_val,
+                                    resonance: filter_resonance_val,
                                     env_amount: 0.0,
-                                    enabled: *filter_cutoff < 19000.0,
+                                    enabled: filter_cutoff_val < 19000.0,
                                 };
 
                                 // Trigger voice and track note->voice mapping
@@ -12890,10 +12910,14 @@ impl UnifiedSignalGraph {
             } => {
                 use crate::midi_input::MidiMessageType;
 
+                // Evaluate attack and release (pattern-modulatable at sample rate)
+                let attack_val = self.eval_signal(&attack).max(0.0001);
+                let release_val = self.eval_signal(&release).max(0.0001);
+
                 let sample_rate = self.sample_rate;
-                let attack_rate = if *attack > 0.0 { 1.0 / (*attack * sample_rate) } else { 1.0 };
-                let release_rate = if *release > 0.0 { 1.0 / (*release * sample_rate) } else { 1.0 };
-                let release_samples = (*release * sample_rate) as u32;
+                let attack_rate = if attack_val > 0.0 { 1.0 / (attack_val * sample_rate) } else { 1.0 };
+                let release_rate = if release_val > 0.0 { 1.0 / (release_val * sample_rate) } else { 1.0 };
+                let release_samples = (release_val * sample_rate) as u32;
 
                 // Helper to trigger a voice
                 let trigger_voice = |note: u8, voices: &RefCell<Vec<MidiPolyVoice>>, note_map: &RefCell<HashMap<u8, usize>>, scale_root: &Option<u8>, scale_type: &Option<Scale>| {
@@ -14001,6 +14025,12 @@ impl UnifiedSignalGraph {
             } => {
                 let input_val = self.eval_signal(&input);
 
+                // Evaluate envelope parameters (pattern-modulatable at sample rate)
+                let attack_val = self.eval_signal(&attack).max(0.0);
+                let decay_val = self.eval_signal(&decay).max(0.0);
+                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(&release).max(0.0);
+
                 // Query pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let current_cycle = self.get_cycle_position().floor() as i32;
@@ -14098,8 +14128,8 @@ impl UnifiedSignalGraph {
                 let current_phase = state.phase.borrow().clone();
                 match current_phase {
                     EnvPhase::Attack => {
-                        if *attack > 0.0 {
-                            let new_level = *state.time_in_phase.borrow() / *attack;
+                        if attack_val > 0.0 {
+                            let new_level = *state.time_in_phase.borrow() / attack_val;
                             *state.level.borrow_mut() = new_level;
                             if new_level >= 1.0 {
                                 *state.level.borrow_mut() = 1.0;
@@ -14113,27 +14143,27 @@ impl UnifiedSignalGraph {
                         }
                     }
                     EnvPhase::Decay => {
-                        if *decay > 0.0 {
+                        if decay_val > 0.0 {
                             let new_level =
-                                1.0 - (1.0 - *sustain) * (*state.time_in_phase.borrow() / *decay);
+                                1.0 - (1.0 - sustain_val) * (*state.time_in_phase.borrow() / decay_val);
                             *state.level.borrow_mut() = new_level;
-                            if new_level <= *sustain {
-                                *state.level.borrow_mut() = *sustain;
+                            if new_level <= sustain_val {
+                                *state.level.borrow_mut() = sustain_val;
                                 *state.phase.borrow_mut() = EnvPhase::Sustain;
                                 *state.time_in_phase.borrow_mut() = 0.0;
                             }
                         } else {
-                            *state.level.borrow_mut() = *sustain;
+                            *state.level.borrow_mut() = sustain_val;
                             *state.phase.borrow_mut() = EnvPhase::Sustain;
                             *state.time_in_phase.borrow_mut() = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        *state.level.borrow_mut() = *sustain;
+                        *state.level.borrow_mut() = sustain_val;
                     }
                     EnvPhase::Release => {
-                        if *release > 0.0 {
-                            let progress = (*state.time_in_phase.borrow() / *release).min(1.0);
+                        if release_val > 0.0 {
+                            let progress = (*state.time_in_phase.borrow() / release_val).min(1.0);
                             *state.level.borrow_mut() =
                                 *state.release_start_level.borrow() * (1.0 - progress);
 
@@ -14184,6 +14214,12 @@ impl UnifiedSignalGraph {
                 ..
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // Evaluate envelope parameters (pattern-modulatable at sample rate)
+                let attack_val = self.eval_signal(&attack).max(0.0);
+                let decay_val = self.eval_signal(&decay).max(0.0);
+                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(&release).max(0.0);
 
                 // Query boolean pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -14279,8 +14315,8 @@ impl UnifiedSignalGraph {
                 let current_phase = state.phase.borrow().clone();
                 match current_phase {
                     EnvPhase::Attack => {
-                        if *attack > 0.0 {
-                            let new_level = *state.time_in_phase.borrow() / *attack;
+                        if attack_val > 0.0 {
+                            let new_level = *state.time_in_phase.borrow() / attack_val;
                             *state.level.borrow_mut() = new_level;
                             if new_level >= 1.0 {
                                 *state.level.borrow_mut() = 1.0;
@@ -14294,27 +14330,27 @@ impl UnifiedSignalGraph {
                         }
                     }
                     EnvPhase::Decay => {
-                        if *decay > 0.0 {
+                        if decay_val > 0.0 {
                             let new_level =
-                                1.0 - (1.0 - *sustain) * (*state.time_in_phase.borrow() / *decay);
+                                1.0 - (1.0 - sustain_val) * (*state.time_in_phase.borrow() / decay_val);
                             *state.level.borrow_mut() = new_level;
-                            if new_level <= *sustain {
-                                *state.level.borrow_mut() = *sustain;
+                            if new_level <= sustain_val {
+                                *state.level.borrow_mut() = sustain_val;
                                 *state.phase.borrow_mut() = EnvPhase::Sustain;
                                 *state.time_in_phase.borrow_mut() = 0.0;
                             }
                         } else {
-                            *state.level.borrow_mut() = *sustain;
+                            *state.level.borrow_mut() = sustain_val;
                             *state.phase.borrow_mut() = EnvPhase::Sustain;
                             *state.time_in_phase.borrow_mut() = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        *state.level.borrow_mut() = *sustain;
+                        *state.level.borrow_mut() = sustain_val;
                     }
                     EnvPhase::Release => {
-                        if *release > 0.0 {
-                            let progress = (*state.time_in_phase.borrow() / *release).min(1.0);
+                        if release_val > 0.0 {
+                            let progress = (*state.time_in_phase.borrow() / release_val).min(1.0);
                             *state.level.borrow_mut() =
                                 *state.release_start_level.borrow() * (1.0 - progress);
 

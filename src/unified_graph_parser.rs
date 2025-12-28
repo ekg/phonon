@@ -2100,18 +2100,19 @@ impl DslCompiler {
 
                                 // Create SynthPattern node with ADSR envelope
                                 // Use stored filter params if available
+                                // All envelope params are Signal types for pattern modulation
                                 return self.graph.add_node(SignalNode::SynthPattern {
                                     pattern_str: pattern_str.clone(),
                                     pattern,
                                     last_trigger_time: -1.0,
                                     waveform,
-                                    attack: attack_val,
-                                    decay: decay_val,
-                                    sustain: sustain_val,
-                                    release: release_val,
-                                    filter_cutoff: filter_cutoff.unwrap_or(20000.0),
-                                    filter_resonance: filter_resonance.unwrap_or(0.0),
-                                    filter_env_amount: filter_env_amount.unwrap_or(0.0),
+                                    attack: Signal::Value(attack_val),
+                                    decay: Signal::Value(decay_val),
+                                    sustain: Signal::Value(sustain_val),
+                                    release: Signal::Value(release_val),
+                                    filter_cutoff: Signal::Value(filter_cutoff.unwrap_or(20000.0)),
+                                    filter_resonance: Signal::Value(filter_resonance.unwrap_or(0.0)),
+                                    filter_env_amount: Signal::Value(filter_env_amount.unwrap_or(0.0)),
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
                                 });
@@ -2161,18 +2162,19 @@ impl DslCompiler {
 
                                 // Create SynthPattern node with AR envelope (no sustain)
                                 // Use stored filter params if available
+                                // All envelope params are Signal types for pattern modulation
                                 return self.graph.add_node(SignalNode::SynthPattern {
                                     pattern_str: pattern_str.clone(),
                                     pattern,
                                     last_trigger_time: -1.0,
                                     waveform,
-                                    attack: attack_val,
-                                    decay: 0.0,    // No decay for AR
-                                    sustain: 0.0,  // No sustain for AR
-                                    release: release_val,
-                                    filter_cutoff: filter_cutoff.unwrap_or(20000.0),
-                                    filter_resonance: filter_resonance.unwrap_or(0.0),
-                                    filter_env_amount: filter_env_amount.unwrap_or(0.0),
+                                    attack: Signal::Value(attack_val),
+                                    decay: Signal::Value(0.0),    // No decay for AR
+                                    sustain: Signal::Value(0.0),  // No sustain for AR
+                                    release: Signal::Value(release_val),
+                                    filter_cutoff: Signal::Value(filter_cutoff.unwrap_or(20000.0)),
+                                    filter_resonance: Signal::Value(filter_resonance.unwrap_or(0.0)),
+                                    filter_env_amount: Signal::Value(filter_env_amount.unwrap_or(0.0)),
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
                                 });
@@ -2723,7 +2725,7 @@ impl DslCompiler {
                     .map(|e| self.compile_expression_to_signal(*e))
                     .unwrap_or(Signal::Value(0.0));
 
-                // Use provided ADSR or defaults
+                // Use provided ADSR or defaults - all Signal types for pattern modulation
                 let attack_val = attack.unwrap_or(0.01);
                 let decay_val = decay.unwrap_or(0.1);
                 let sustain_val = sustain.unwrap_or(0.7);
@@ -2735,13 +2737,13 @@ impl DslCompiler {
                     pattern: parsed_pattern,
                     last_trigger_time: -1.0,
                     waveform,
-                    attack: attack_val,
-                    decay: decay_val,
-                    sustain: sustain_val,
-                    release: release_val,
-                    filter_cutoff: 20000.0,     // No filter by default
-                    filter_resonance: 0.0,
-                    filter_env_amount: 0.0,     // No envelope modulation by default
+                    attack: Signal::Value(attack_val),
+                    decay: Signal::Value(decay_val),
+                    sustain: Signal::Value(sustain_val),
+                    release: Signal::Value(release_val),
+                    filter_cutoff: Signal::Value(20000.0),     // No filter by default
+                    filter_resonance: Signal::Value(0.0),
+                    filter_env_amount: Signal::Value(0.0),     // No envelope modulation by default
                     gain: gain_signal,
                     pan: pan_signal,
                 })

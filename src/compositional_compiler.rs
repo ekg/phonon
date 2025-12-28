@@ -3432,15 +3432,22 @@ fn compile_oscillator(
 
     // Check if this is a MIDI-controlled oscillator
     if is_midi_bus_ref(&freq_expr) {
-        // Extract optional envelope parameters for MIDI polysynth
+        // Extract optional envelope parameters for MIDI polysynth (pattern-modulatable)
         // Syntax: sine ~midi :attack 0.1 :release 2.0
+        // Or:     sine ~midi :attack "0.01 0.1" - alternating attack times
         let attack = match extractor.get_optional_keyword("attack") {
-            Some(Expr::Number(n)) => n as f32,
-            _ => 0.01, // Default 10ms
+            Some(expr) => {
+                let node_id = compile_expr(ctx, expr)?;
+                Signal::Node(node_id)
+            }
+            None => Signal::Value(0.01), // Default 10ms
         };
         let release = match extractor.get_optional_keyword("release") {
-            Some(Expr::Number(n)) => n as f32,
-            _ => 0.3, // Default 300ms
+            Some(expr) => {
+                let node_id = compile_expr(ctx, expr)?;
+                Signal::Node(node_id)
+            }
+            None => Signal::Value(0.3), // Default 300ms
         };
         // Create a MidiPolySynth that wraps this oscillator
         return compile_midi_poly_synth(ctx, waveform, &freq_expr, attack, release);
@@ -3490,16 +3497,17 @@ fn compile_oscillator(
 /// - ~midi:arp:up:4 - arpeggiator up pattern, 1/4 notes
 /// - ~midi:c:major:arp:up:4 - both scale lock and arpeggiator
 ///
-/// Envelope parameters can be customized:
+/// Envelope parameters can be customized (all pattern-modulatable):
 /// - sine ~midi :attack 0.1 :release 2.0
+/// - sine ~midi :attack "0.01 0.1" - alternating attack times
 ///
 /// Format: ~midi[channel][:root:scale][:arp:pattern:division]
 fn compile_midi_poly_synth(
     ctx: &mut CompilerContext,
     waveform: Waveform,
     midi_expr: &Expr,
-    attack: f32,
-    release: f32,
+    attack: Signal,
+    release: Signal,
 ) -> Result<NodeId, String> {
     // Get MIDI event queue
     let event_queue = ctx
@@ -4639,40 +4647,33 @@ fn compile_synth_pattern(
 
     // Parse optional ADSR parameters (attack, decay, sustain, release)
     // Default ADSR: percussive envelope (0.001, 0.1, 0.0, 0.1)
+    // All envelope parameters are now Signal types for pattern modulation
     let attack = if args.len() > 1 {
-        match &args[1] {
-            Expr::Number(n) => *n as f32,
-            _ => 0.001,
-        }
+        let node_id = compile_expr(ctx, args[1].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.001
+        Signal::Value(0.001)
     };
 
     let decay = if args.len() > 2 {
-        match &args[2] {
-            Expr::Number(n) => *n as f32,
-            _ => 0.1,
-        }
+        let node_id = compile_expr(ctx, args[2].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.1
+        Signal::Value(0.1)
     };
 
     let sustain = if args.len() > 3 {
-        match &args[3] {
-            Expr::Number(n) => *n as f32,
-            _ => 0.0,
-        }
+        let node_id = compile_expr(ctx, args[3].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.0
+        Signal::Value(0.0)
     };
 
     let release = if args.len() > 4 {
-        match &args[4] {
-            Expr::Number(n) => *n as f32,
-            _ => 0.1,
-        }
+        let node_id = compile_expr(ctx, args[4].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.1
+        Signal::Value(0.1)
     };
 
     // TODO: Handle gain and pan parameters
@@ -4685,9 +4686,9 @@ fn compile_synth_pattern(
         decay,
         sustain,
         release,
-        filter_cutoff: 20000.0,     // No filter by default
-        filter_resonance: 0.0,
-        filter_env_amount: 0.0,     // No envelope modulation by default
+        filter_cutoff: Signal::Value(20000.0),     // No filter by default
+        filter_resonance: Signal::Value(0.0),
+        filter_env_amount: Signal::Value(0.0),     // No envelope modulation by default
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
     };
@@ -4738,20 +4739,15 @@ fn compile_midi_synth(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         .clone()
         .ok_or("MIDI input not available - no MIDI device connected")?;
 
-    // Default ADSR for piano-like sound
-    let attack = 0.01;
-    let decay = 0.1;
-    let sustain = 0.7;
-    let release = 0.3;
-
+    // Default ADSR for piano-like sound (all Signal types for pattern modulation)
     let node = SignalNode::MidiSynth {
         waveform,
-        attack,
-        decay,
-        sustain,
-        release,
-        filter_cutoff: 20000.0, // No filter by default
-        filter_resonance: 0.0,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.7),
+        release: Signal::Value(0.3),
+        filter_cutoff: Signal::Value(20000.0), // No filter by default
+        filter_resonance: Signal::Value(0.0),
         channel: None, // All MIDI channels
         event_queue,
         note_to_voice: RefCell::new(HashMap::new()),
@@ -5253,29 +5249,34 @@ fn compile_envelope_pattern(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     let pattern = parse_mini_notation(&pattern_str);
 
     // Parse optional ADSR parameters (attack, decay, sustain, release)
+    // All parameters are now Signal types for pattern modulation
     // Default ADSR: percussive envelope (0.001, 0.1, 0.0, 0.1)
     let attack = if params.len() > 1 {
-        extract_number(&params[1])? as f32
+        let node_id = compile_expr(ctx, params[1].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.001
+        Signal::Value(0.001)
     };
 
     let decay = if params.len() > 2 {
-        extract_number(&params[2])? as f32
+        let node_id = compile_expr(ctx, params[2].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.1
+        Signal::Value(0.1)
     };
 
     let sustain = if params.len() > 3 {
-        extract_number(&params[3])? as f32
+        let node_id = compile_expr(ctx, params[3].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.0
+        Signal::Value(0.0)
     };
 
     let release = if params.len() > 4 {
-        extract_number(&params[4])? as f32
+        let node_id = compile_expr(ctx, params[4].clone())?;
+        Signal::Node(node_id)
     } else {
-        0.1
+        Signal::Value(0.1)
     };
 
     use crate::unified_graph::EnvState;
@@ -7303,42 +7304,47 @@ fn modify_sample_param(
     } = sample_node
     {
         // Handle SynthPattern modifiers (created by saw # note "c4" etc.)
-        // Extract f32 value from Signal for numeric parameters
-        let extract_f32 = |signal: &Signal| -> f32 {
-            match signal {
-                Signal::Value(v) => *v,
-                _ => 0.0, // Default for node references
-            }
-        };
-
+        // All parameters are now Signal types for pattern modulation
         let new_synth = SignalNode::SynthPattern {
             pattern_str: pattern_str.clone(),
             pattern: pattern.clone(),
             last_trigger_time: -1.0,
             waveform: *waveform,
             attack: if param_name == "attack" {
-                extract_f32(&new_value)
+                new_value.clone()
             } else {
-                *attack
+                attack.clone()
             },
-            decay: *decay,
-            sustain: *sustain,
-            release: if param_name == "release" {
-                extract_f32(&new_value)
+            decay: if param_name == "decay" {
+                new_value.clone()
             } else {
-                *release
+                decay.clone()
+            },
+            sustain: if param_name == "sustain" {
+                new_value.clone()
+            } else {
+                sustain.clone()
+            },
+            release: if param_name == "release" {
+                new_value.clone()
+            } else {
+                release.clone()
             },
             filter_cutoff: if param_name == "lpf" || param_name == "cutoff" {
-                extract_f32(&new_value)
+                new_value.clone()
             } else {
-                *filter_cutoff
+                filter_cutoff.clone()
             },
             filter_resonance: if param_name == "resonance" || param_name == "res" {
-                extract_f32(&new_value)
+                new_value.clone()
             } else {
-                *filter_resonance
+                filter_resonance.clone()
             },
-            filter_env_amount: *filter_env_amount,
+            filter_env_amount: if param_name == "envamt" || param_name == "filter_env" {
+                new_value.clone()
+            } else {
+                filter_env_amount.clone()
+            },
             gain: if param_name == "gain" {
                 new_value.clone()
             } else {
@@ -9762,10 +9768,10 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         bool_pattern,
         last_trigger_time: -1.0,
         last_cycle: -1,
-        attack: 0.001, // 1ms attack
-        decay: 0.1,    // 100ms decay
-        sustain: 0.0,  // No sustain (percussive)
-        release: 0.05, // 50ms release
+        attack: Signal::Value(0.001),  // 1ms attack (pattern-modulatable)
+        decay: Signal::Value(0.1),     // 100ms decay (pattern-modulatable)
+        sustain: Signal::Value(0.0),   // No sustain (percussive) (pattern-modulatable)
+        release: Signal::Value(0.05),  // 50ms release (pattern-modulatable)
         state: EnvState::default(),
     };
 

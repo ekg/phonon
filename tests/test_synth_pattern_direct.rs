@@ -19,13 +19,13 @@ fn test_synth_pattern_direct_api() {
         pattern,
         last_trigger_time: -1.0,
         waveform: Waveform::Saw,
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0.7,
-        release: 0.2,
-        filter_cutoff: 20000.0,
-        filter_resonance: 0.0,
-        filter_env_amount: 0.0,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.7),
+        release: Signal::Value(0.2),
+        filter_cutoff: Signal::Value(20000.0),
+        filter_resonance: Signal::Value(0.0),
+        filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.3),
         pan: Signal::Value(0.0),
     });
@@ -72,13 +72,13 @@ fn test_synth_pattern_polyphony() {
         pattern,
         last_trigger_time: -1.0,
         waveform: Waveform::Sine,
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0.8,
-        release: 0.3,
-        filter_cutoff: 20000.0,
-        filter_resonance: 0.0,
-        filter_env_amount: 0.0,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.8),
+        release: Signal::Value(0.3),
+        filter_cutoff: Signal::Value(20000.0),
+        filter_resonance: Signal::Value(0.0),
+        filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.2),
         pan: Signal::Value(0.0),
     });
@@ -116,13 +116,13 @@ fn test_synth_pattern_adsr() {
         pattern,
         last_trigger_time: -1.0,
         waveform: Waveform::Saw,
-        attack: 0.1,  // 100ms attack
-        decay: 0.2,   // 200ms decay
-        sustain: 0.5, // 50% sustain level
-        release: 0.3, // 300ms release
-        filter_cutoff: 20000.0,
-        filter_resonance: 0.0,
-        filter_env_amount: 0.0,
+        attack: Signal::Value(0.1),  // 100ms attack
+        decay: Signal::Value(0.2),   // 200ms decay
+        sustain: Signal::Value(0.5), // 50% sustain level
+        release: Signal::Value(0.3), // 300ms release
+        filter_cutoff: Signal::Value(20000.0),
+        filter_resonance: Signal::Value(0.0),
+        filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.5),
         pan: Signal::Value(0.0),
     });
