@@ -4542,6 +4542,16 @@ pub struct UnifiedSignalGraph {
     /// This enables parallel stage execution and eliminates 512x graph traversal
     node_buffers: HashMap<NodeId, Vec<f32>>,
 
+    /// Previous block's node buffers (for feedback loops in DAG processing)
+    /// When a node depends on itself or has circular dependencies, it reads from
+    /// the previous block's output (1-block delay). After each block, node_buffers
+    /// is swapped into prev_node_buffers.
+    prev_node_buffers: HashMap<usize, Vec<f32>>,
+
+    /// Zero buffer for missing dependencies in DAG processing
+    /// Pre-allocated buffer of zeros to avoid per-node allocation
+    dag_zero_buffer: Vec<f32>,
+
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
 
@@ -4663,6 +4673,8 @@ impl Clone for UnifiedSignalGraph {
             stateful_value_cache: HashMap::new(), // Fresh per-sample cache for cloned instance
             pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
             node_buffers: HashMap::new(), // Fresh buffers for cloned instance
+            prev_node_buffers: HashMap::new(), // Fresh DAG feedback buffers
+            dag_zero_buffer: vec![0.0; self.buffer_size], // Sized to match buffer_size
             sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
@@ -4717,6 +4729,8 @@ impl UnifiedSignalGraph {
             stateful_value_cache: HashMap::new(),
             pattern_event_cache: HashMap::new(),
             node_buffers: HashMap::new(),
+            prev_node_buffers: HashMap::new(),
+            dag_zero_buffer: vec![0.0; 512], // Default buffer size
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
@@ -5566,7 +5580,479 @@ impl UnifiedSignalGraph {
         }
     }
 
-    /// Helper: Get input node IDs from a SignalNode
+    // =======================================================================
+    // Buffer-Passing Graph Infrastructure (supports cycles via 1-block delay)
+    // =======================================================================
+
+    /// Recursively collect all node IDs referenced by a Signal
+    fn collect_signal_node_ids(&self, signal: &Signal, ids: &mut Vec<usize>) {
+        match signal {
+            Signal::Node(node_id) => {
+                ids.push(node_id.0);
+            }
+            Signal::Bus(bus_name) => {
+                // Resolve bus to its node ID
+                if let Some(&node_id) = self.buses.get(bus_name) {
+                    ids.push(node_id.0);
+                }
+            }
+            Signal::Expression(expr) => {
+                // Recursively collect from expression operands
+                match &**expr {
+                    SignalExpr::Add(a, b)
+                    | SignalExpr::Multiply(a, b)
+                    | SignalExpr::Subtract(a, b)
+                    | SignalExpr::Divide(a, b)
+                    | SignalExpr::Modulo(a, b)
+                    | SignalExpr::Min(a, b) => {
+                        self.collect_signal_node_ids(a, ids);
+                        self.collect_signal_node_ids(b, ids);
+                    }
+                    SignalExpr::Scale { input, .. } => {
+                        self.collect_signal_node_ids(input, ids);
+                    }
+                }
+            }
+            Signal::Pattern(_) | Signal::Value(_) => {
+                // No node dependencies
+            }
+        }
+    }
+
+    /// Build dependency map: node_id -> Vec of input node IDs
+    /// Used for buffer-passing graph processing (cycles allowed via 1-block delay)
+    pub fn build_dag_dependencies(&self) -> HashMap<usize, Vec<usize>> {
+        let mut deps: HashMap<usize, Vec<usize>> = HashMap::new();
+
+        for (node_id, node_opt) in self.nodes.iter().enumerate() {
+            if let Some(node_rc) = node_opt {
+                let input_ids = self.get_all_node_inputs(&**node_rc);
+                deps.insert(node_id, input_ids);
+            }
+        }
+
+        deps
+    }
+
+    /// Topological sort with cycle detection (Kahn's algorithm)
+    /// Returns nodes in execution order. Cycles are handled by processing
+    /// cyclic nodes after acyclic ones (they'll read from prev_node_buffers).
+    pub fn topological_order(&self, deps: &HashMap<usize, Vec<usize>>) -> Vec<usize> {
+        let mut in_degree: HashMap<usize, usize> = HashMap::new();
+        let mut result = Vec::new();
+
+        // Initialize in-degrees (all nodes start with 0)
+        for &node_id in deps.keys() {
+            in_degree.entry(node_id).or_insert(0);
+            for &dep_id in deps.get(&node_id).unwrap_or(&vec![]) {
+                // Ensure all dependencies are in the map
+                in_degree.entry(dep_id).or_insert(0);
+            }
+        }
+
+        // Calculate in-degrees
+        for (&node_id, dep_list) in deps.iter() {
+            for &dep_id in dep_list {
+                if deps.contains_key(&dep_id) {
+                    *in_degree.entry(node_id).or_insert(0) += 1;
+                }
+            }
+        }
+
+        // Start with nodes that have no dependencies
+        let mut queue: std::collections::VecDeque<usize> = in_degree
+            .iter()
+            .filter(|&(_, &deg)| deg == 0)
+            .map(|(&id, _)| id)
+            .collect();
+
+        // Sort queue for deterministic order
+        let mut queue_vec: Vec<usize> = queue.drain(..).collect();
+        queue_vec.sort();
+        queue = queue_vec.into_iter().collect();
+
+        while let Some(node_id) = queue.pop_front() {
+            result.push(node_id);
+
+            // Find nodes that depend on this one and decrement their in-degree
+            for (&dependent_id, dep_list) in deps.iter() {
+                if dep_list.contains(&node_id) {
+                    if let Some(deg) = in_degree.get_mut(&dependent_id) {
+                        *deg = deg.saturating_sub(1);
+                        if *deg == 0 {
+                            queue.push_back(dependent_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle cycles: add remaining nodes in ID order
+        let mut remaining: Vec<usize> = deps
+            .keys()
+            .filter(|id| !result.contains(id))
+            .copied()
+            .collect();
+        remaining.sort();
+        result.extend(remaining);
+
+        result
+    }
+
+    /// Group nodes into parallel batches
+    /// Nodes in the same batch have no dependencies on each other
+    pub fn parallel_batches(
+        &self,
+        topo_order: &[usize],
+        deps: &HashMap<usize, Vec<usize>>,
+    ) -> Vec<Vec<usize>> {
+        let mut node_batch: HashMap<usize, usize> = HashMap::new();
+        let mut batches: Vec<Vec<usize>> = Vec::new();
+
+        for &node_id in topo_order {
+            // Find the maximum batch level of all dependencies
+            let max_dep_batch = deps
+                .get(&node_id)
+                .map(|dep_list| {
+                    dep_list
+                        .iter()
+                        .filter_map(|&dep_id| node_batch.get(&dep_id))
+                        .max()
+                        .copied()
+                        .unwrap_or(0)
+                })
+                .unwrap_or(0);
+
+            // This node goes in the batch AFTER its dependencies
+            let this_batch = if deps.get(&node_id).map(|d| d.is_empty()).unwrap_or(true) {
+                0 // No dependencies -> batch 0
+            } else {
+                max_dep_batch + 1
+            };
+
+            // Ensure we have enough batches
+            while batches.len() <= this_batch {
+                batches.push(Vec::new());
+            }
+
+            batches[this_batch].push(node_id);
+            node_batch.insert(node_id, this_batch);
+        }
+
+        batches
+    }
+
+    /// Get ALL input node IDs from a SignalNode (comprehensive version)
+    fn get_all_node_inputs(&self, node: &SignalNode) -> Vec<usize> {
+        let mut inputs = Vec::new();
+
+        // Helper macro to collect from a Signal field
+        macro_rules! collect {
+            ($signal:expr) => {
+                self.collect_signal_node_ids($signal, &mut inputs);
+            };
+        }
+
+        match node {
+            // === Sources (no audio inputs, but may have parameter inputs) ===
+            SignalNode::Oscillator { freq, .. } => {
+                collect!(freq);
+            }
+            SignalNode::FMOscillator {
+                carrier_freq,
+                modulator_freq,
+                mod_index,
+                ..
+            } => {
+                collect!(carrier_freq);
+                collect!(modulator_freq);
+                collect!(mod_index);
+            }
+            SignalNode::PMOscillator {
+                carrier_freq,
+                modulation,
+                mod_index,
+                ..
+            } => {
+                collect!(carrier_freq);
+                collect!(modulation);
+                collect!(mod_index);
+            }
+            SignalNode::Constant { .. }
+            | SignalNode::WhiteNoise { .. }
+            | SignalNode::PinkNoise { .. }
+            | SignalNode::BrownNoise { .. }
+            | SignalNode::Pattern { .. }
+            | SignalNode::Sample { .. }
+            | SignalNode::PatternTrigger { .. } => {
+                // No signal inputs for sources
+            }
+
+            // === Single input effects ===
+            SignalNode::LowPass { input, cutoff, q, .. }
+            | SignalNode::HighPass { input, cutoff, q, .. } => {
+                collect!(input);
+                collect!(cutoff);
+                collect!(q);
+            }
+            SignalNode::BandPass { input, center, q, .. } => {
+                collect!(input);
+                collect!(center);
+                collect!(q);
+            }
+            SignalNode::Delay {
+                input,
+                time,
+                feedback,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(time);
+                collect!(feedback);
+                collect!(mix);
+            }
+            SignalNode::TapeDelay {
+                input,
+                time,
+                feedback,
+                wow_rate,
+                wow_depth,
+                flutter_rate,
+                flutter_depth,
+                saturation,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(time);
+                collect!(feedback);
+                collect!(wow_rate);
+                collect!(wow_depth);
+                collect!(flutter_rate);
+                collect!(flutter_depth);
+                collect!(saturation);
+                collect!(mix);
+            }
+            SignalNode::MultiTapDelay {
+                input,
+                time,
+                feedback,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(time);
+                collect!(feedback);
+                collect!(mix);
+            }
+            SignalNode::PingPongDelay {
+                input,
+                time,
+                feedback,
+                stereo_width,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(time);
+                collect!(feedback);
+                collect!(stereo_width);
+                collect!(mix);
+            }
+            SignalNode::Reverb {
+                input,
+                room_size,
+                damping,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(room_size);
+                collect!(damping);
+                collect!(mix);
+            }
+            SignalNode::DattorroReverb {
+                input,
+                pre_delay,
+                decay,
+                diffusion,
+                damping,
+                mod_depth,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(pre_delay);
+                collect!(decay);
+                collect!(diffusion);
+                collect!(damping);
+                collect!(mod_depth);
+                collect!(mix);
+            }
+            SignalNode::LushReverb {
+                input,
+                predelay,
+                decay,
+                size,
+                diffusion,
+                damping,
+                spin,
+                wander,
+                freeze,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(predelay);
+                collect!(decay);
+                collect!(size);
+                collect!(diffusion);
+                collect!(damping);
+                collect!(spin);
+                collect!(wander);
+                collect!(freeze);
+                collect!(mix);
+            }
+            SignalNode::Convolution { input, .. } => {
+                collect!(input);
+            }
+            SignalNode::Distortion { input, drive, mix } => {
+                collect!(input);
+                collect!(drive);
+                collect!(mix);
+            }
+            SignalNode::BitCrush {
+                input,
+                bits,
+                sample_rate,
+                ..
+            } => {
+                collect!(input);
+                collect!(bits);
+                collect!(sample_rate);
+            }
+            SignalNode::Chorus {
+                input,
+                rate,
+                depth,
+                mix,
+                ..
+            } => {
+                collect!(input);
+                collect!(rate);
+                collect!(depth);
+                collect!(mix);
+            }
+            SignalNode::Flanger {
+                input,
+                rate,
+                depth,
+                feedback,
+                ..
+            } => {
+                collect!(input);
+                collect!(rate);
+                collect!(depth);
+                collect!(feedback);
+            }
+            SignalNode::Compressor {
+                input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                makeup_gain,
+                ..
+            } => {
+                collect!(input);
+                collect!(threshold);
+                collect!(ratio);
+                collect!(attack);
+                collect!(release);
+                collect!(makeup_gain);
+            }
+            SignalNode::Expander {
+                input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                ..
+            } => {
+                collect!(input);
+                collect!(threshold);
+                collect!(ratio);
+                collect!(attack);
+                collect!(release);
+            }
+            SignalNode::MoogLadder {
+                input,
+                cutoff,
+                resonance,
+                ..
+            } => {
+                collect!(input);
+                collect!(cutoff);
+                collect!(resonance);
+            }
+            SignalNode::Limiter { input, threshold } => {
+                collect!(input);
+                collect!(threshold);
+            }
+
+            // === Binary operations ===
+            SignalNode::Add { a, b }
+            | SignalNode::Multiply { a, b }
+            | SignalNode::Min { a, b } => {
+                collect!(a);
+                collect!(b);
+            }
+
+            // === Multi-input ===
+            SignalNode::Mix { signals } => {
+                for sig in signals {
+                    collect!(sig);
+                }
+            }
+            SignalNode::SidechainCompressor {
+                main_input,
+                sidechain_input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                ..
+            } => {
+                collect!(main_input);
+                collect!(sidechain_input);
+                collect!(threshold);
+                collect!(ratio);
+                collect!(attack);
+                collect!(release);
+            }
+
+            // === Pass-through / utility ===
+            SignalNode::Output { input } => {
+                collect!(input);
+            }
+
+            // === Catch-all for nodes not yet covered ===
+            _ => {
+                // Many more node types exist - add as needed
+                // For now, use the legacy get_node_input_ids as fallback
+                let legacy = self.get_node_input_ids(node);
+                inputs.extend(legacy);
+            }
+        }
+
+        // Deduplicate
+        inputs.sort();
+        inputs.dedup();
+        inputs
+    }
+
+    /// Helper: Get input node IDs from a SignalNode (legacy - limited coverage)
     fn get_node_input_ids(&self, node: &SignalNode) -> Vec<usize> {
         let mut inputs = Vec::new();
         match node {
@@ -5610,6 +6096,182 @@ impl UnifiedSignalGraph {
             _ => {}
         }
         inputs
+    }
+
+    // ========================================================================
+    // Buffer-Passing Graph Processing (Modular Synthesis Architecture)
+    // ========================================================================
+
+    /// Process audio buffer using dependency-ordered buffer passing
+    ///
+    /// This is the new modular synthesis architecture where:
+    /// - Each node processes its entire buffer at once
+    /// - Nodes read input buffers from their dependencies
+    /// - Dependencies are processed in topological order (when acyclic)
+    /// - CYCLES ARE ALLOWED: Feedback loops work via 1-block delay (prev_node_buffers)
+    /// - Independent nodes can be parallelized (future work)
+    ///
+    /// # Arguments
+    /// * `buffer` - Output buffer to fill (stereo interleaved)
+    /// * `buffer_start_cycle` - Cycle position at buffer start
+    /// * `sample_increment` - Cycles per sample
+    pub fn process_buffer_dag(
+        &mut self,
+        buffer: &mut [f32],
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+    ) {
+        let buffer_size = buffer.len() / 2; // Stereo: left/right pairs
+
+        // Ensure zero buffer is correctly sized
+        if self.dag_zero_buffer.len() != buffer_size {
+            self.dag_zero_buffer = vec![0.0; buffer_size];
+        }
+
+        // CRITICAL: Initialize sample node timing (same as legacy path)
+        for node_opt in self.nodes.iter_mut() {
+            if let Some(node_rc) = node_opt {
+                let node = std::rc::Rc::make_mut(node_rc);
+                if let SignalNode::Sample {
+                    last_trigger_time,
+                    last_cycle,
+                    ..
+                } = node
+                {
+                    if *last_trigger_time < 0.0 {
+                        *last_trigger_time = buffer_start_cycle as f32 - 0.001;
+                        *last_cycle = buffer_start_cycle.floor() as i32;
+                    }
+                }
+            }
+        }
+
+        // CRITICAL: Process voice buffers (same as legacy path)
+        // This processes sample playback voices for the entire buffer
+        self.voice_buffers = self
+            .voice_manager
+            .borrow_mut()
+            .process_buffer_vec(buffer.len(), self.max_node_id);
+
+        // CRITICAL: Precompute pattern events (same as legacy path)
+        // This caches pattern events to avoid 512 query() calls per Pattern node
+        self.precompute_pattern_events(buffer.len());
+
+        // Phase 1: Build dependency graph
+        let deps = self.build_dag_dependencies();
+        let topo_order = self.topological_order(&deps);
+        let batches = self.parallel_batches(&topo_order, &deps);
+
+        // Temporary storage for this block's node outputs
+        // Key: node_id, Value: mono buffer
+        let mut current_buffers: HashMap<usize, Vec<f32>> = HashMap::new();
+
+        // Phase 2: Process batches (sequential between batches)
+        for batch in batches {
+            // Process each node in the batch
+            // (Phase 5 will parallelize this with rayon)
+            for node_id in batch {
+                // Gather input buffers from predecessors
+                let input_ids = deps.get(&node_id).cloned().unwrap_or_default();
+
+                // Allocate output buffer for this node
+                let mut node_output = vec![0.0; buffer_size];
+
+                // Process this node
+                self.eval_node_buffer_dag(
+                    node_id,
+                    &input_ids,
+                    &current_buffers,
+                    &mut node_output,
+                    buffer_start_cycle,
+                    sample_increment,
+                );
+
+                // Store output for downstream nodes
+                current_buffers.insert(node_id, node_output);
+            }
+        }
+
+        // Phase 3: Copy output to buffer (stereo interleave)
+        let output_id = self.output.map(|id| id.0);
+        if let Some(out_id) = output_id {
+            if let Some(mono_buf) = current_buffers.get(&out_id) {
+                // Convert mono to stereo interleaved
+                for i in 0..buffer_size {
+                    let sample = mono_buf[i];
+                    buffer[i * 2] = sample;     // Left
+                    buffer[i * 2 + 1] = sample; // Right
+                }
+            }
+        }
+
+        // Phase 4: Swap buffers for feedback support
+        // Move current buffers to prev_node_buffers for next block
+        self.prev_node_buffers.clear();
+        for (node_id, buf) in current_buffers.drain() {
+            self.prev_node_buffers.insert(node_id, buf);
+        }
+
+        // Update sample count for timing
+        self.sample_count += buffer_size;
+    }
+
+    /// Get input buffer for a node (current block or previous block for feedback)
+    fn get_dag_input_buffer<'a>(
+        &'a self,
+        input_id: usize,
+        current_buffers: &'a HashMap<usize, Vec<f32>>,
+    ) -> &'a [f32] {
+        // Try current block first
+        if let Some(buf) = current_buffers.get(&input_id) {
+            return buf.as_slice();
+        }
+        // Fall back to previous block (feedback)
+        if let Some(buf) = self.prev_node_buffers.get(&input_id) {
+            return buf.as_slice();
+        }
+        // Return zeros if no buffer available
+        &self.dag_zero_buffer
+    }
+
+    /// Process a single node for the entire buffer (DAG mode)
+    ///
+    /// This is a placeholder that will be filled in Phase 4.
+    /// For now, it delegates to per-sample evaluation for correctness.
+    fn eval_node_buffer_dag(
+        &mut self,
+        node_id: usize,
+        input_ids: &[usize],
+        current_buffers: &HashMap<usize, Vec<f32>>,
+        output: &mut [f32],
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+    ) {
+        let buffer_size = output.len();
+
+        // Get the node
+        let node_opt = self.nodes.get(node_id).and_then(|n| n.clone());
+        if node_opt.is_none() {
+            return;
+        }
+        let node_rc = node_opt.unwrap();
+        let node = &*node_rc;
+
+        // For now, use simple per-sample evaluation
+        // Phase 4 will optimize this with block-based processing for efficiency
+        for i in 0..buffer_size {
+            let cycle_pos = buffer_start_cycle + (i as f64) * sample_increment;
+            self.cached_cycle_position = cycle_pos;
+            self.current_sample_idx = i;
+
+            // CRITICAL: Clear stateful cache per sample (like legacy path)
+            // Without this, oscillators return cached values instead of advancing
+            self.stateful_value_cache.clear();
+
+            // Evaluate the node at this sample
+            // This uses the existing eval_node infrastructure
+            output[i] = self.eval_node(&NodeId(node_id));
+        }
     }
 
     /// Transfer FX state from old graph to this graph
@@ -14743,6 +15405,13 @@ impl UnifiedSignalGraph {
         // Set ENABLE_HYBRID_ARCH=1 to test the new path
         if std::env::var("ENABLE_HYBRID_ARCH").is_ok() {
             return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
+        }
+
+        // Buffer-passing graph processing: Modular synthesis architecture
+        // Set ENABLE_DAG=1 to use dependency-ordered buffer passing
+        // Supports cycles (feedback loops) via 1-block delay, plus future parallelization
+        if std::env::var("ENABLE_DAG").is_ok() {
+            return self.process_buffer_dag(buffer, buffer_start_cycle, sample_increment);
         }
 
         // DEBUG: Write to file to confirm this is being called
