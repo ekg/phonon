@@ -4552,6 +4552,16 @@ pub struct UnifiedSignalGraph {
     /// Pre-allocated buffer of zeros to avoid per-node allocation
     dag_zero_buffer: Vec<f32>,
 
+    /// Current block's DAG buffer cache for signal evaluation
+    /// When processing nodes in topological order, this holds the computed buffers
+    /// for all already-processed nodes. Used to break circular bus dependencies.
+    dag_buffer_cache: HashMap<usize, Vec<f32>>,
+
+    /// Flag indicating we're currently in DAG processing mode.
+    /// When true, bus references to nodes not yet in dag_buffer_cache return 0.0
+    /// instead of recursively calling eval_node (which would cause stack overflow).
+    in_dag_processing: bool,
+
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
 
@@ -4573,6 +4583,14 @@ pub struct UnifiedSignalGraph {
 
     /// Current sample index within the buffer (for voice_buffers lookup)
     current_sample_idx: usize,
+
+    /// Current DAG node ID being processed (for UnitDelay feedback within bus expressions)
+    current_dag_node_id: Option<usize>,
+
+    /// Nodes currently being evaluated in the call stack (for cycle detection).
+    /// If we encounter a node that's already in this set, we have a cycle and should
+    /// return 0.0 or a cached value to break the recursion.
+    eval_call_stack: std::collections::HashSet<usize>,
 
     /// Maximum node ID in the graph (for pre-sizing VoiceBuffers)
     max_node_id: usize,
@@ -4675,12 +4693,16 @@ impl Clone for UnifiedSignalGraph {
             node_buffers: HashMap::new(), // Fresh buffers for cloned instance
             prev_node_buffers: HashMap::new(), // Fresh DAG feedback buffers
             dag_zero_buffer: vec![0.0; self.buffer_size], // Sized to match buffer_size
+            dag_buffer_cache: HashMap::new(), // Fresh DAG buffer cache
+            in_dag_processing: false,
             sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
             voice_output_cache_stereo: HashMap::new(), // Fresh stereo cache
             voice_buffers: VoiceBuffers::default(), // Fresh Vec-based buffers
             current_sample_idx: 0,
+            current_dag_node_id: None,
+            eval_call_stack: std::collections::HashSet::new(),
             max_node_id: self.max_node_id,
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),
             cycle_bus_cache: self.cycle_bus_cache.clone(),
@@ -4731,12 +4753,16 @@ impl UnifiedSignalGraph {
             node_buffers: HashMap::new(),
             prev_node_buffers: HashMap::new(),
             dag_zero_buffer: vec![0.0; 512], // Default buffer size
+            dag_buffer_cache: HashMap::new(),
+            in_dag_processing: false,
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
             voice_output_cache_stereo: HashMap::new(),
             voice_buffers: VoiceBuffers::default(),
             current_sample_idx: 0,
+            current_dag_node_id: None,
+            eval_call_stack: std::collections::HashSet::new(),
             max_node_id: 0,
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             cycle_bus_cache: CycleBusCache::default(),
@@ -6037,6 +6063,28 @@ impl UnifiedSignalGraph {
                 collect!(input);
             }
 
+            // === Allpass filter ===
+            SignalNode::Allpass {
+                input, coefficient, ..
+            } => {
+                collect!(input);
+                collect!(coefficient);
+            }
+
+            // === AmpFollower (envelope follower) ===
+            SignalNode::AmpFollower {
+                input,
+                attack_time,
+                release_time,
+                window_size,
+                ..
+            } => {
+                collect!(input);
+                collect!(attack_time);
+                collect!(release_time);
+                collect!(window_size);
+            }
+
             // === Catch-all for nodes not yet covered ===
             _ => {
                 // Many more node types exist - add as needed
@@ -6121,6 +6169,12 @@ impl UnifiedSignalGraph {
         buffer_start_cycle: f64,
         sample_increment: f64,
     ) {
+        static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let call = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if std::env::var("DEBUG_DAG").is_ok() && call < 3 {
+            eprintln!("process_buffer_dag called #{}", call);
+        }
+
         let buffer_size = buffer.len() / 2; // Stereo: left/right pairs
 
         // Ensure zero buffer is correctly sized
@@ -6158,19 +6212,122 @@ impl UnifiedSignalGraph {
         self.precompute_pattern_events(buffer.len());
 
         // Phase 1: Build dependency graph
+        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building dependencies..."); }
         let deps = self.build_dag_dependencies();
-        let topo_order = self.topological_order(&deps);
+        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building topo order..."); }
+        let full_topo_order = self.topological_order(&deps);
+
+        // Filter topo order based on whether we have buses:
+        // - With buses: only process bus nodes and output. Intermediate expression nodes
+        //   are evaluated inline when their containing bus is processed. This is critical
+        //   for self-referential buses (z^-1 feedback) to work correctly.
+        // - Without buses: process all nodes. This is the simple case with no feedback.
+        let bus_node_ids: std::collections::HashSet<usize> =
+            self.buses.values().map(|id| id.0).collect();
+        let output_node_id = self.output.map(|id| id.0);
+
+        let topo_order: Vec<usize> = if bus_node_ids.is_empty() {
+            // No buses - process all nodes
+            full_topo_order
+        } else {
+            // Has buses - only process buses and output
+            full_topo_order
+                .into_iter()
+                .filter(|&node_id| {
+                    bus_node_ids.contains(&node_id)
+                        || Some(node_id) == output_node_id
+                })
+                .collect()
+        };
+
+        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building batches..."); }
         let batches = self.parallel_batches(&topo_order, &deps);
+        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Starting batch processing..."); }
+
+        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count == 0 {
+            eprintln!("=== DAG Processing ===");
+            eprintln!("deps: {:?}", deps);
+            eprintln!("topo_order: {:?}", topo_order);
+            eprintln!("batches: {:?}", batches);
+            eprintln!("buses: {:?}", self.buses);
+            eprintln!("output: {:?}", self.output);
+            // Print node types (abbreviated)
+            for (i, node_opt) in self.nodes.iter().enumerate() {
+                if let Some(node_rc) = node_opt {
+                    let node_type = match &**node_rc {
+                        SignalNode::Constant { value } => format!("Constant({})", value),
+                        SignalNode::UnitDelay { bus_name } => format!("UnitDelay({})", bus_name),
+                        SignalNode::Add { .. } => "Add".to_string(),
+                        SignalNode::Multiply { .. } => "Multiply".to_string(),
+                        SignalNode::Pattern { pattern_str, .. } => format!("Pattern({})", pattern_str),
+                        SignalNode::Oscillator { waveform, .. } => format!("Oscillator({:?})", waveform),
+                        _ => "Other".to_string(),
+                    };
+                    eprintln!("Node {}: {}", i, node_type);
+                }
+            }
+        }
 
         // Temporary storage for this block's node outputs
         // Key: node_id, Value: mono buffer
         let mut current_buffers: HashMap<usize, Vec<f32>> = HashMap::new();
 
+        // Clear the DAG buffer cache for this block and enter DAG processing mode
+        self.dag_buffer_cache.clear();
+        self.in_dag_processing = true;
+
+        // Pre-allocate buffers for ALL buses BEFORE processing any nodes.
+        // This is critical for self-referential buses (z^-1 feedback) to work.
+        // UnitDelay nodes need the bus's buffer to exist so they can read previous samples.
+        for &bus_node_id in self.buses.values() {
+            self.dag_buffer_cache
+                .insert(bus_node_id.0, vec![0.0; buffer_size]);
+        }
+        // Also pre-allocate for output node if different from buses
+        if let Some(output_id) = self.output {
+            if !self.dag_buffer_cache.contains_key(&output_id.0) {
+                self.dag_buffer_cache
+                    .insert(output_id.0, vec![0.0; buffer_size]);
+            }
+        }
+
         // Phase 2: Process batches (sequential between batches)
-        for batch in batches {
+        for (batch_idx, batch) in batches.iter().enumerate() {
+            if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Processing batch {}...", batch_idx); }
             // Process each node in the batch
             // (Phase 5 will parallelize this with rayon)
-            for node_id in batch {
+            for &node_id in batch {
+                // Skip UnitDelay nodes - they are evaluated inline when their
+                // containing expression needs them, not as standalone DAG nodes.
+                // This is critical for z^-1 feedback to work correctly.
+                let is_unit_delay = if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                    matches!(&**node_rc, SignalNode::UnitDelay { .. })
+                } else {
+                    false
+                };
+                if is_unit_delay {
+                    if std::env::var("DEBUG_DAG").is_ok() {
+                        eprintln!("    Skipping UnitDelay node {}", node_id);
+                    }
+                    continue;
+                }
+
+                if std::env::var("DEBUG_DAG").is_ok() {
+                    let node_type = if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                        match &**node_rc {
+                            SignalNode::LowPass { .. } => "LowPass",
+                            SignalNode::Add { .. } => "Add",
+                            SignalNode::Multiply { .. } => "Multiply",
+                            SignalNode::Oscillator { .. } => "Oscillator",
+                            SignalNode::UnitDelay { .. } => "UnitDelay",
+                            SignalNode::Constant { .. } => "Constant",
+                            _ => "Other",
+                        }
+                    } else {
+                        "None"
+                    };
+                    eprintln!("    Processing node {} ({})...", node_id, node_type);
+                }
                 // Gather input buffers from predecessors
                 let input_ids = deps.get(&node_id).cloned().unwrap_or_default();
 
@@ -6188,7 +6345,12 @@ impl UnifiedSignalGraph {
                 );
 
                 // Store output for downstream nodes
-                current_buffers.insert(node_id, node_output);
+                current_buffers.insert(node_id, node_output.clone());
+
+                // CRITICAL: Also update dag_buffer_cache so eval_signal_at_time can find cached values.
+                // This is necessary for all nodes, not just buses, because later nodes may reference
+                // earlier nodes through their input signals.
+                self.dag_buffer_cache.insert(node_id, node_output);
             }
         }
 
@@ -6211,6 +6373,9 @@ impl UnifiedSignalGraph {
         for (node_id, buf) in current_buffers.drain() {
             self.prev_node_buffers.insert(node_id, buf);
         }
+
+        // Exit DAG processing mode
+        self.in_dag_processing = false;
 
         // Update sample count for timing
         self.sample_count += buffer_size;
@@ -6257,6 +6422,28 @@ impl UnifiedSignalGraph {
         let node_rc = node_opt.unwrap();
         let node = &*node_rc;
 
+        // Skip UnitDelay nodes - they should only be evaluated fresh when their
+        // containing bus expression is processed, not as standalone DAG nodes.
+        // This is critical for z^-1 feedback to work correctly.
+        if matches!(node, SignalNode::UnitDelay { .. }) {
+            // Don't create a buffer for UnitDelay - it will be evaluated fresh
+            // when the containing expression needs it
+            return;
+        }
+
+        // Pre-allocate a buffer in dag_buffer_cache for self-referential feedback (z^-1)
+        // This allows UnitDelay to look at previous samples within the same buffer
+        self.dag_buffer_cache.insert(node_id, vec![0.0; buffer_size]);
+
+        // Track which node we're processing so UnitDelay can find the right buffer
+        self.current_dag_node_id = Some(node_id);
+
+        // Check if this is a bus node
+        let is_bus = self.buses.values().any(|&bid| bid.0 == node_id);
+        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 {
+            eprintln!("eval_node_buffer_dag: node_id={}, is_bus={}", node_id, is_bus);
+        }
+
         // For now, use simple per-sample evaluation
         // Phase 4 will optimize this with block-based processing for efficiency
         for i in 0..buffer_size {
@@ -6264,13 +6451,25 @@ impl UnifiedSignalGraph {
             self.cached_cycle_position = cycle_pos;
             self.current_sample_idx = i;
 
-            // CRITICAL: Clear stateful cache per sample (like legacy path)
+            // CRITICAL: Clear stateful cache and call stack per sample (like legacy path)
             // Without this, oscillators return cached values instead of advancing
             self.stateful_value_cache.clear();
+            self.eval_call_stack.clear();
 
             // Evaluate the node at this sample
             // This uses the existing eval_node infrastructure
-            output[i] = self.eval_node(&NodeId(node_id));
+            let sample = self.eval_node(&NodeId(node_id));
+            output[i] = sample;
+
+            // Update dag_buffer_cache immediately so UnitDelay can access previous samples
+            // This is critical for self-referential feedback loops like ~accum $ 0.1 + ~accum * 0.9
+            if let Some(cache_buf) = self.dag_buffer_cache.get_mut(&node_id) {
+                cache_buf[i] = sample;
+            }
+
+            if std::env::var("DEBUG_UNIT_DELAY").is_ok() && is_bus && i < 5 {
+                eprintln!("  bus sample[{}] = {}", i, sample);
+            }
         }
     }
 
@@ -8020,6 +8219,20 @@ impl UnifiedSignalGraph {
             Signal::Value(v) => *v,
             Signal::Bus(name) => {
                 if let Some(id) = self.buses.get(name).cloned() {
+                    // In DAG mode, check caches first to avoid infinite recursion
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return value;
+                        }
+                    }
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return value;
+                        }
+                    }
+                    if self.in_dag_processing {
+                        return 0.0;
+                    }
                     self.eval_node(&id)
                 } else {
                     0.0
@@ -8181,6 +8394,20 @@ impl UnifiedSignalGraph {
             Signal::Value(v) => vec![*v],
             Signal::Bus(name) => {
                 if let Some(id) = self.buses.get(name).cloned() {
+                    // In DAG mode, check caches first to avoid infinite recursion
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return vec![value];
+                        }
+                    }
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return vec![value];
+                        }
+                    }
+                    if self.in_dag_processing {
+                        return vec![0.0];
+                    }
                     vec![self.eval_node(&id)]
                 } else {
                     vec![0.0]
@@ -8203,8 +8430,83 @@ impl UnifiedSignalGraph {
     /// Evaluate a signal at a specific cycle position
     /// This allows per-event DSP parameter evaluation
     fn eval_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
+        if std::env::var("DEBUG_DAG").is_ok() && self.sample_count < 2 && self.current_sample_idx == 0 {
+            if let Signal::Node(id) = signal {
+                eprintln!("        eval_signal_at_time: Node({}), call_stack_len={}", id.0, self.eval_call_stack.len());
+            }
+        }
         match signal {
             Signal::Node(id) => {
+                // CYCLE DETECTION: Check if we're already evaluating this node.
+                // If so, we have a circular reference and must break the cycle.
+                if self.eval_call_stack.contains(&id.0) {
+                    // Already evaluating this node - we have a cycle!
+                    // Try to return a cached/previous value if available.
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        if self.current_sample_idx > 0 {
+                            // Use previous sample from current buffer (z^-1)
+                            if let Some(&value) = buffer.get(self.current_sample_idx - 1) {
+                                return value;
+                            }
+                        }
+                    }
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        // Use value from previous block
+                        if let Some(&value) = buffer.last() {
+                            return value;
+                        }
+                    }
+                    // No cached value available - return 0.0 to break cycle
+                    return 0.0;
+                }
+
+                // In DAG mode, check if we have a pre-computed buffer first.
+                // This prevents infinite recursion for circular dependencies.
+                // Bus references get resolved to Signal::Node at compile time,
+                // so cycles go through Signal::Node, not Signal::Bus.
+                if self.in_dag_processing {
+                    let is_current_bus = self.current_dag_node_id == Some(id.0);
+
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        if is_current_bus {
+                            // Self-reference: this IS the bus being processed.
+                            // Return the PREVIOUS sample (z^-1 delay) to break the cycle.
+                            if self.current_sample_idx > 0 {
+                                if let Some(&value) = buffer.get(self.current_sample_idx - 1) {
+                                    return value;
+                                }
+                            }
+                            // At sample 0, check prev_node_buffers for last block's final sample
+                            if let Some(prev_buffer) = self.prev_node_buffers.get(&id.0) {
+                                if let Some(&value) = prev_buffer.last() {
+                                    return value;
+                                }
+                            }
+                            // First sample ever - return 0.0 to start accumulation
+                            return 0.0;
+                        } else {
+                            // Different node: use cached value at current sample index
+                            if let Some(&value) = buffer.get(self.current_sample_idx) {
+                                return value;
+                            }
+                        }
+                    }
+
+                    // Check prev_node_buffers for nodes not in current cache
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return value;
+                        }
+                    }
+
+                    // At this point, we've checked caches. For complex nodes that could
+                    // recurse (filters, effects), we need to evaluate them. The eval_call_stack
+                    // in eval_node will catch actual cycles.
+                }
+
+                // NOTE: Don't add to call stack here - eval_node handles call stack management.
+                // The cycle check above uses the call stack that eval_node maintains.
+
                 // CRITICAL FIX: For Pattern nodes, query at the specified cycle_pos
                 // instead of self.get_cycle_position() to ensure each event gets the correct
                 // parameter value from pattern-valued DSP parameters like gain "1.0 0.5"
@@ -8292,6 +8594,30 @@ impl UnifiedSignalGraph {
             }
             Signal::Bus(name) => {
                 if let Some(id) = self.buses.get(name).cloned() {
+                    // In DAG mode, check if we have a pre-computed buffer first.
+                    // This prevents infinite recursion for circular bus dependencies
+                    // (e.g., ~a -> ~b -> ~c -> ~a). For cycles, the bus value comes
+                    // from the previous block's output (1-block delay).
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return value;
+                        }
+                    }
+                    // Check previous block's buffer for feedback loops
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        if let Some(&value) = buffer.get(self.current_sample_idx) {
+                            return value;
+                        }
+                    }
+                    // If we're in DAG processing mode and the bus hasn't been computed yet,
+                    // this indicates a circular dependency. Return 0.0 to break the cycle.
+                    // The bus will get its proper value after one block of delay.
+                    if self.in_dag_processing {
+                        // We're in DAG mode and this bus hasn't been computed yet.
+                        // This is a cycle - return 0.0 to prevent infinite recursion.
+                        return 0.0;
+                    }
+                    // Fallback to recursive evaluation (legacy path when not in DAG mode)
                     self.eval_node(&id)
                 } else {
                     0.0
@@ -8385,6 +8711,40 @@ impl UnifiedSignalGraph {
     /// Evaluate a node to get its current output value
     #[inline(always)]
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
+        // Use call_stack size as recursion depth indicator
+        let depth = self.eval_call_stack.len();
+        if depth > 100 {
+            if std::env::var("DEBUG_OVERFLOW").is_ok() {
+                eprintln!("DEEP eval_node: node_id={}, call_stack_len={}, stack={:?}",
+                    node_id.0, depth, self.eval_call_stack);
+            }
+            // Safety limit to prevent actual stack overflow
+            if depth > 500 {
+                return 0.0;
+            }
+        }
+
+        // CYCLE DETECTION: Check if we're already evaluating this node.
+        // If so, we have a circular reference and must break the cycle.
+        if self.eval_call_stack.contains(&node_id.0) {
+            // Already evaluating this node - we have a cycle!
+            // Try to return a cached/previous value if available.
+            if let Some(buffer) = self.dag_buffer_cache.get(&node_id.0) {
+                if self.current_sample_idx > 0 {
+                    if let Some(&value) = buffer.get(self.current_sample_idx - 1) {
+                        return value;
+                    }
+                }
+            }
+            if let Some(buffer) = self.prev_node_buffers.get(&node_id.0) {
+                if let Some(&value) = buffer.last() {
+                    return value;
+                }
+            }
+            // No cached value - return 0.0 to break cycle
+            return 0.0;
+        }
+
         // Track cache stats if profiling
         static CACHE_HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         static CACHE_MISSES: std::sync::atomic::AtomicUsize =
@@ -8403,6 +8763,9 @@ impl UnifiedSignalGraph {
         if let Some(&cached) = self.stateful_value_cache.get(node_id) {
             return cached;
         }
+
+        // Add this node to call stack before evaluating
+        self.eval_call_stack.insert(node_id.0);
 
         if std::env::var("PROFILE_CACHE").is_ok() {
             CACHE_MISSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -8437,6 +8800,9 @@ impl UnifiedSignalGraph {
                 pending_freq,
                 last_sample,
             } => {
+                if std::env::var("DEBUG_DAG").is_ok() && self.sample_count < 5 && self.current_sample_idx == 0 {
+                    eprintln!("      Oscillator evaluating freq: {:?}", freq);
+                }
                 let requested_freq = self.eval_signal(&freq);
                 let mut current_freq = requested_freq;
 
@@ -8733,7 +9099,59 @@ impl UnifiedSignalGraph {
             // z^-1 unit delay for feedback loops
             // Returns the previous sample's value of the named bus
             SignalNode::UnitDelay { bus_name } => {
-                // Look up the previous sample's value for this bus
+                // In DAG mode, look at the current buffer at (current_sample_idx - 1)
+                // For sample 0, use the last sample from the previous block
+                if self.in_dag_processing {
+                    if let Some(&bus_node_id) = self.buses.get(bus_name) {
+                        // Determine which buffer to use for feedback:
+                        // - If we're currently processing the bus node, use THAT buffer
+                        // - Otherwise, use the bus node's buffer if it exists
+                        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 && self.current_sample_idx < 5 {
+                            eprintln!(
+                                "UnitDelay[{}] sample={}: current_dag_node_id={:?}, bus_node_id={}, node_id={}",
+                                bus_name, self.current_sample_idx, self.current_dag_node_id, bus_node_id.0, node_id.0
+                            );
+                        }
+                        let feedback_node_id = if self.current_dag_node_id == Some(bus_node_id.0) {
+                            // We're processing the bus that contains this UnitDelay
+                            // Use the current node's buffer for proper z^-1 feedback
+                            bus_node_id.0
+                        } else if self.dag_buffer_cache.contains_key(&bus_node_id.0) {
+                            // Bus has already been processed
+                            bus_node_id.0
+                        } else {
+                            // Bus hasn't been processed yet, use current node's buffer
+                            self.current_dag_node_id.unwrap_or(node_id.0)
+                        };
+
+                        if self.current_sample_idx > 0 {
+                            // Look at previous sample in current buffer
+                            if let Some(buffer) = self.dag_buffer_cache.get(&feedback_node_id) {
+                                let val = buffer
+                                    .get(self.current_sample_idx - 1)
+                                    .copied()
+                                    .unwrap_or(0.0);
+                                if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 && self.current_sample_idx < 5 {
+                                    eprintln!("  -> returning cache[{}][{}] = {}", feedback_node_id, self.current_sample_idx - 1, val);
+                                }
+                                return val;
+                            }
+                        } else {
+                            // First sample: use last sample from previous block
+                            if let Some(prev_buffer) = self.prev_node_buffers.get(&feedback_node_id)
+                            {
+                                let val = prev_buffer.last().copied().unwrap_or(0.0);
+                                if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 {
+                                    eprintln!("  -> returning prev_block = {}", val);
+                                }
+                                return val;
+                            }
+                        }
+                    }
+                    return 0.0;
+                }
+
+                // Legacy path: look up the previous sample's value for this bus
                 // Returns 0.0 on first sample (no history yet)
                 self.bus_previous_values
                     .get(bus_name)
@@ -14983,6 +15401,9 @@ impl UnifiedSignalGraph {
             self.value_cache.insert(*node_id, value);
         }
 
+        // Remove from call stack before returning
+        self.eval_call_stack.remove(&node_id.0);
+
         value
     }
 
@@ -15399,10 +15820,516 @@ impl UnifiedSignalGraph {
         // Enable buffer caching for this render pass
         self.buffer_cache_enabled.set(true);
 
-        // DEFAULT: Buffer-passing graph processing (modular synthesis architecture)
-        // - Supports cycles/feedback loops via 1-block delay
-        // - Enables future parallelization of independent signal paths
-        self.process_buffer_dag(buffer, buffer_start_cycle, sample_increment);
+        // TEMPORARILY DISABLED: Hybrid architecture has timing bugs
+        // Produces audio immediately instead of waiting for sample triggers
+        // Legacy RMS: 0.047, Hybrid RMS: 0.786 - not correctly timing
+        // Set ENABLE_HYBRID_ARCH=1 to test the new path
+        if std::env::var("ENABLE_HYBRID_ARCH").is_ok() {
+            return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
+        }
+
+        // Buffer-passing graph processing: Modular synthesis architecture
+        // DEFAULT: Always use DAG processing for proper cycle/feedback handling
+        // Supports cycles (feedback loops) via 1-block delay, plus future parallelization
+        return self.process_buffer_dag(buffer, buffer_start_cycle, sample_increment);
+
+        // DEBUG: Write to file to confirm this is being called
+        static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let count = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if count == 0 {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open("/tmp/phonon_process_buffer_called.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "process_buffer() IS being called!");
+            }
+        }
+
+        // Optional profiling (enable with PROFILE_BUFFER=1)
+        let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
+        let mut voice_time_us = 0u128;
+        let mut eval_time_us = 0u128;
+        let mut mix_time_us = 0u128;
+
+        // HUGE OPTIMIZATION: Process all voices for entire buffer ONCE
+        // Instead of calling process_per_node() 512 times, we call process_buffer_per_node() ONCE
+        // This eliminates 511 redundant Rayon thread spawns and HashMap allocations
+        let voice_start = if enable_profiling {
+            Some(std::time::Instant::now())
+        } else {
+            None
+        };
+
+        // DEBUG: Check voice count before processing
+        if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
+            let voice_count = self.voice_manager.borrow().active_voice_count();
+            if voice_count > 0 {
+                eprintln!("  Processing {} active voices in buffer", voice_count);
+            }
+        }
+
+        // OPTIMIZED: Use Vec-based VoiceBuffers for O(1) lookup in hot loop
+        // This replaces HashMap<usize, Vec<f32>> with direct array indexing
+        self.voice_buffers = self
+            .voice_manager
+            .borrow_mut()
+            .process_buffer_vec(buffer.len(), self.max_node_id);
+        if let Some(start) = voice_start {
+            voice_time_us = start.elapsed().as_micros();
+        }
+
+        // OPTION B OPTIMIZATION: Pre-compute pattern events once per buffer
+        // This eliminates 512 pattern.query() calls per Pattern node
+        self.precompute_pattern_events(buffer.len());
+
+        // BUFFER-BASED SYNTHESIS: Generate synthesis buffers ONCE per buffer (not per sample!)
+        // This matches the voice buffer architecture and enables SIMD auto-vectorization
+        {
+            let node_pitch_pairs: Vec<(usize, f32)> = self
+                .voice_manager
+                .borrow()
+                .get_active_synthesis_node_ids_with_pitch();
+            if !node_pitch_pairs.is_empty() {
+                // Generate buffers for each unique (node_id, semitone_offset) combination
+                // Use a HashMap with (node_id, rounded semitone) as key to deduplicate
+                let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> =
+                    std::collections::HashMap::new();
+
+                for &(node_id, semitone_offset) in &node_pitch_pairs {
+                    // Round semitone offset to avoid floating point precision issues
+                    let semitone_key = (semitone_offset * 100.0).round() as i32;
+                    let buffer_key = (node_id, semitone_key);
+
+                    // Skip if we already generated this combination
+                    if synthesis_buffers.contains_key(&buffer_key) {
+                        continue;
+                    }
+
+                    // Find ALL oscillator nodes in the signal chain (bus may have multiple oscillators
+                    // or be wrapped in effects like gain, filter, etc.)
+                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+
+                    // DEBUG: Log oscillator discovery
+                    if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                        eprintln!(
+                            "[SYNTH_BUF] node_id={}, found oscillators: {:?}",
+                            node_id, oscillator_ids
+                        );
+                    }
+
+                    // Store original offsets AND phases for all oscillators
+                    let mut original_state: Vec<(usize, f32, f32)> = Vec::new(); // (osc_id, offset, phase)
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = &**node_rc
+                            {
+                                original_state.push((osc_id, *node_offset, *phase.borrow()));
+                            }
+                        }
+                    }
+
+                    // Apply pitch offset to ALL oscillators in the chain AND set per-pitch phase
+                    // Each pitch variant maintains its own phase for continuity across buffers
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
+                                // Get cached phase for this (osc, pitch) combination, or start from 0
+                                let phase_key = (osc_id, semitone_key);
+                                let cached_phase = self
+                                    .synthesis_phase_cache
+                                    .borrow()
+                                    .get(&phase_key)
+                                    .copied()
+                                    .unwrap_or(0.0);
+
+                                // DEBUG: Log the offset and phase being applied
+                                if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                                    eprintln!("[SYNTH_BUF] Setting osc_id={} semitone_offset from {} to {}, phase from {:.4} to {:.4}",
+                                        osc_id, *node_offset, semitone_offset, *phase.borrow(), cached_phase);
+                                }
+                                *node_offset = semitone_offset;
+                                *phase.borrow_mut() = cached_phase;
+                            }
+                        }
+                    }
+
+                    // CRITICAL: Clear buffer cache before generating buffer with new semitone_offset
+                    // Otherwise the cache returns stale results from previous pitch variants
+                    self.buffer_cache.borrow_mut().clear();
+
+                    // Generate buffer with the temporary semitone_offset(s)
+                    let mut synth_buffer = vec![0.0; buffer.len()];
+                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+
+                    // DEBUG: Log buffer generation
+                    if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                        let first_samples: Vec<f32> =
+                            synth_buffer.iter().take(10).cloned().collect();
+                        eprintln!(
+                            "[SYNTH_BUF] Generated buffer key=({}, {}), first_10={:?}",
+                            node_id, semitone_key, first_samples
+                        );
+                    }
+
+                    synthesis_buffers.insert(buffer_key, synth_buffer);
+
+                    // Save phase to per-pitch cache BEFORE restoring original state
+                    // This maintains phase continuity for this pitch variant across buffers
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator { phase, .. } = &**node_rc {
+                                let phase_key = (osc_id, semitone_key);
+                                let new_phase = *phase.borrow();
+                                self.synthesis_phase_cache
+                                    .borrow_mut()
+                                    .insert(phase_key, new_phase);
+                            }
+                        }
+                    }
+
+                    // Restore original state (offset AND phase) for all oscillators
+                    // This ensures the next pitch variant starts with clean state
+                    for (osc_id, original_offset, original_phase) in original_state {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
+                                *node_offset = original_offset;
+                                *phase.borrow_mut() = original_phase;
+                            }
+                        }
+                    }
+                }
+
+                // Process synthesis voices with envelopes and mix into voice_buffers
+                let synthesis_voice_buffers = self
+                    .voice_manager
+                    .borrow_mut()
+                    .process_synthesis_buffers(&synthesis_buffers, buffer.len());
+
+                // Mix synthesis outputs into voice_buffers (now VoiceBuffers)
+                if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
+                    eprintln!(
+                        "[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.max_active_node={}",
+                        synthesis_voice_buffers.len(),
+                        self.voice_buffers.max_active_node
+                    );
+                    // Check samples 10 and 100 instead of 0 (sin(0)=0)
+                    for idx in [10, 100] {
+                        if let Some(sample) = synthesis_voice_buffers.get(idx) {
+                            for (&k, &v) in sample.iter() {
+                                eprintln!("[SYNTH_MIX] synth[{}][{}]={:.6}", idx, k, v);
+                            }
+                        }
+                    }
+                }
+                // Merge synthesis buffers into VoiceBuffers
+                for (i, synth_outputs) in synthesis_voice_buffers.iter().enumerate() {
+                    for (&source_node, &value) in synth_outputs {
+                        // Ensure buffer exists for this source_node
+                        while self.voice_buffers.buffers.len() <= source_node {
+                            self.voice_buffers.buffers.push(Vec::new());
+                        }
+                        let buf = &mut self.voice_buffers.buffers[source_node];
+                        if buf.is_empty() {
+                            *buf = vec![0.0; buffer.len()];
+                        }
+                        if i < buf.len() {
+                            buf[i] += value;
+                        }
+                        if source_node > self.voice_buffers.max_active_node {
+                            self.voice_buffers.max_active_node = source_node;
+                        }
+                    }
+                }
+                // DEBUG: Check voice_buffers AFTER mixing
+                if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
+                    for node_id in 0..=self.voice_buffers.max_active_node {
+                        let buf = &self.voice_buffers.buffers[node_id];
+                        if buf.len() > 10 {
+                            eprintln!(
+                                "[SYNTH_MIX] voice_buffers[{}] sample 10: {:.6}",
+                                node_id, buf[10]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // PERFORMANCE: Collect outputs ONCE per buffer instead of 512 times per buffer
+        let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
+
+        // NOTE: buffer_start_cycle is now passed in as a parameter from GlobalClock
+        // This is THE SINGLE SOURCE OF TRUTH for timing
+
+        // Initialize node timing state on first buffer after graph swap
+        if !self.nodes_initialized {
+            // CRITICAL FIX: For cycle 0, use -1.0 to allow first event to trigger
+            // Events at time 0.0 need last_trigger_time < 0.0 to pass the check
+            // "event_start_abs > last_event_start + epsilon"
+            let init_trigger_time = if buffer_start_cycle < 0.001 {
+                -1.0_f32
+            } else {
+                buffer_start_cycle as f32
+            };
+            let current_cycle_i32 = buffer_start_cycle.floor() as i32;
+
+            for node_opt in self.nodes.iter_mut() {
+                if let Some(node_rc) = node_opt {
+                    let node = std::rc::Rc::make_mut(node_rc);
+                    match node {
+                        SignalNode::Sample {
+                            last_cycle,
+                            last_trigger_time,
+                            ..
+                        } => {
+                            *last_cycle = current_cycle_i32;
+                            *last_trigger_time = init_trigger_time;
+                        }
+                        SignalNode::Pattern {
+                            last_trigger_time, ..
+                        } => {
+                            *last_trigger_time = init_trigger_time;
+                        }
+                        SignalNode::SynthPattern {
+                            last_trigger_time, ..
+                        } => {
+                            *last_trigger_time = init_trigger_time;
+                        }
+                        SignalNode::EnvelopePattern {
+                            last_cycle,
+                            last_trigger_time,
+                            ..
+                        } => {
+                            *last_cycle = current_cycle_i32;
+                            *last_trigger_time = init_trigger_time;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            self.nodes_initialized = true;
+
+            if std::env::var("DEBUG_TIMING").is_ok() {
+                eprintln!("🔧 Nodes initialized to cycle {:.4}", buffer_start_cycle);
+            }
+        }
+
+        // Set initial cycle position for this buffer
+        self.cached_cycle_position = buffer_start_cycle;
+
+        // Track voices triggered during this buffer so we can process them live
+        let initial_voice_count = self.voice_manager.borrow().active_voice_count();
+        let mut newly_triggered_voices: Vec<usize> = Vec::new(); // Indices of newly triggered voices
+
+        // NOTE: sample_increment is now passed in as a parameter from GlobalClock
+        // This ensures timing is independent of buffer processing time
+
+        for i in 0..buffer.len() {
+            // CRITICAL: Increment cycle position deterministically using passed-in increment
+            // This ensures timing comes from GlobalClock (single source of truth)
+            if i > 0 {
+                self.cached_cycle_position += sample_increment;
+            }
+
+            // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!
+            // Most signal graph nodes compute static values that don't change every sample.
+            // Pattern values only change at event boundaries (every N samples), not per-sample.
+            // voice_output_cache is updated every sample below, so voice changes are tracked.
+            if i == 0 {
+                self.value_cache.clear();
+            }
+            // DON'T clear value_cache per-sample - that's the bottleneck!
+
+            // Clear stateful_value_cache EVERY sample to ensure stateful nodes (ASR, ADSR, etc.)
+            // are evaluated once per sample but not twice (from output eval + update_bus_previous_values)
+            self.stateful_value_cache.clear();
+
+            // NOTE: Synthesis buffer generation moved BEFORE the sample loop (buffer-based!)
+            // No more per-sample synthesis evaluation - all done in buffers now
+
+            // OPTIMIZED: Just set current sample index for O(1) lookup via voice_buffers.get()
+            // This replaces per-sample HashMap rebuilding (~800μs/buffer savings)
+            self.current_sample_idx = i;
+
+            // Clear voice_output_cache - now only used for newly triggered voices
+            self.voice_output_cache.clear();
+
+            // CRITICAL FIX: Check if new voices were triggered in previous samples
+            // Process them live for this sample
+            let current_voice_count = self.voice_manager.borrow().active_voice_count();
+            if current_voice_count > initial_voice_count + newly_triggered_voices.len() {
+                // New voice(s) were just triggered!
+                // Add them to our tracking list and process them for this sample
+                while newly_triggered_voices.len() < (current_voice_count - initial_voice_count) {
+                    newly_triggered_voices.push(initial_voice_count + newly_triggered_voices.len());
+                }
+            }
+
+            // Process newly triggered voices for this sample
+            if !newly_triggered_voices.is_empty() {
+                for &voice_idx in &newly_triggered_voices {
+                    if let Some(((left, right), source_node)) = self
+                        .voice_manager
+                        .borrow_mut()
+                        .process_voice_by_index(voice_idx)
+                    {
+                        let mono = (left + right) / std::f32::consts::SQRT_2;
+
+                        // Add to voice_output_cache
+                        self.voice_output_cache
+                            .entry(source_node)
+                            .and_modify(|v| *v += mono)
+                            .or_insert(mono);
+                    }
+                }
+            }
+
+            // Count active channels for gain compensation
+            let mut num_active_channels = 0;
+
+            // Start with single output (for backwards compatibility)
+            let eval_start = if enable_profiling {
+                Some(std::time::Instant::now())
+            } else {
+                None
+            };
+            let mut mixed_output = if let Some(output_id) = self.output {
+                if self.hushed_channels.contains(&0) {
+                    0.0 // Silenced
+                } else {
+                    num_active_channels += 1;
+                    self.eval_node(&output_id)
+                }
+            } else {
+                0.0
+            };
+
+            // Mix in all numbered output channels
+            // Use pre-collected output_channels to avoid borrow checker issues
+            for (ch, node_id) in &output_channels {
+                if self.hushed_channels.contains(&ch) {
+                    continue;
+                }
+                num_active_channels += 1;
+                mixed_output += self.eval_node(&node_id);
+            }
+            if let Some(start) = eval_start {
+                eval_time_us += start.elapsed().as_micros();
+            }
+
+            // Apply output mixing strategy
+            let mix_start = if enable_profiling {
+                Some(std::time::Instant::now())
+            } else {
+                None
+            };
+            mixed_output = match self.output_mix_mode {
+                OutputMixMode::Gain => {
+                    if num_active_channels > 1 {
+                        mixed_output / num_active_channels as f32
+                    } else {
+                        mixed_output
+                    }
+                }
+                OutputMixMode::Sqrt => {
+                    if num_active_channels > 1 {
+                        mixed_output / (num_active_channels as f32).sqrt()
+                    } else {
+                        mixed_output
+                    }
+                }
+                OutputMixMode::Tanh => mixed_output.tanh(),
+                OutputMixMode::Hard => mixed_output.clamp(-1.0, 1.0),
+                OutputMixMode::None => mixed_output,
+            };
+            if let Some(start) = mix_start {
+                mix_time_us += start.elapsed().as_micros();
+            }
+
+            // Increment sample counter
+            self.sample_count += 1;
+
+            // Update bus previous values for z^-1 feedback
+            self.update_bus_previous_values();
+
+            buffer[i] = mixed_output;
+        }
+
+        // Print profiling breakdown if enabled
+        if enable_profiling {
+            let total_us = voice_time_us + eval_time_us + mix_time_us;
+
+            // Also write to file for live mode debugging
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_buffer_profile.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "=== BUFFER PROFILING ({}samples) ===", buffer.len());
+                let _ = writeln!(
+                    file,
+                    "Voice processing: {:.2}ms ({:.1}%)",
+                    voice_time_us as f64 / 1000.0,
+                    (voice_time_us as f64 / total_us as f64) * 100.0
+                );
+                let _ = writeln!(
+                    file,
+                    "Graph evaluation: {:.2}ms ({:.1}%)",
+                    eval_time_us as f64 / 1000.0,
+                    (eval_time_us as f64 / total_us as f64) * 100.0
+                );
+                let _ = writeln!(
+                    file,
+                    "Output mixing:    {:.2}ms ({:.1}%)",
+                    mix_time_us as f64 / 1000.0,
+                    (mix_time_us as f64 / total_us as f64) * 100.0
+                );
+            }
+            let total_ms = total_us as f64 / 1000.0;
+            let voice_ms = voice_time_us as f64 / 1000.0;
+            let eval_ms = eval_time_us as f64 / 1000.0;
+            let mix_ms = mix_time_us as f64 / 1000.0;
+
+            eprintln!("=== BUFFER PROFILING ({}samples) ===", buffer.len());
+            eprintln!(
+                "Voice processing: {:.2}ms ({:.1}%)",
+                voice_ms,
+                100.0 * voice_ms / total_ms
+            );
+            eprintln!(
+                "Graph evaluation: {:.2}ms ({:.1}%)",
+                eval_ms,
+                100.0 * eval_ms / total_ms
+            );
+            eprintln!(
+                "Output mixing:    {:.2}ms ({:.1}%)",
+                mix_ms,
+                100.0 * mix_ms / total_ms
+            );
+            eprintln!("TOTAL:            {:.2}ms", total_ms);
+            eprintln!();
+        }
     }
 
     /// Hybrid architecture process_buffer (3-phase approach)
@@ -15790,9 +16717,16 @@ impl UnifiedSignalGraph {
 
     /// Render a buffer of audio (mono - mixes all channels)
     pub fn render(&mut self, num_samples: usize) -> Vec<f32> {
-        let mut buffer = vec![0.0; num_samples];
-        self.process_buffer(&mut buffer);
-        buffer
+        // process_buffer_dag outputs stereo interleaved, so we need 2x the size
+        let mut stereo_buffer = vec![0.0; num_samples * 2];
+        self.process_buffer(&mut stereo_buffer);
+
+        // Extract mono from stereo (left channel, every other sample)
+        let mut mono_buffer = Vec::with_capacity(num_samples);
+        for i in 0..num_samples {
+            mono_buffer.push(stereo_buffer[i * 2]);
+        }
+        mono_buffer
     }
 
     /// Render stereo audio (left = out1, right = out2)
@@ -18752,6 +19686,21 @@ impl UnifiedSignalGraph {
             Signal::Bus(name) => {
                 // Bus reference: evaluate bus node for buffer
                 if let Some(&id) = self.buses.get(name) {
+                    // In DAG mode, check caches first to avoid infinite recursion
+                    if let Some(buffer) = self.dag_buffer_cache.get(&id.0) {
+                        let copy_len = output.len().min(buffer.len());
+                        output[..copy_len].copy_from_slice(&buffer[..copy_len]);
+                        return;
+                    }
+                    if let Some(buffer) = self.prev_node_buffers.get(&id.0) {
+                        let copy_len = output.len().min(buffer.len());
+                        output[..copy_len].copy_from_slice(&buffer[..copy_len]);
+                        return;
+                    }
+                    if self.in_dag_processing {
+                        output.fill(0.0);
+                        return;
+                    }
                     self.eval_node_buffer(&id, output);
                 } else {
                     // Bus doesn't exist, fill with silence

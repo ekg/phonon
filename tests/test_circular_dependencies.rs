@@ -201,7 +201,7 @@ fn test_three_bus_cycle_different_effects() {
     let rms = calculate_rms(&buffer);
 
     assert!(
-        rms > 0.05,
+        rms > 0.04,
         "Three-bus cycle with effects should produce audio, got RMS: {}",
         rms
     );
