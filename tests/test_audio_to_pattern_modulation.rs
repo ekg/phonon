@@ -53,8 +53,8 @@ fn test_range_signal_node() {
     // We can compose it to map arbitrary ranges
     let scaled = Signal::Expression(Box::new(SignalExpr::Scale {
         input: Signal::Node(input),
-        min: 10.0,
-        max: 20.0,
+        min: Signal::Value(10.0),
+        max: Signal::Value(20.0),
     }));
 
     // Create a node that uses the scaled signal
@@ -291,8 +291,8 @@ fn test_helper_functions_compile() {
     // For now, we can compose these manually as shown in other tests
     let unipolar_manual = Signal::Expression(Box::new(SignalExpr::Scale {
         input: Signal::Node(osc),
-        min: 0.0,
-        max: 1.0,
+        min: Signal::Value(0.0),
+        max: Signal::Value(1.0),
     }));
 
     let output = graph.add_node(SignalNode::Output {

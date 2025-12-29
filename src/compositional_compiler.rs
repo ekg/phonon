@@ -7479,7 +7479,7 @@ fn compile_effect_transform(
                 let node = SignalNode::SometimesEffect {
                     input,
                     effect: Signal::Node(effect_node),
-                    prob: 0.5,
+                    prob: Signal::Value(0.5),
                 };
                 Ok(ctx.graph.add_node(node))
             } else if transform_contains_effect(&transform) {
@@ -7501,7 +7501,7 @@ fn compile_effect_transform(
                 let node = SignalNode::SometimesEffect {
                     input,
                     effect: Signal::Node(effect_node),
-                    prob: prob_val,
+                    prob: Signal::Value(prob_val as f32),
                 };
                 Ok(ctx.graph.add_node(node))
             } else if transform_contains_effect(&transform) {
@@ -10156,7 +10156,7 @@ fn compile_sometimes_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     let node = SignalNode::SometimesEffect {
         input: Signal::Node(input),
         effect: Signal::Node(effect),
-        prob: 0.5,
+        prob: Signal::Value(0.5),
     };
 
     Ok(ctx.graph.add_node(node))

@@ -419,7 +419,7 @@ fn test_audio_analysis_nodes() {
     // Add transient detector
     let _transient = graph.add_node(SignalNode::Transient {
         input: Signal::Node(osc),
-        threshold: 0.5,
+        threshold: Signal::Value(0.5),
         last_value: 0.0,
     });
 

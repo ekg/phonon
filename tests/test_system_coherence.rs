@@ -330,8 +330,8 @@ fn test_pattern_algebra_in_synthesis() {
     let freq = graph.add_node(SignalNode::Multiply {
         a: Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Scale {
             input: Signal::Node(pattern_node),
-            min: 220.0,
-            max: 880.0,
+            min: Signal::Value(220.0),
+            max: Signal::Value(880.0),
         })),
         b: Signal::Value(1.0),
     });
@@ -602,7 +602,7 @@ fn test_analysis_driven_synthesis() {
 
     let transient = graph.add_node(SignalNode::Transient {
         input: Signal::Node(input),
-        threshold: 0.5,
+        threshold: Signal::Value(0.5),
         last_value: 0.0,
     });
 

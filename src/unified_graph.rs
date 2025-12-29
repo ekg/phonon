@@ -173,10 +173,11 @@
 //! });
 //!
 //! // Scale LFO from -1..1 to 0.2..1.0 (quiet to loud)
+//! // min and max are now Signal types for pattern modulation
 //! let scaled_gain = Signal::Expression(Box::new(SignalExpr::Scale {
 //!     input: Signal::Node(lfo),
-//!     min: 0.2,
-//!     max: 1.0,
+//!     min: Signal::Value(0.2),
+//!     max: Signal::Value(1.0),
 //! }));
 //!
 //! let pattern = parse_mini_notation("hh*16");
@@ -555,7 +556,7 @@ pub enum SignalExpr {
     Divide(Signal, Signal),
     Modulo(Signal, Signal),
     Min(Signal, Signal),
-    Scale { input: Signal, min: f32, max: f32 },
+    Scale { input: Signal, min: Signal, max: Signal }, // Pattern-modulatable scaling
 }
 
 /// Runtime envelope type for Sample nodes (after compilation)
@@ -913,8 +914,8 @@ pub enum SignalNode {
     /// Cycle trigger: generates a short pulse at the start of each cycle
     /// Useful for triggering envelopes rhythmically
     CycleTrigger {
-        last_cycle: i32,  // Track which cycle triggered last
-        pulse_width: f32, // Duration of the pulse in seconds
+        last_cycle: i32,       // Track which cycle triggered last (internal state)
+        pulse_width: Signal,   // Pattern-modulatable pulse width in seconds
     },
 
     /// Sample player triggered by pattern
@@ -1121,7 +1122,7 @@ pub enum SignalNode {
     SometimesEffect {
         input: Signal,
         effect: Signal,
-        prob: f64,
+        prob: Signal, // Pattern-modulatable probability
     },
 
     /// Apply effect when (cycle - offset) % modulo == 0
@@ -1371,11 +1372,11 @@ pub enum SignalNode {
     /// Pitch detector
     Pitch { input: Signal, last_pitch: f32 },
 
-    /// Transient detector
+    /// Transient detector - threshold is now pattern-modulatable
     Transient {
         input: Signal,
-        threshold: f32,
-        last_value: f32,
+        threshold: Signal, // Pattern-modulatable threshold
+        last_value: f32,   // Internal state - stays f32
     },
 
     /// Peak Follower
@@ -4396,7 +4397,9 @@ fn eval_signal_isolated(
                 .min(eval_signal_isolated(nodes, right, sample_rate)),
             SignalExpr::Scale { input, min, max } => {
                 let val = eval_signal_isolated(nodes, input, sample_rate);
-                min + val * (max - min)
+                let min_val = eval_signal_isolated(nodes, min, sample_rate);
+                let max_val = eval_signal_isolated(nodes, max, sample_rate);
+                min_val + val * (max_val - min_val)
             }
         },
         _ => 0.0, // Simplified - buses, patterns not needed for basic synthesis
@@ -5634,8 +5637,10 @@ impl UnifiedSignalGraph {
                         self.collect_signal_node_ids(a, ids);
                         self.collect_signal_node_ids(b, ids);
                     }
-                    SignalExpr::Scale { input, .. } => {
+                    SignalExpr::Scale { input, min, max } => {
                         self.collect_signal_node_ids(input, ids);
+                        self.collect_signal_node_ids(min, ids);
+                        self.collect_signal_node_ids(max, ids);
                     }
                 }
             }
@@ -6226,16 +6231,21 @@ impl UnifiedSignalGraph {
             self.buses.values().map(|id| id.0).collect();
         let output_node_id = self.output.map(|id| id.0);
 
+        // Collect numbered output node IDs (out1, out2, etc.)
+        let numbered_output_ids: std::collections::HashSet<usize> =
+            self.outputs.values().map(|id| id.0).collect();
+
         let topo_order: Vec<usize> = if bus_node_ids.is_empty() {
             // No buses - process all nodes
             full_topo_order
         } else {
-            // Has buses - only process buses and output
+            // Has buses - only process buses, main output, and numbered outputs
             full_topo_order
                 .into_iter()
                 .filter(|&node_id| {
                     bus_node_ids.contains(&node_id)
                         || Some(node_id) == output_node_id
+                        || numbered_output_ids.contains(&node_id)
                 })
                 .collect()
         };
@@ -6355,14 +6365,53 @@ impl UnifiedSignalGraph {
         }
 
         // Phase 3: Copy output to buffer (stereo interleave)
+        // Check hushed_channels before outputting
+
+        // Collect numbered outputs first to avoid borrow checker issues
+        let output_channels: Vec<(usize, NodeId)> = self.outputs.iter()
+            .map(|(&ch, &node)| (ch, node))
+            .collect();
+
+        // DEBUG: Log numbered outputs if enabled
+        if std::env::var("DEBUG_OUTPUT").is_ok() && !output_channels.is_empty() {
+            eprintln!("[DAG] Numbered outputs: {:?}", output_channels);
+            eprintln!("[DAG] current_buffers keys: {:?}", current_buffers.keys().collect::<Vec<_>>());
+        }
+
+        // Count active channels for potential gain compensation
+        let mut _num_active_channels = 0;
+
+        // Handle main output (channel 0)
         let output_id = self.output.map(|id| id.0);
         if let Some(out_id) = output_id {
-            if let Some(mono_buf) = current_buffers.get(&out_id) {
-                // Convert mono to stereo interleaved
+            // Check if channel 0 (main output) is hushed
+            if !self.hushed_channels.contains(&0) {
+                _num_active_channels += 1;
+                if let Some(mono_buf) = current_buffers.get(&out_id) {
+                    // Convert mono to stereo interleaved
+                    for i in 0..buffer_size {
+                        let sample = mono_buf[i];
+                        buffer[i * 2] = sample;     // Left
+                        buffer[i * 2 + 1] = sample; // Right
+                    }
+                }
+            }
+            // If hushed, buffer stays at 0.0 (initialized earlier)
+        }
+
+        // Handle numbered outputs (out1, out2, etc.)
+        for (ch, node_id) in output_channels {
+            // Skip hushed channels
+            if self.hushed_channels.contains(&ch) {
+                continue;
+            }
+            _num_active_channels += 1;
+
+            if let Some(mono_buf) = current_buffers.get(&node_id.0) {
+                // Mix into buffer (stereo interleaved)
                 for i in 0..buffer_size {
-                    let sample = mono_buf[i];
-                    buffer[i * 2] = sample;     // Left
-                    buffer[i * 2 + 1] = sample; // Right
+                    buffer[i * 2] += mono_buf[i];     // Left
+                    buffer[i * 2 + 1] += mono_buf[i]; // Right
                 }
             }
         }
@@ -7724,8 +7773,10 @@ impl UnifiedSignalGraph {
                 self.traverse_signal_for_samples(a, visited, sample_nodes);
                 self.traverse_signal_for_samples(b, visited, sample_nodes);
             }
-            SignalExpr::Scale { input, .. } => {
+            SignalExpr::Scale { input, min, max } => {
                 self.traverse_signal_for_samples(input, visited, sample_nodes);
+                self.traverse_signal_for_samples(min, visited, sample_nodes);
+                self.traverse_signal_for_samples(max, visited, sample_nodes);
             }
         }
     }
@@ -7816,8 +7867,10 @@ impl UnifiedSignalGraph {
                 self.find_signal_dependencies(a, visited);
                 self.find_signal_dependencies(b, visited);
             }
-            SignalExpr::Scale { input, .. } => {
+            SignalExpr::Scale { input, min, max } => {
                 self.find_signal_dependencies(input, visited);
+                self.find_signal_dependencies(min, visited);
+                self.find_signal_dependencies(max, visited);
             }
         }
     }
@@ -7955,9 +8008,11 @@ impl UnifiedSignalGraph {
                 .min(self.eval_signal_from_buffers(b, sample_idx)),
             SignalExpr::Scale { input, min, max } => {
                 let val = self.eval_signal_from_buffers(input, sample_idx);
+                let min_val = self.eval_signal_from_buffers(min, sample_idx);
+                let max_val = self.eval_signal_from_buffers(max, sample_idx);
                 // Scale from -1..1 to min..max
                 let normalized = (val + 1.0) / 2.0; // -1..1 -> 0..1
-                min + normalized * (max - min)
+                min_val + normalized * (max_val - min_val)
             }
         }
     }
@@ -8690,7 +8745,9 @@ impl UnifiedSignalGraph {
             SignalExpr::Min(a, b) => self.eval_signal(a).min(self.eval_signal(b)),
             SignalExpr::Scale { input, min, max } => {
                 let v = self.eval_signal(input);
-                v * (max - min) + min
+                let min_val = self.eval_signal(min);
+                let max_val = self.eval_signal(max);
+                v * (max_val - min_val) + min_val
             }
         }
     }
@@ -10318,8 +10375,9 @@ impl UnifiedSignalGraph {
                 use rand::{rngs::StdRng, Rng, SeedableRng};
                 let current_cycle = self.get_cycle_position().floor() as u64;
                 let mut rng = StdRng::seed_from_u64(current_cycle);
+                let prob_val = self.eval_signal(&prob) as f64; // Pattern-modulatable probability
 
-                if rng.gen::<f64>() < *prob {
+                if rng.gen::<f64>() < prob_val {
                     self.eval_signal_at_time(&effect, self.get_cycle_position())
                 } else {
                     self.eval_signal_at_time(&input, self.get_cycle_position())
@@ -11932,7 +11990,8 @@ impl UnifiedSignalGraph {
                 let cycle_position = self.get_cycle_position();
                 let current_cycle = cycle_position.floor() as i32;
                 let cycle_fraction = cycle_position - cycle_position.floor();
-                let pulse_duration = pulse_width / self.cps as f32; // Convert pulse width to cycles
+                let pulse_width_val = self.eval_signal(&pulse_width); // Pattern-modulatable
+                let pulse_duration = pulse_width_val / self.cps as f32; // Convert pulse width to cycles
 
                 // Output 1.0 if we're within the pulse duration at the start of a new cycle
                 // Output 0.0 otherwise
@@ -15193,13 +15252,14 @@ impl UnifiedSignalGraph {
                 last_value,
             } => {
                 let input_val = self.eval_signal(&input).abs();
+                let threshold_val = self.eval_signal(&threshold); // Pattern-modulatable threshold
                 let last = *last_value;
 
                 // Detect sharp changes (for saw wave discontinuities)
                 let diff = (input_val - last).abs();
 
                 // Generate transient pulse on significant changes
-                let transient = if diff > *threshold {
+                let transient = if diff > threshold_val {
                     1.0
                 } else if last > 1.5 && input_val < 0.5 {
                     // Detect saw wave reset (big drop)
@@ -19853,12 +19913,16 @@ impl UnifiedSignalGraph {
 
             SignalExpr::Scale { input, min, max } => {
                 let mut input_buffer = vec![0.0; buffer_size];
+                let mut min_buffer = vec![0.0; buffer_size];
+                let mut max_buffer = vec![0.0; buffer_size];
                 self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(min, &mut min_buffer);
+                self.eval_signal_buffer(max, &mut max_buffer);
 
-                // Scale from [0,1] to [min,max]
-                let range = max - min;
+                // Scale from [0,1] to [min,max] (pattern-modulatable)
                 for i in 0..buffer_size {
-                    output[i] = min + input_buffer[i] * range;
+                    let range = max_buffer[i] - min_buffer[i];
+                    output[i] = min_buffer[i] + input_buffer[i] * range;
                 }
             }
         }

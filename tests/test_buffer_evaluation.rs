@@ -164,8 +164,8 @@ fn test_scale_expression_buffer() {
     // Create expression: scale 0.5 from [0,1] to [2,6] = 2 + 0.5*4 = 4.0
     let expr = SignalExpr::Scale {
         input: Signal::Value(0.5),
-        min: 2.0,
-        max: 6.0,
+        min: Signal::Value(2.0),
+        max: Signal::Value(6.0),
     };
 
     let buffer_size = 512;
