@@ -32,7 +32,6 @@ out $ ~drums
 
 /// Test that colon syntax produces audio
 #[test]
-#[ignore = "colon syntax sample bank selection needs investigation - parsing works (test_colon_syntax_parses passes)"]
 fn test_colon_syntax_produces_audio() {
     let dsl = r#"
 tempo: 0.5
@@ -57,7 +56,6 @@ out $ ~drums
 
 /// Test combining colon syntax with euclidean rhythms
 #[test]
-#[ignore = "colon syntax sample bank selection needs investigation"]
 fn test_colon_with_euclidean() {
     let dsl = r#"
 tempo: 0.5
@@ -81,7 +79,6 @@ out $ ~drums
 
 /// Test alternation with colon syntax
 #[test]
-#[ignore = "colon syntax sample bank selection needs investigation"]
 fn test_colon_with_alternation() {
     let dsl = r#"
 tempo: 0.5
@@ -105,7 +102,6 @@ out $ ~drums
 
 /// Test musical example - drum variations
 #[test]
-#[ignore = "colon syntax sample bank selection needs investigation"]
 fn test_colon_drum_variations() {
     let dsl = r#"
 tempo: 0.5

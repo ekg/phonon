@@ -6638,6 +6638,12 @@ impl UnifiedSignalGraph {
         // processing for all nodes until a proper solution is found.
         // TODO: Investigate eval_node_buffer() interaction with envelope state
         //
+        // CRITICAL: Track voice count to detect and process newly triggered voices
+        // Without this, voices triggered during Sample node evaluation would have no audio
+        // until the next buffer (because voice_buffers is pre-rendered at buffer start).
+        let initial_voice_count = self.voice_manager.borrow().active_voice_count();
+        let mut newly_triggered_voices: Vec<usize> = Vec::new();
+
         // PER-SAMPLE PATH: Process each sample with proper timing
         for i in 0..buffer_size {
             let cycle_pos = buffer_start_cycle + (i as f64) * sample_increment;
@@ -6648,6 +6654,34 @@ impl UnifiedSignalGraph {
             // Without this, oscillators return cached values instead of advancing
             self.stateful_value_cache.clear();
             self.eval_call_stack.clear();
+
+            // Clear voice_output_cache for this sample - it's used for newly triggered voices
+            self.voice_output_cache.clear();
+
+            // CRITICAL: Check if new voices were triggered and process them
+            // This must happen BEFORE eval_node so Sample nodes can read from voice_output_cache
+            let current_voice_count = self.voice_manager.borrow().active_voice_count();
+            if current_voice_count > initial_voice_count + newly_triggered_voices.len() {
+                // New voice(s) were just triggered - add to tracking list
+                while newly_triggered_voices.len() < (current_voice_count - initial_voice_count) {
+                    newly_triggered_voices.push(initial_voice_count + newly_triggered_voices.len());
+                }
+            }
+
+            // Process all newly triggered voices for this sample
+            for &voice_idx in &newly_triggered_voices {
+                if let Some(((left, right), source_node)) = self
+                    .voice_manager
+                    .borrow_mut()
+                    .process_voice_by_index(voice_idx)
+                {
+                    let mono = (left + right) / std::f32::consts::SQRT_2;
+                    self.voice_output_cache
+                        .entry(source_node)
+                        .and_modify(|v| *v += mono)
+                        .or_insert(mono);
+                }
+            }
 
             // Evaluate the node at this sample
             // This uses the existing eval_node infrastructure
