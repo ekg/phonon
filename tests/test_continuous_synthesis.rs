@@ -4,7 +4,6 @@ use phonon::compositional_parser::parse_program;
 /// Test that bus-triggered synthesis generates continuously until envelope finishes
 /// NOT pre-rendered to fixed-length buffer
 #[test]
-#[ignore = "bus triggering via s pattern not producing audio - needs investigation"]
 fn test_bus_triggered_synth_continuous_generation() {
     let sample_rate = 44100.0;
 
@@ -62,7 +61,6 @@ out $ ~trig
 
 /// Test that synthesis envelope extends beyond single buffer
 #[test]
-#[ignore = "bus triggering via s pattern not producing audio - needs investigation"]
 fn test_synth_envelope_crosses_buffers() {
     let sample_rate = 44100.0;
 
