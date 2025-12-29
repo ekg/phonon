@@ -6216,6 +6216,123 @@ impl UnifiedSignalGraph {
         // This caches pattern events to avoid 512 query() calls per Pattern node
         self.precompute_pattern_events(buffer.len());
 
+        // SYNTHESIS VOICES: Generate buffers for active synthesis voices
+        // This enables bus-triggered synthesis (e.g., s "~synth*4")
+        {
+            let node_pitch_pairs: Vec<(usize, f32)> = self
+                .voice_manager
+                .borrow()
+                .get_active_synthesis_node_ids_with_pitch();
+            if !node_pitch_pairs.is_empty() {
+                let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> =
+                    std::collections::HashMap::new();
+
+                for &(node_id, semitone_offset) in &node_pitch_pairs {
+                    let semitone_key = (semitone_offset * 100.0).round() as i32;
+                    let buffer_key = (node_id, semitone_key);
+
+                    if synthesis_buffers.contains_key(&buffer_key) {
+                        continue;
+                    }
+
+                    // Find oscillator nodes and save their state
+                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+                    let mut original_state: Vec<(usize, f32, f32)> = Vec::new();
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = &**node_rc
+                            {
+                                original_state.push((osc_id, *node_offset, *phase.borrow()));
+                            }
+                        }
+                    }
+
+                    // Apply pitch offset and restore per-pitch phase
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
+                                let phase_key = (osc_id, semitone_key);
+                                let cached_phase = self
+                                    .synthesis_phase_cache
+                                    .borrow()
+                                    .get(&phase_key)
+                                    .copied()
+                                    .unwrap_or(0.0);
+                                *node_offset = semitone_offset;
+                                *phase.borrow_mut() = cached_phase;
+                            }
+                        }
+                    }
+
+                    // Clear buffer cache and generate synthesis buffer
+                    self.buffer_cache.borrow_mut().clear();
+                    let mut synth_buffer = vec![0.0; buffer_size];
+                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+                    synthesis_buffers.insert(buffer_key, synth_buffer);
+
+                    // Save phase to cache for next buffer
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator { phase, .. } = &**node_rc {
+                                let phase_key = (osc_id, semitone_key);
+                                self.synthesis_phase_cache
+                                    .borrow_mut()
+                                    .insert(phase_key, *phase.borrow());
+                            }
+                        }
+                    }
+
+                    // Restore original oscillator state
+                    for (osc_id, original_offset, original_phase) in original_state {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
+                                *node_offset = original_offset;
+                                *phase.borrow_mut() = original_phase;
+                            }
+                        }
+                    }
+                }
+
+                // Process synthesis voices with envelopes and mix into voice_buffers
+                let synthesis_voice_buffers = self
+                    .voice_manager
+                    .borrow_mut()
+                    .process_synthesis_buffers(&synthesis_buffers, buffer_size);
+
+                // Merge synthesis buffers into VoiceBuffers
+                for (i, synth_outputs) in synthesis_voice_buffers.iter().enumerate() {
+                    for (&source_node, &value) in synth_outputs {
+                        if source_node < self.voice_buffers.buffers.len() {
+                            // Ensure buffer is allocated for this node
+                            if self.voice_buffers.buffers[source_node].is_empty() {
+                                self.voice_buffers.buffers[source_node] = vec![0.0; buffer_size];
+                            }
+                            self.voice_buffers.buffers[source_node][i] += value;
+                            if source_node >= self.voice_buffers.max_active_node {
+                                self.voice_buffers.max_active_node = source_node + 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Phase 1: Build dependency graph
         if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building dependencies..."); }
         let deps = self.build_dag_dependencies();
