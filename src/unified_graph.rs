@@ -5650,6 +5650,29 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Check if a node chain contains UnitDelay (requires per-sample feedback)
+    /// Returns true if the node or any of its dependencies contain UnitDelay
+    fn chain_has_unit_delay(&self, node_id: usize, visited: &mut std::collections::HashSet<usize>) -> bool {
+        if visited.contains(&node_id) {
+            return false; // Already checked, no UnitDelay found in this path
+        }
+        visited.insert(node_id);
+
+        if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+            if matches!(&**node_rc, SignalNode::UnitDelay { .. }) {
+                return true;
+            }
+            // Check all inputs recursively
+            let inputs = self.get_all_node_inputs(&**node_rc);
+            for input_id in inputs {
+                if self.chain_has_unit_delay(input_id, visited) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Build dependency map: node_id -> Vec of input node IDs
     /// Used for buffer-passing graph processing (cycles allowed via 1-block delay)
     pub fn build_dag_dependencies(&self) -> HashMap<usize, Vec<usize>> {
@@ -6610,8 +6633,12 @@ impl UnifiedSignalGraph {
             eprintln!("eval_node_buffer_dag: node_id={}, is_bus={}", node_id, is_bus);
         }
 
-        // For now, use simple per-sample evaluation
-        // Phase 4 will optimize this with block-based processing for efficiency
+        // NOTE: Block-based optimization was attempted here but caused issues with
+        // Envelope nodes (timing/state not correctly preserved). Reverted to per-sample
+        // processing for all nodes until a proper solution is found.
+        // TODO: Investigate eval_node_buffer() interaction with envelope state
+        //
+        // PER-SAMPLE PATH: Process each sample with proper timing
         for i in 0..buffer_size {
             let cycle_pos = buffer_start_cycle + (i as f64) * sample_increment;
             self.cached_cycle_position = cycle_pos;
@@ -19813,16 +19840,10 @@ impl UnifiedSignalGraph {
                 }
             }
 
-            // SynthPattern nodes: Read from voice_buffers (voice triggering was done in Phase 1)
-            // CRITICAL: Do NOT call eval_node - that would re-trigger voices!
-            SignalNode::SynthPattern { .. } => {
-                // Just read from pre-rendered voice buffers
-                for i in 0..buffer_size {
-                    output[i] = self.voice_buffers.get(node_id.0, i);
-                }
-            }
-
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
+            // NOTE: SynthPattern nodes use synth_voice_manager (not voice_manager/voice_buffers)
+            // so they MUST fall through to the per-sample eval_node path to properly
+            // trigger and process synth voices.
             // CRITICAL: Update current_sample_idx so Sample nodes read correct voice_buffers index
             _ => {
                 // Save base cycle position and compute sample increment
