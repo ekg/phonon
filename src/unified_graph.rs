@@ -4104,7 +4104,10 @@ pub enum OutputMixMode {
 
 impl Default for OutputMixMode {
     fn default() -> Self {
-        OutputMixMode::None // Direct sum - like a hardware mixer
+        // Use Tanh for soft saturation - prevents harsh clipping from voice accumulation
+        // while maintaining musical dynamics. Direct sum (None) can cause clipping when
+        // many synthesis voices overlap (e.g., chords with long attack times).
+        OutputMixMode::Tanh
     }
 }
 
@@ -6593,15 +6596,15 @@ impl UnifiedSignalGraph {
             eprintln!("[DAG] current_buffers keys: {:?}", current_buffers.keys().collect::<Vec<_>>());
         }
 
-        // Count active channels for potential gain compensation
-        let mut _num_active_channels = 0;
+        // Count active channels for gain compensation in Gain/Sqrt modes
+        let mut num_active_channels = 0;
 
         // Handle main output (channel 0)
         let output_id = self.output.map(|id| id.0);
         if let Some(out_id) = output_id {
             // Check if channel 0 (main output) is hushed
             if !self.hushed_channels.contains(&0) {
-                _num_active_channels += 1;
+                num_active_channels += 1;
                 if let Some(mono_buf) = current_buffers.get(&out_id) {
                     // Convert mono to stereo interleaved
                     for i in 0..buffer_size {
@@ -6620,7 +6623,7 @@ impl UnifiedSignalGraph {
             if self.hushed_channels.contains(&ch) {
                 continue;
             }
-            _num_active_channels += 1;
+            num_active_channels += 1;
 
             if let Some(mono_buf) = current_buffers.get(&node_id.0) {
                 // Mix into buffer (stereo interleaved)
@@ -6631,7 +6634,40 @@ impl UnifiedSignalGraph {
             }
         }
 
-        // Phase 4: Swap buffers for feedback support
+        // Phase 4: Apply output mixing mode (prevent clipping from voice accumulation)
+        match self.output_mix_mode {
+            OutputMixMode::Gain => {
+                if num_active_channels > 1 {
+                    let gain = 1.0 / num_active_channels as f32;
+                    for sample in buffer.iter_mut() {
+                        *sample *= gain;
+                    }
+                }
+            }
+            OutputMixMode::Sqrt => {
+                if num_active_channels > 1 {
+                    let gain = 1.0 / (num_active_channels as f32).sqrt();
+                    for sample in buffer.iter_mut() {
+                        *sample *= gain;
+                    }
+                }
+            }
+            OutputMixMode::Tanh => {
+                for sample in buffer.iter_mut() {
+                    *sample = sample.tanh();
+                }
+            }
+            OutputMixMode::Hard => {
+                for sample in buffer.iter_mut() {
+                    *sample = sample.clamp(-1.0, 1.0);
+                }
+            }
+            OutputMixMode::None => {
+                // Direct sum - no gain compensation
+            }
+        }
+
+        // Phase 5: Swap buffers for feedback support
         // Move current buffers to prev_node_buffers for next block
         self.prev_node_buffers.clear();
         for (node_id, buf) in current_buffers.drain() {
@@ -7815,6 +7851,11 @@ impl UnifiedSignalGraph {
     /// Check if output is set
     pub fn has_output(&self) -> bool {
         self.output.is_some() || !self.outputs.is_empty()
+    }
+
+    /// Get all output channels (for debugging)
+    pub fn get_output_channels(&self) -> Vec<(usize, NodeId)> {
+        self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect()
     }
 
     /// Set a specific output channel (1-indexed for user convenience)

@@ -868,7 +868,9 @@ mod tests {
 
     #[test]
     fn test_synth_characterization_snare() {
+        use crate::unified_graph::OutputMixMode;
         let mut graph = UnifiedSignalGraph::new(44100.0);
+        graph.set_output_mix_mode(OutputMixMode::None); // Raw output for characterization
         let library = SynthLibrary::new();
 
         let snare = library.build_snare(&mut graph, Signal::Value(200.0), None, None);
