@@ -313,7 +313,6 @@ out $ (~sine_osc + ~saw_osc + ~square_osc + ~tri_osc) * 0.1
 }
 
 #[test]
-#[ignore = "Multi-bus filter chaining needs investigation - simpler tests pass"]
 fn test_e2e_all_filters() {
     let code = r#"
 tempo: 0.5

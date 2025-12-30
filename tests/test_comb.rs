@@ -293,7 +293,6 @@ fn test_comb_no_dc_offset() {
 // ========== Musical Applications ==========
 
 #[test]
-#[ignore = "Karplus-Strong with line envelope needs investigation - other comb tests pass"]
 fn test_comb_karplus_strong() {
     // Karplus-Strong plucked string simulation
     let code = r#"
@@ -325,7 +324,6 @@ fn test_comb_metallic_sound() {
 }
 
 #[test]
-#[ignore = "Multiple bus comb filter needs investigation - other comb tests pass"]
 fn test_comb_for_reverb() {
     // Multiple combs for reverb texture
     let code = r#"

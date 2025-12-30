@@ -5763,23 +5763,97 @@ impl UnifiedSignalGraph {
         let mut node_batch: HashMap<usize, usize> = HashMap::new();
         let mut batches: Vec<Vec<usize>> = Vec::new();
 
+        // Build a set of nodes in topo_order for quick lookup
+        let topo_set: std::collections::HashSet<usize> = topo_order.iter().copied().collect();
+
+        // Helper to find the maximum batch level of transitive dependencies
+        // When a dependency is not in topo_order, we recursively check its dependencies
+        fn find_max_batch(
+            node_id: usize,
+            deps: &HashMap<usize, Vec<usize>>,
+            node_batch: &HashMap<usize, usize>,
+            topo_set: &std::collections::HashSet<usize>,
+            visited: &mut std::collections::HashSet<usize>,
+        ) -> Option<usize> {
+            if visited.contains(&node_id) {
+                return None; // Avoid infinite loops
+            }
+            visited.insert(node_id);
+
+            // If this node is in topo_order, return its batch level
+            if let Some(&batch) = node_batch.get(&node_id) {
+                return Some(batch);
+            }
+
+            // If not in topo_order, check its dependencies recursively
+            if let Some(dep_list) = deps.get(&node_id) {
+                let mut max_batch = None;
+                for &dep_id in dep_list {
+                    if let Some(batch) = find_max_batch(dep_id, deps, node_batch, topo_set, visited)
+                    {
+                        max_batch = Some(max_batch.map_or(batch, |m: usize| m.max(batch)));
+                    }
+                }
+                return max_batch;
+            }
+
+            None
+        }
+
         for &node_id in topo_order {
-            // Find the maximum batch level of all dependencies
+            // Find the maximum batch level of all dependencies (including transitive)
             let max_dep_batch = deps
                 .get(&node_id)
                 .map(|dep_list| {
-                    dep_list
-                        .iter()
-                        .filter_map(|&dep_id| node_batch.get(&dep_id))
-                        .max()
-                        .copied()
-                        .unwrap_or(0)
+                    let mut max_batch = 0usize;
+                    for &dep_id in dep_list {
+                        let mut visited = std::collections::HashSet::new();
+                        if let Some(batch) =
+                            find_max_batch(dep_id, deps, &node_batch, &topo_set, &mut visited)
+                        {
+                            max_batch = max_batch.max(batch);
+                        }
+                    }
+                    max_batch
                 })
                 .unwrap_or(0);
 
+            // Check if this node has any dependencies that are in topo_order
+            let has_topo_deps = deps.get(&node_id).map_or(false, |dep_list| {
+                fn has_transitive_topo_dep(
+                    node_id: usize,
+                    deps: &HashMap<usize, Vec<usize>>,
+                    topo_set: &std::collections::HashSet<usize>,
+                    visited: &mut std::collections::HashSet<usize>,
+                ) -> bool {
+                    if visited.contains(&node_id) {
+                        return false;
+                    }
+                    visited.insert(node_id);
+
+                    if topo_set.contains(&node_id) {
+                        return true;
+                    }
+
+                    if let Some(dep_list) = deps.get(&node_id) {
+                        for &dep_id in dep_list {
+                            if has_transitive_topo_dep(dep_id, deps, topo_set, visited) {
+                                return true;
+                            }
+                        }
+                    }
+                    false
+                }
+
+                dep_list.iter().any(|&dep_id| {
+                    let mut visited = std::collections::HashSet::new();
+                    has_transitive_topo_dep(dep_id, deps, &topo_set, &mut visited)
+                })
+            });
+
             // This node goes in the batch AFTER its dependencies
-            let this_batch = if deps.get(&node_id).map(|d| d.is_empty()).unwrap_or(true) {
-                0 // No dependencies -> batch 0
+            let this_batch = if !has_topo_deps {
+                0 // No dependencies in topo_order -> batch 0
             } else {
                 max_dep_batch + 1
             };
@@ -6147,7 +6221,8 @@ impl UnifiedSignalGraph {
             | SignalNode::BandPass { input, .. }
             | SignalNode::MoogLadder { input, .. }
             | SignalNode::Distortion { input, .. }
-            | SignalNode::BitCrush { input, .. } => {
+            | SignalNode::BitCrush { input, .. }
+            | SignalNode::Comb { input, .. } => {
                 if let Signal::Node(id) = input {
                     inputs.push(id.0);
                 }
