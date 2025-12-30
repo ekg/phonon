@@ -58,6 +58,9 @@ lazy_static = "1.4"
 # High-performance parser combinators
 nom = "7.1"
 
+# Regex for macro expansion
+regex = "1.10"
+
 # Terminal UI for live coding interface
 ratatui = "0.24"
 crossterm = "0.27"

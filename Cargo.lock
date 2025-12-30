@@ -1965,6 +1965,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "realfft",
+ "regex",
  "ringbuf",
  "rosc",
  "rustfft",

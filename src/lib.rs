@@ -288,6 +288,7 @@ pub mod audio;
 pub mod audio_analysis;
 pub mod compositional_compiler;
 pub mod compositional_parser;
+pub mod macro_expander;
 pub mod dsl_osc_handler;
 pub mod dsp_parameter;
 pub mod engine;

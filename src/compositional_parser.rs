@@ -6,7 +6,15 @@
 //! - Audio chains are first-class expressions
 //! - All operators work uniformly across expression types
 //! - No special-casing based on context
+//!
+//! ## Macro Expansion
+//!
+//! Use `parse_program_with_macros` to enable macro expansion:
+//! - `for i in N..M:` loops to generate multiple buses
+//! - `~name[i]` indexed bus syntax
+//! - `sum(~name[N..M])` to mix indexed buses
 
+use crate::macro_expander::expand_macros;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while, take_while1},
@@ -579,6 +587,27 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
     }
 
     Ok((current, statements))
+}
+
+/// Parse a program with macro expansion
+///
+/// This is the recommended entry point for parsing Phonon code.
+/// It first expands macros (for loops, indexed buses, sum()) and then parses.
+///
+/// # Example
+/// ```ignore
+/// let code = r#"
+/// for i in 1..5:
+///     ~osc[i] $ sine (110 * i)
+/// out $ sum(~osc[1..5]) * 0.2
+/// "#;
+/// let (_, statements) = parse_program_with_macros(code)?;
+/// ```
+pub fn parse_program_with_macros(input: &str) -> IResult<&str, Vec<Statement>> {
+    let expanded = expand_macros(input);
+    // Leak the expanded string to make it static, matching parse_program's behavior
+    let static_expanded: &'static str = Box::leak(expanded.into_boxed_str());
+    parse_program(static_expanded)
 }
 
 /// Parse a single statement
