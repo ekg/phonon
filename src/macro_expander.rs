@@ -15,13 +15,17 @@ use regex::Regex;
 ///
 /// This is the main entry point. It processes:
 /// 1. For loops
-/// 2. Sum expressions
-/// 3. Arithmetic with variables
+/// 2. If/else conditionals
+/// 3. Sum expressions
+/// 4. Arithmetic with variables
 pub fn expand_macros(input: &str) -> String {
     let mut result = input.to_string();
 
-    // Expand for loops first (they may contain sum() calls)
+    // Expand for loops first (they may contain if/else and sum() calls)
     result = expand_for_loops(&result);
+
+    // Expand if/else conditionals
+    result = expand_if_else(&result);
 
     // Expand sum() calls
     result = expand_sum_calls(&result);
@@ -389,6 +393,173 @@ fn format_number(n: f64) -> String {
     }
 }
 
+/// Expand if/else conditionals: `if COND then EXPR else EXPR`
+///
+/// Supported conditions:
+/// - `A == B` (equals)
+/// - `A != B` (not equals)
+/// - `A < B` (less than)
+/// - `A > B` (greater than)
+/// - `A <= B` (less or equal)
+/// - `A >= B` (greater or equal)
+/// - `A % B == C` (modulo comparison)
+fn expand_if_else(input: &str) -> String {
+    // Match: if COND then THEN_EXPR else ELSE_EXPR
+    // The expressions can contain anything except 'then', 'else', or newline
+    let if_else_re = Regex::new(
+        r"if\s+(.+?)\s+then\s+(.+?)\s+else\s+(.+?)(?:\n|$|#|\))"
+    ).unwrap();
+
+    let mut result = input.to_string();
+
+    // Keep expanding until no more if/else found
+    loop {
+        let new_result = if_else_re.replace(&result, |caps: &regex::Captures| {
+            let condition = caps.get(1).unwrap().as_str().trim();
+            let then_expr = caps.get(2).unwrap().as_str().trim();
+            let else_expr = caps.get(3).unwrap().as_str().trim();
+            let suffix = caps.get(0).unwrap().as_str();
+            let suffix_char = suffix.chars().last().unwrap_or(' ');
+
+            // Evaluate the condition
+            let cond_result = evaluate_condition(condition);
+
+            // Keep the trailing character (newline, #, ), etc.)
+            let trailing = if suffix_char == '\n' || suffix_char == '#' || suffix_char == ')' {
+                suffix_char.to_string()
+            } else {
+                String::new()
+            };
+
+            if cond_result {
+                format!("{}{}", then_expr, trailing)
+            } else {
+                format!("{}{}", else_expr, trailing)
+            }
+        }).to_string();
+
+        if new_result == result {
+            break;
+        }
+        result = new_result;
+    }
+
+    result
+}
+
+/// Evaluate a condition expression
+/// Returns true if the condition is met, false otherwise
+fn evaluate_condition(condition: &str) -> bool {
+    // Try different comparison operators in order of specificity
+    // (longer operators first to avoid matching partial)
+
+    // Check for modulo: A % B == C or A % B != C
+    if let Some(result) = try_eval_modulo_condition(condition) {
+        return result;
+    }
+
+    // Check for <= and >=
+    if let Some(pos) = condition.find("<=") {
+        let left = condition[..pos].trim();
+        let right = condition[pos + 2..].trim();
+        if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+            return a <= b;
+        }
+    }
+
+    if let Some(pos) = condition.find(">=") {
+        let left = condition[..pos].trim();
+        let right = condition[pos + 2..].trim();
+        if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+            return a >= b;
+        }
+    }
+
+    // Check for != (before == to avoid partial match)
+    if let Some(pos) = condition.find("!=") {
+        let left = condition[..pos].trim();
+        let right = condition[pos + 2..].trim();
+        if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+            return (a - b).abs() > f64::EPSILON;
+        }
+    }
+
+    // Check for ==
+    if let Some(pos) = condition.find("==") {
+        let left = condition[..pos].trim();
+        let right = condition[pos + 2..].trim();
+        if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+            return (a - b).abs() < f64::EPSILON;
+        }
+    }
+
+    // Check for < (but not <=)
+    if let Some(pos) = condition.find('<') {
+        // Make sure it's not <=
+        if condition.chars().nth(pos + 1) != Some('=') {
+            let left = condition[..pos].trim();
+            let right = condition[pos + 1..].trim();
+            if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+                return a < b;
+            }
+        }
+    }
+
+    // Check for > (but not >=)
+    if let Some(pos) = condition.find('>') {
+        // Make sure it's not >=
+        if condition.chars().nth(pos + 1) != Some('=') {
+            let left = condition[..pos].trim();
+            let right = condition[pos + 1..].trim();
+            if let (Some(a), Some(b)) = (eval_numeric_expr(left), eval_numeric_expr(right)) {
+                return a > b;
+            }
+        }
+    }
+
+    // Default to false if we can't parse the condition
+    false
+}
+
+/// Try to evaluate a modulo condition: A % B == C or A % B != C
+fn try_eval_modulo_condition(condition: &str) -> Option<bool> {
+    // Pattern: NUMBER % NUMBER == NUMBER or NUMBER % NUMBER != NUMBER
+    let mod_eq_re = Regex::new(r"(\d+)\s*%\s*(\d+)\s*(==|!=)\s*(\d+)").ok()?;
+
+    if let Some(caps) = mod_eq_re.captures(condition) {
+        let a: i64 = caps.get(1)?.as_str().parse().ok()?;
+        let b: i64 = caps.get(2)?.as_str().parse().ok()?;
+        let op = caps.get(3)?.as_str();
+        let c: i64 = caps.get(4)?.as_str().parse().ok()?;
+
+        if b == 0 {
+            return Some(false); // Division by zero
+        }
+
+        let mod_result = a % b;
+        return Some(match op {
+            "==" => mod_result == c,
+            "!=" => mod_result != c,
+            _ => false,
+        });
+    }
+
+    None
+}
+
+/// Evaluate a numeric expression (for condition evaluation)
+fn eval_numeric_expr(expr: &str) -> Option<f64> {
+    let trimmed = expr.trim();
+
+    // Try to parse as a simple number first
+    if let Ok(n) = trimmed.parse::<f64>() {
+        return Some(n);
+    }
+
+    // Try to evaluate as arithmetic expression
+    try_eval_pure_numeric(trimmed)
+}
+
 /// Expand sum() calls: sum(~name[N..M]) -> (~nameN + ~nameN+1 + ... + ~nameM)
 fn expand_sum_calls(input: &str) -> String {
     let sum_re = Regex::new(r"sum\(~(\w+)\[(\d+)\.\.(\d+)\]\)").unwrap();
@@ -465,5 +636,64 @@ out $ sum(~s[1..2])
         assert!(expanded.contains("~s1 $ sine 110"));
         assert!(expanded.contains("~s2 $ sine 220"));
         assert!(expanded.contains("(~s1 + ~s2)"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_equals() {
+        assert!(evaluate_condition("1 == 1"));
+        assert!(!evaluate_condition("1 == 2"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_not_equals() {
+        assert!(evaluate_condition("1 != 2"));
+        assert!(!evaluate_condition("1 != 1"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_less_than() {
+        assert!(evaluate_condition("1 < 2"));
+        assert!(!evaluate_condition("2 < 1"));
+        assert!(!evaluate_condition("1 < 1"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_greater_than() {
+        assert!(evaluate_condition("2 > 1"));
+        assert!(!evaluate_condition("1 > 2"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_less_equal() {
+        assert!(evaluate_condition("1 <= 2"));
+        assert!(evaluate_condition("1 <= 1"));
+        assert!(!evaluate_condition("2 <= 1"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_greater_equal() {
+        assert!(evaluate_condition("2 >= 1"));
+        assert!(evaluate_condition("1 >= 1"));
+        assert!(!evaluate_condition("1 >= 2"));
+    }
+
+    #[test]
+    fn test_evaluate_condition_modulo() {
+        assert!(evaluate_condition("4 % 2 == 0"));
+        assert!(evaluate_condition("5 % 2 == 1"));
+        assert!(evaluate_condition("5 % 2 != 0"));
+    }
+
+    #[test]
+    fn test_expand_if_else_simple() {
+        assert!(expand_if_else("if 1 == 1 then yes else no\n").contains("yes"));
+        assert!(expand_if_else("if 1 == 2 then yes else no\n").contains("no"));
+    }
+
+    #[test]
+    fn test_if_else_with_expressions() {
+        let result = expand_if_else("~x $ if 3 < 5 then sine 440 else saw 440\n");
+        assert!(result.contains("sine 440"));
+        assert!(!result.contains("saw 440"));
     }
 }

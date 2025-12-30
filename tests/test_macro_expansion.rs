@@ -152,18 +152,134 @@ out $ sum(~h[1..4])
 // ========== If/Else Tests ==========
 
 #[test]
-fn test_if_else_basic() {
-    // For now, if/else could be compile-time evaluated
+fn test_if_else_numeric_equals() {
     let code = r#"
-@mode: 1
-~sound $ if @mode == 1 then saw 110 else sine 110
+~sound $ if 1 == 1 then saw 110 else sine 110
 out $ ~sound
 "#;
 
     let expanded = expand_macros(code);
-
-    // With @mode = 1, should expand to saw 110
+    // Condition is true, should expand to saw 110
     assert!(expanded.contains("saw 110"));
+    assert!(!expanded.contains("sine 110"));
+    assert!(!expanded.contains("if"));
+}
+
+#[test]
+fn test_if_else_numeric_not_equals() {
+    let code = r#"
+~sound $ if 1 == 2 then saw 110 else sine 110
+out $ ~sound
+"#;
+
+    let expanded = expand_macros(code);
+    // Condition is false, should expand to sine 110
+    assert!(expanded.contains("sine 110"));
+    assert!(!expanded.contains("saw 110"));
+}
+
+#[test]
+fn test_if_else_less_than() {
+    let code = r#"
+~sound $ if 3 < 5 then saw 110 else sine 110
+out $ ~sound
+"#;
+
+    let expanded = expand_macros(code);
+    assert!(expanded.contains("saw 110"));
+}
+
+#[test]
+fn test_if_else_greater_than() {
+    let code = r#"
+~sound $ if 10 > 5 then saw 110 else sine 110
+out $ ~sound
+"#;
+
+    let expanded = expand_macros(code);
+    assert!(expanded.contains("saw 110"));
+}
+
+#[test]
+fn test_if_else_in_loop() {
+    // Use if/else inside a for loop with the loop variable
+    let code = r#"
+for i in 1..4:
+    ~osc[i] $ if i < 3 then sine (110 * i) else saw (110 * i)
+out $ sum(~osc[1..4])
+"#;
+
+    let expanded = expand_macros(code);
+
+    // i=1,2 should use sine, i=3,4 should use saw
+    assert!(expanded.contains("~osc1 $ sine 110"));
+    assert!(expanded.contains("~osc2 $ sine 220"));
+    assert!(expanded.contains("~osc3 $ saw 330"));
+    assert!(expanded.contains("~osc4 $ saw 440"));
+}
+
+#[test]
+fn test_if_else_compiles() {
+    let code = r#"
+tempo: 2.0
+for i in 1..3:
+    ~v[i] $ if i == 1 then sine 220 else saw 330
+out $ sum(~v[1..3])
+"#;
+
+    let expanded = expand_macros(code);
+    let (_, statements) = parse_program(&expanded).expect("Parse failed");
+    let result = compile_program(statements, 44100.0, None);
+
+    assert!(result.is_ok(), "If/else code should compile: {:?}", result.err());
+}
+
+#[test]
+fn test_if_else_less_equal() {
+    let code = r#"
+~sound $ if 5 <= 5 then saw 110 else sine 110
+"#;
+
+    let expanded = expand_macros(code);
+    assert!(expanded.contains("saw 110"));
+}
+
+#[test]
+fn test_if_else_greater_equal() {
+    let code = r#"
+~sound $ if 5 >= 6 then saw 110 else sine 110
+"#;
+
+    let expanded = expand_macros(code);
+    assert!(expanded.contains("sine 110")); // 5 >= 6 is false
+}
+
+#[test]
+fn test_if_else_not_equals() {
+    let code = r#"
+~sound $ if 3 != 4 then saw 110 else sine 110
+"#;
+
+    let expanded = expand_macros(code);
+    assert!(expanded.contains("saw 110")); // 3 != 4 is true
+}
+
+#[test]
+fn test_if_else_modulo() {
+    // Even/odd check using modulo
+    let code = r#"
+for i in 1..4:
+    ~v[i] $ if i % 2 == 0 then sine (110 * i) else saw (110 * i)
+out $ sum(~v[1..4])
+"#;
+
+    let expanded = expand_macros(code);
+
+    // Odd indices (1, 3) should use saw, even (2, 4) should use sine
+    assert!(expanded.contains("~v1 $ saw 110"));
+    assert!(expanded.contains("~v2 $ sine 220"));
+    assert!(expanded.contains("~v3 $ saw 330"));
+    assert!(expanded.contains("~v4 $ sine 440"));
 }
 
 // ========== Edge Cases ==========
