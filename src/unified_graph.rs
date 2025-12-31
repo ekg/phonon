@@ -6308,14 +6308,16 @@ impl UnifiedSignalGraph {
 
         // CRITICAL: Process voice buffers (same as legacy path)
         // This processes sample playback voices for the entire buffer
+        // NOTE: Use buffer_size (number of samples) not buffer.len() (stereo interleaved length)
         self.voice_buffers = self
             .voice_manager
             .borrow_mut()
-            .process_buffer_vec(buffer.len(), self.max_node_id);
+            .process_buffer_vec(buffer_size, self.max_node_id);
 
         // CRITICAL: Precompute pattern events (same as legacy path)
         // This caches pattern events to avoid 512 query() calls per Pattern node
-        self.precompute_pattern_events(buffer.len());
+        // NOTE: Use buffer_size (number of samples) not buffer.len() (stereo interleaved length)
+        self.precompute_pattern_events(buffer_size);
 
         // SYNTHESIS VOICES: Generate buffers for active synthesis voices
         // This enables bus-triggered synthesis (e.g., s "~synth*4")
