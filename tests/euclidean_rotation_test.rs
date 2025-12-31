@@ -20,10 +20,11 @@ fn test_euclidean_no_rotation() {
     }
     assert_eq!(haps.len(), 3, "bd(3,8) should produce 3 events");
 
-    // Check positions - mini_notation_v3 produces different distribution
+    // Bjorklund algorithm produces maximally even distribution
+    // E(3,8) = X..X..X. = slots 0, 3, 6
     assert_eq!(haps[0].part.begin, Fraction::new(0, 1)); // Step 0
-    assert_eq!(haps[1].part.begin, Fraction::new(1, 4)); // Step 2 (2/8 = 1/4)
-    assert_eq!(haps[2].part.begin, Fraction::new(5, 8)); // Step 5
+    assert_eq!(haps[1].part.begin, Fraction::new(3, 8)); // Step 3
+    assert_eq!(haps[2].part.begin, Fraction::new(3, 4)); // Step 6 (6/8 = 3/4)
 }
 
 #[test]
@@ -37,10 +38,10 @@ fn test_euclidean_with_rotation_1() {
     let haps = pattern.query(&state);
     assert_eq!(haps.len(), 3, "bd(3,8,1) should produce 3 events");
 
-    // Rotated by 1 position
-    assert_eq!(haps[0].part.begin, Fraction::new(1, 8));
-    assert_eq!(haps[1].part.begin, Fraction::new(1, 2)); // 4/8 = 1/2
-    assert_eq!(haps[2].part.begin, Fraction::new(7, 8));
+    // E(3,8) = slots 0, 3, 6, rotated left by 1 = slots 2, 5, 7
+    assert_eq!(haps[0].part.begin, Fraction::new(1, 4)); // Step 2 (2/8 = 1/4)
+    assert_eq!(haps[1].part.begin, Fraction::new(5, 8)); // Step 5
+    assert_eq!(haps[2].part.begin, Fraction::new(7, 8)); // Step 7
 }
 
 #[test]
@@ -54,15 +55,16 @@ fn test_euclidean_with_rotation_2() {
     let haps = pattern.query(&state);
     assert_eq!(haps.len(), 3, "bd(3,8,2) should produce 3 events");
 
-    // Rotated by 2 positions
-    assert_eq!(haps[0].part.begin, Fraction::new(0, 1)); // 0/8 = 0/1
-    assert_eq!(haps[1].part.begin, Fraction::new(3, 8));
-    assert_eq!(haps[2].part.begin, Fraction::new(3, 4)); // 6/8 = 3/4
+    // E(3,8) = slots 0, 3, 6, rotated left by 2 = slots 1, 4, 6
+    assert_eq!(haps[0].part.begin, Fraction::new(1, 8)); // Step 1
+    assert_eq!(haps[1].part.begin, Fraction::new(1, 2)); // Step 4 (4/8 = 1/2)
+    assert_eq!(haps[2].part.begin, Fraction::new(3, 4)); // Step 6 (6/8 = 3/4)
 }
 
 #[test]
 fn test_euclidean_negative_rotation() {
     // Negative rotation should work (rotating backwards)
+    // -1 rotation is equivalent to rotating left by 7 (8-1=7)
     let pattern = parse_mini_notation("bd(3,8,-1)");
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -72,10 +74,10 @@ fn test_euclidean_negative_rotation() {
     let haps = pattern.query(&state);
     assert_eq!(haps.len(), 3, "bd(3,8,-1) should produce 3 events");
 
-    // Based on actual implementation output
-    assert_eq!(haps[0].part.begin, Fraction::new(1, 8));
-    assert_eq!(haps[1].part.begin, Fraction::new(3, 8));
-    assert_eq!(haps[2].part.begin, Fraction::new(3, 4)); // 6/8 = 3/4
+    // E(3,8) = slots 0, 3, 6, rotated left by 7 (same as right by 1) = slots 1, 4, 7
+    assert_eq!(haps[0].part.begin, Fraction::new(1, 8)); // Step 1
+    assert_eq!(haps[1].part.begin, Fraction::new(1, 2)); // Step 4 (4/8 = 1/2)
+    assert_eq!(haps[2].part.begin, Fraction::new(7, 8)); // Step 7
 }
 
 // #[test]

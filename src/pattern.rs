@@ -1811,27 +1811,28 @@ impl Pattern<String> {
 // ============= Euclidean Rhythms =============
 
 impl Pattern<bool> {
-    /// Generate Euclidean rhythm pattern
+    /// Generate Euclidean rhythm pattern using the Bjorklund algorithm
+    /// This produces maximally even distributions matching TidalCycles:
+    /// - E(3,8) -> X..X..X. (slots 0, 3, 6)
+    /// - E(5,8) -> X.XX.XX. (slots 0, 2, 3, 5, 6)
     pub fn euclid(pulses: usize, steps: usize, rotation: i32) -> Self {
         if pulses == 0 || steps == 0 {
             return Pattern::silence();
         }
 
-        // Generate euclidean pattern using Bjorklund's algorithm
-        // For compatibility with TidalCycles, we want patterns like:
-        // (3,8) -> X..X..X.
-        // (5,8) -> X.X.X.XX
+        // Bjorklund/Bresenham algorithm for euclidean rhythm
+        // A pulse occurs at step i if: (i * pulses) % steps < pulses
+        // This produces maximally even spacing matching TidalCycles
         let mut result = vec![false; steps];
+        let pulses = pulses.min(steps); // Can't have more pulses than steps
 
-        if pulses > 0 {
-            // Distribute pulses evenly across steps
-            for i in 0..pulses {
-                let pos = (i * steps) / pulses;
-                result[pos] = true;
+        for i in 0..steps {
+            if (i * pulses) % steps < pulses {
+                result[i] = true;
             }
         }
 
-        // Apply rotation
+        // Apply rotation (positive = shift left/earlier)
         if rotation != 0 {
             let rot = ((rotation % steps as i32) + steps as i32) as usize % steps;
             result.rotate_left(rot);

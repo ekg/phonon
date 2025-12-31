@@ -18,12 +18,11 @@ fn test_euclidean_rotation() {
 
     let events = pattern.query(&state);
 
-    // Based on our euclidean implementation with rotation
+    // Bjorklund E(3,8) = slots 0, 3, 6, rotated left by 2 = slots 1, 4, 6
     assert_eq!(events.len(), 3, "Should have 3 events");
-    // Rotation by 2 positions moves the pattern
-    assert_eq!(events[0].part.begin, Fraction::new(0, 1));
-    assert_eq!(events[1].part.begin, Fraction::new(3, 8));
-    assert_eq!(events[2].part.begin, Fraction::new(3, 4));
+    assert_eq!(events[0].part.begin, Fraction::new(1, 8)); // Step 1
+    assert_eq!(events[1].part.begin, Fraction::new(1, 2)); // Step 4 (4/8 = 1/2)
+    assert_eq!(events[2].part.begin, Fraction::new(3, 4)); // Step 6 (6/8 = 3/4)
 }
 
 #[test]

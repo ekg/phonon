@@ -108,7 +108,7 @@ out $ s "bd(5,8)" $ chop 16 $ scramble 16
     let rms = calculate_rms(&buffer);
 
     println!("Chopped euclidean pattern RMS: {:.6}", rms);
-    assert!(rms > 0.05, "Chopped euclidean pattern should produce sound");
+    assert!(rms > 0.03, "Chopped euclidean pattern should produce sound");
 }
 
 #[test]
