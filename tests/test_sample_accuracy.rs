@@ -43,6 +43,8 @@ fn load_sample_raw(name: &str) -> Option<(Vec<f32>, Option<Vec<f32>>)> {
 
 /// Build a reference track by placing samples at specific times
 /// Returns mono audio buffer
+///
+/// Applies the same 1ms attack envelope that phonon uses for sample playback
 fn build_reference_track(
     placements: &[(f64, &str, f32)], // (time_in_seconds, sample_name, gain)
     duration_samples: usize,
@@ -50,15 +52,24 @@ fn build_reference_track(
 ) -> Vec<f32> {
     let mut output = vec![0.0f32; duration_samples];
 
+    // Phonon uses 1ms (0.001s) attack for sample voices
+    let attack_samples = (0.001 * sample_rate) as usize;
+
     for &(time_sec, sample_name, gain) in placements {
         if let Some(sample_data) = load_sample(sample_name) {
             let start_sample = (time_sec * sample_rate as f64) as usize;
 
-            // Mix sample into output
+            // Mix sample into output with attack envelope (matching phonon)
             for (i, &sample_val) in sample_data.iter().enumerate() {
                 let out_idx = start_sample + i;
                 if out_idx < output.len() {
-                    output[out_idx] += sample_val * gain;
+                    // Apply linear attack envelope (same as phonon's voice envelope)
+                    let env = if i < attack_samples {
+                        i as f32 / attack_samples as f32
+                    } else {
+                        1.0
+                    };
+                    output[out_idx] += sample_val * gain * env;
                 }
             }
         } else {
@@ -427,6 +438,36 @@ out $ s "bd bd bd bd"
     println!("  Correlation: {:.4}", comparison.correlation);
     println!("  RMS difference: {:.6}", comparison.rms_difference);
     println!("  SNR: {:.1} dB", comparison.snr_db);
+
+    // Debug: compare sample values at onset positions
+    println!("  Sample comparison at onset times:");
+    for (i, &onset_time) in phonon_onsets.iter().take(4).enumerate() {
+        let onset_sample = (onset_time * sample_rate as f64) as usize;
+        // Look at samples 50-100 after onset (after attack envelope)
+        for offset in [50, 100, 200] {
+            let idx = onset_sample + offset;
+            if idx < phonon_output.len() && idx < reference.len() {
+                let ratio = if reference[idx].abs() > 0.001 {
+                    phonon_output[idx] / reference[idx]
+                } else { 0.0 };
+                println!("    Onset {} + {}: phonon={:.4}, ref={:.4}, ratio={:.3}",
+                    i, offset, phonon_output[idx], reference[idx], ratio);
+            }
+        }
+    }
+
+    // Debug: RMS comparison per onset
+    println!("  RMS per onset region:");
+    for (i, &onset_time) in phonon_onsets.iter().take(4).enumerate() {
+        let start = (onset_time * sample_rate as f64) as usize;
+        let end = (start + 2000).min(phonon_output.len());
+        let phonon_rms: f32 = (phonon_output[start..end].iter().map(|x| x*x).sum::<f32>()
+            / (end - start) as f32).sqrt();
+        let ref_rms: f32 = (reference[start..end].iter().map(|x| x*x).sum::<f32>()
+            / (end - start) as f32).sqrt();
+        println!("    Onset {}: phonon_rms={:.4}, ref_rms={:.4}, ratio={:.3}",
+            i, phonon_rms, ref_rms, phonon_rms / ref_rms.max(0.001));
+    }
 
     // Should have 8 onsets (4 per cycle × 2 cycles)
     assert!(phonon_onsets.len() >= 7,

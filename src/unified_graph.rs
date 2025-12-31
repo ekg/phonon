@@ -6751,11 +6751,16 @@ impl UnifiedSignalGraph {
         // processing for all nodes until a proper solution is found.
         // TODO: Investigate eval_node_buffer() interaction with envelope state
         //
-        // CRITICAL: Track voice count to detect and process newly triggered voices
+        // CRITICAL: Track newly triggered voices to process them for audio within this buffer.
         // Without this, voices triggered during Sample node evaluation would have no audio
         // until the next buffer (because voice_buffers is pre-rendered at buffer start).
-        let initial_voice_count = self.voice_manager.borrow().active_voice_count();
+        //
+        // NOTE: We use take_last_triggered_voice_index() which reliably tracks actual voice
+        // indices, rather than counting active voices (which breaks when voices finish mid-buffer).
         let mut newly_triggered_voices: Vec<usize> = Vec::new();
+
+        // Clear any pending last_triggered_voice_index from before this buffer
+        let _ = self.voice_manager.borrow_mut().take_last_triggered_voice_index();
 
         // PER-SAMPLE PATH: Process each sample with proper timing
         for i in 0..buffer_size {
@@ -6771,17 +6776,8 @@ impl UnifiedSignalGraph {
             // Clear voice_output_cache for this sample - it's used for newly triggered voices
             self.voice_output_cache.clear();
 
-            // CRITICAL: Check if new voices were triggered and process them
-            // This must happen BEFORE eval_node so Sample nodes can read from voice_output_cache
-            let current_voice_count = self.voice_manager.borrow().active_voice_count();
-            if current_voice_count > initial_voice_count + newly_triggered_voices.len() {
-                // New voice(s) were just triggered - add to tracking list
-                while newly_triggered_voices.len() < (current_voice_count - initial_voice_count) {
-                    newly_triggered_voices.push(initial_voice_count + newly_triggered_voices.len());
-                }
-            }
-
             // Process all newly triggered voices for this sample
+            // This runs BEFORE eval_node, processing voices triggered in PREVIOUS samples
             for &voice_idx in &newly_triggered_voices {
                 if let Some(((left, right), source_node)) = self
                     .voice_manager
@@ -6798,8 +6794,38 @@ impl UnifiedSignalGraph {
 
             // Evaluate the node at this sample
             // This uses the existing eval_node infrastructure
+            // NOTE: eval_node may trigger new voices during Sample node evaluation
             let sample = self.eval_node(&NodeId(node_id));
             output[i] = sample;
+
+            // CRITICAL: Check if eval_node triggered any new voices
+            // Use take_last_triggered_voice_index for reliable tracking
+            // (active_voice_count() is unreliable because voices can finish mid-buffer)
+            let new_voice_idx = self.voice_manager.borrow_mut().take_last_triggered_voice_index();
+            if let Some(voice_idx) = new_voice_idx {
+                // Process the newly triggered voice IMMEDIATELY for this sample
+                // This ensures the first sample of audio goes into the current output
+                let voice_output = self
+                    .voice_manager
+                    .borrow_mut()
+                    .process_voice_by_index(voice_idx);
+
+                if let Some(((left, right), source_node)) = voice_output {
+                    let mono = (left + right) / std::f32::consts::SQRT_2;
+                    self.voice_output_cache
+                        .entry(source_node)
+                        .and_modify(|v| *v += mono)
+                        .or_insert(mono);
+
+                    // Update output with newly triggered voice
+                    // The Sample node already returned from voice_buffers (which was 0)
+                    // so we need to add the new voice's output
+                    output[i] += mono;
+                }
+
+                // Add to tracking list for subsequent samples
+                newly_triggered_voices.push(voice_idx);
+            }
 
             // Update dag_buffer_cache immediately so UnitDelay can access previous samples
             // This is critical for self-referential feedback loops like ~accum $ 0.1 + ~accum * 0.9
@@ -6811,6 +6837,12 @@ impl UnifiedSignalGraph {
                 eprintln!("  bus sample[{}] = {}", i, sample);
             }
         }
+
+        // CRITICAL: Update cached_cycle_position to point to where the NEXT buffer should start.
+        // The loop above sets it to buffer_start_cycle + (buffer_size - 1) * sample_increment,
+        // but we need buffer_start_cycle + buffer_size * sample_increment to avoid 1-sample drift
+        // per buffer. Without this fix, timing drifts by N samples after N buffers.
+        self.cached_cycle_position = buffer_start_cycle + buffer_size as f64 * sample_increment;
     }
 
     /// Transfer FX state from old graph to this graph

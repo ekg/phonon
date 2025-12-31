@@ -1740,8 +1740,16 @@ impl VoiceManager {
                 .par_iter_mut()
                 .filter(|v| v.synthesis_node_id.is_none())
                 .map(|voice| {
+                    let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
                     let mut buffer = Vec::with_capacity(buffer_size);
-                    for _ in 0..buffer_size {
+
+                    // Produce zeros before trigger offset (voice wasn't triggered yet)
+                    for _ in 0..trigger_offset {
+                        buffer.push(0.0);
+                    }
+
+                    // Process audio from trigger offset onwards
+                    for _ in trigger_offset..buffer_size {
                         let (l, r) = voice.process_stereo();
                         let mono = (l + r) / std::f32::consts::SQRT_2;
                         buffer.push(mono);
@@ -1754,6 +1762,11 @@ impl VoiceManager {
             for (voice_buffer, source_node) in voice_buffers {
                 output.add_to_node(source_node, &voice_buffer);
             }
+
+            // Clear trigger offsets (per-buffer) - must be done after parallel processing
+            for voice in &mut self.voices {
+                voice.buffer_trigger_offset = None;
+            }
         } else {
             // Sequential processing
             for voice in &mut self.voices {
@@ -1762,14 +1775,25 @@ impl VoiceManager {
                 }
 
                 let source_node = voice.source_node;
+                let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
 
-                // Render full buffer for this voice
+                // Render buffer for this voice, respecting trigger offset
                 let mut voice_buffer = Vec::with_capacity(buffer_size);
-                for _ in 0..buffer_size {
+
+                // Produce zeros before trigger offset (voice wasn't triggered yet)
+                for _ in 0..trigger_offset {
+                    voice_buffer.push(0.0);
+                }
+
+                // Process audio from trigger offset onwards
+                for _ in trigger_offset..buffer_size {
                     let (l, r) = voice.process_stereo();
                     let mono = (l + r) / std::f32::consts::SQRT_2;
                     voice_buffer.push(mono);
                 }
+
+                // Clear trigger offset (per-buffer)
+                voice.buffer_trigger_offset = None;
 
                 // Add to output buffers
                 output.add_to_node(source_node, &voice_buffer);
@@ -2138,6 +2162,13 @@ impl VoiceManager {
         if let Some(idx) = self.last_triggered_voice_index {
             self.voices[idx].auto_release_at_sample = Some(sample_count);
         }
+    }
+
+    /// Get and clear the last triggered voice index
+    /// Returns Some(index) if a voice was triggered since last call, None otherwise
+    /// Use this for reliable voice tracking instead of counting active voices
+    pub fn take_last_triggered_voice_index(&mut self) -> Option<usize> {
+        self.last_triggered_voice_index.take()
     }
 
     /// Set buffer trigger offset for the last triggered voice (for hybrid architecture)
