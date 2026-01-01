@@ -9,7 +9,6 @@
 /// - Manfred Schroeder (1962) "Natural Sounding Artificial Reverberation"
 /// - Freeverb implementation (public domain)
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use std::collections::VecDeque;
 
 /// Reverb node with pattern-controlled parameters
 ///
@@ -45,16 +44,18 @@ pub struct ReverbNode {
     allpass2: AllpassFilter,
 }
 
+/// Comb filter using circular buffer (fast O(1) read/write)
 struct CombFilter {
-    buffer: VecDeque<f32>,
-    base_delay_samples: usize,
+    buffer: Vec<f32>,
+    write_idx: usize,
     feedback: f32,
     filter_state: f32,
 }
 
+/// Allpass filter using circular buffer (fast O(1) read/write)
 struct AllpassFilter {
-    buffer: VecDeque<f32>,
-    delay_samples: usize,
+    buffer: Vec<f32>,
+    write_idx: usize,
 }
 
 impl ReverbNode {
@@ -97,16 +98,18 @@ impl ReverbNode {
 impl CombFilter {
     fn new(delay: usize) -> Self {
         Self {
-            buffer: VecDeque::from(vec![0.0; delay]),
-            base_delay_samples: delay,
+            buffer: vec![0.0; delay],
+            write_idx: 0,
             feedback: 0.84,
             filter_state: 0.0,
         }
     }
 
+    #[inline]
     fn process(&mut self, input: f32, damping: f32) -> f32 {
-        // Read delayed sample
-        let delayed = self.buffer[0];
+        let len = self.buffer.len();
+        // Read delayed sample (read position is at write_idx since buffer is full)
+        let delayed = self.buffer[self.write_idx];
 
         // One-pole lowpass for damping
         // More damping = more high frequency absorption
@@ -115,9 +118,9 @@ impl CombFilter {
         // Feedback comb: output = input + feedback * filtered_delay
         let output = input + self.filter_state * self.feedback;
 
-        // Write to buffer and advance
-        self.buffer.pop_front();
-        self.buffer.push_back(output);
+        // Write to buffer and advance using circular index
+        self.buffer[self.write_idx] = output;
+        self.write_idx = (self.write_idx + 1) % len;
 
         delayed
     }
@@ -126,17 +129,20 @@ impl CombFilter {
 impl AllpassFilter {
     fn new(delay: usize) -> Self {
         Self {
-            buffer: VecDeque::from(vec![0.0; delay]),
-            delay_samples: delay,
+            buffer: vec![0.0; delay],
+            write_idx: 0,
         }
     }
 
+    #[inline]
     fn process(&mut self, input: f32) -> f32 {
-        let delayed = self.buffer[0];
+        let len = self.buffer.len();
+        let delayed = self.buffer[self.write_idx];
         let output = -input + delayed;
 
-        self.buffer.pop_front();
-        self.buffer.push_back(input + delayed * 0.5);
+        // Write to buffer and advance using circular index
+        self.buffer[self.write_idx] = input + delayed * 0.5;
+        self.write_idx = (self.write_idx + 1) % len;
 
         output
     }
