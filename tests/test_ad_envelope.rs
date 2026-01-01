@@ -13,16 +13,20 @@
 /// - Used for percussive, plucked, and transient sounds
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::unified_graph::OutputMixMode;
 
 mod audio_test_utils;
 use audio_test_utils::calculate_rms;
 
 /// Helper function to render DSL code to audio buffer
+/// Uses OutputMixMode::None to get raw envelope values without saturation
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
     let mut graph =
         compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    // Use None mode to get raw envelope values (no tanh saturation)
+    graph.set_output_mix_mode(OutputMixMode::None);
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }

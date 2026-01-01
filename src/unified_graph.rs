@@ -6283,6 +6283,11 @@ impl UnifiedSignalGraph {
 
         let buffer_size = buffer.len() / 2; // Stereo: left/right pairs
 
+        // CRITICAL: Set cached_cycle_position to buffer_start_cycle for correct timing
+        // This must be done BEFORE any nodes are evaluated, as nodes like AD envelope
+        // use get_cycle_position_for_sample_offset() which relies on cached_cycle_position.
+        self.cached_cycle_position = buffer_start_cycle;
+
         // Ensure zero buffer is correctly sized
         if self.dag_zero_buffer.len() != buffer_size {
             self.dag_zero_buffer = vec![0.0; buffer_size];
