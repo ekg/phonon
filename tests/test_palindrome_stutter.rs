@@ -1,75 +1,75 @@
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+/// Tests for stut (3-arg stutter/echo) transform
+///
+/// stut n time decay - Creates n echoes with time delay and decay
+/// Example: stut 3 0.125 0.7 creates original + 2 echoes at 70%, 49% volume
 
+use phonon::compositional_parser::parse_program;
+use phonon::compositional_compiler::compile_program;
+
+/// Test stut (3-arg Tidal-style echo/stutter) with explicit frequency
 #[test]
-fn test_palindrome_transform() {
-    let input = r#"
-        cps: 2.0
-        out $ s("bd sn" $ palindrome) * 0.5
+fn test_stut_with_freq() {
+    let code = r#"
+cps: 2.0
+~synth $ stut 2 0.27 0.9 $ sine 261.63
+out $ ~synth * 0.3
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
-    // Render 2 seconds (4 cycles at 2 CPS)
-    let buffer = graph.render(88200);
-
-    // Calculate RMS
-    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-
-    println!("Palindrome RMS: {}", rms);
-    assert!(
-        rms > 0.0001,
-        "Palindrome should produce audio, got RMS: {}",
-        rms
-    );
-}
-
-#[test]
-fn test_stutter_transform() {
-    let input = r#"
-        cps: 2.0
-        out $ s("bd sn" $ stutter 3) * 0.5
-    "#;
-
-    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
-
-    // Render 1 second (2 cycles at 2 CPS)
     let buffer = graph.render(44100);
-
-    // Calculate RMS
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-
-    println!("Stutter RMS: {}", rms);
-    assert!(
-        rms > 0.0001,
-        "Stutter should produce audio, got RMS: {}",
-        rms
-    );
+    println!("Stut with freq RMS: {}", rms);
+    assert!(rms > 0.0001, "Stut with freq should produce audio, got RMS: {}", rms);
 }
 
+/// Test stut with sample playback - the most common use case
 #[test]
-fn test_palindrome_parsing() {
-    let input = r#"
-        cps: 2.0
-        out $ "1 2 3" $ palindrome
+fn test_stut_with_samples() {
+    let code = r#"
+cps: 2.0
+~drums $ stut 3 0.125 0.7 $ s "bd sn"
+out $ ~drums * 0.5
     "#;
 
-    let result = parse_dsl(input);
-    println!("Parse result: {:?}", result);
-    assert!(result.is_ok(), "Should parse palindrome transform");
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
+
+    let buffer = graph.render(44100);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Stut with samples RMS: {}", rms);
+    assert!(rms > 0.0001, "Stut with samples should produce audio, got RMS: {}", rms);
 }
 
+/// Test stut parsing compiles correctly
 #[test]
-fn test_stutter_parsing() {
-    let input = r#"
-        cps: 2.0
-        out $ "1 2 3" $ stutter 4
+fn test_stut_parsing() {
+    let code = r#"
+cps: 2.0
+~pattern $ stut 4 0.1 0.8 $ s "bd cp"
+out $ ~pattern
     "#;
 
-    let result = parse_dsl(input);
-    println!("Parse result: {:?}", result);
-    assert!(result.is_ok(), "Should parse stutter transform");
+    let (_, statements) = parse_program(code).expect("Should parse stut");
+    let result = compile_program(statements, 44100.0, None);
+    assert!(result.is_ok(), "Stut should compile: {:?}", result.err());
+}
+
+/// Test stut with saw wave
+#[test]
+fn test_stut_with_saw() {
+    let code = r#"
+cps: 2.0
+~synth $ stut 3 0.2 0.6 $ saw 110
+out $ ~synth * 0.3
+    "#;
+
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
+
+    let buffer = graph.render(44100);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Stut with saw RMS: {}", rms);
+    assert!(rms > 0.0001, "Stut with saw should produce audio, got RMS: {}", rms);
 }

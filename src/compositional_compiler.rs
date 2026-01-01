@@ -425,7 +425,7 @@ const RESERVED_SIGNAL_NAMES: &[&str] = &["add", "sub", "mul", "div"];
 /// NOTE: "select" is intentionally NOT here - it's a signal multiplexer function,
 /// not a pattern transform. Pattern selection uses "sew" or "stitch" instead.
 const PATTERN_TRANSFORM_NAMES: &[&str] = &[
-    "fast", "slow", "rev", "palindrome", "degrade", "degradeBy", "stutter",
+    "fast", "slow", "rev", "palindrome", "degrade", "degradeBy", "stutter", "stut",
     "shuffle", "fastGap", "iter", "loopAt", "early", "late", "slice", "squeeze",
     "hurry", "chop", "striate", "chunk", "within", "every", "sometimes", "often",
     "rarely", "almostNever", "almostAlways", "someCycles", "struct", "euclid",
@@ -2308,6 +2308,11 @@ fn compile_function_call(
                                                 "stutter" if args.len() == 1 => {
                                                     Transform::Stutter(Box::new(args[0].clone()))
                                                 }
+                                                "stut" if args.len() == 3 => Transform::Stut {
+                                                    n: Box::new(args[0].clone()),
+                                                    time: Box::new(args[1].clone()),
+                                                    decay: Box::new(args[2].clone()),
+                                                },
                                                 "shuffle" if args.len() == 1 => {
                                                     Transform::Shuffle(Box::new(args[0].clone()))
                                                 }
@@ -2384,6 +2389,11 @@ fn compile_function_call(
                                     "stutter" if args.len() == 1 => {
                                         Transform::Stutter(Box::new(args[0].clone()))
                                     }
+                                    "stut" if args.len() == 3 => Transform::Stut {
+                                        n: Box::new(args[0].clone()),
+                                        time: Box::new(args[1].clone()),
+                                        decay: Box::new(args[2].clone()),
+                                    },
                                     "loopAt" if args.len() == 1 => {
                                         Transform::LoopAt(Box::new(args[0].clone()))
                                     }
@@ -2518,6 +2528,11 @@ fn compile_function_call(
                                             "degrade" if args.is_empty() => Transform::Degrade,
                                             "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
                                             "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                                            "stut" if args.len() == 3 => Transform::Stut {
+                                                n: Box::new(args[0].clone()),
+                                                time: Box::new(args[1].clone()),
+                                                decay: Box::new(args[2].clone()),
+                                            },
                                             "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                                             "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
                                             "slice" if args.len() == 2 => Transform::Slice {
@@ -7923,6 +7938,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                         Transform::DegradeBy(Box::new(args[0].clone()))
                     }
                     "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                    "stut" if args.len() == 3 => Transform::Stut {
+                        n: Box::new(args[0].clone()),
+                        time: Box::new(args[1].clone()),
+                        decay: Box::new(args[2].clone()),
+                    },
                     "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                     "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
                     "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
@@ -7972,6 +7992,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                         Transform::DegradeBy(Box::new(args[0].clone()))
                     }
                     "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                    "stut" if args.len() == 3 => Transform::Stut {
+                        n: Box::new(args[0].clone()),
+                        time: Box::new(args[1].clone()),
+                        decay: Box::new(args[2].clone()),
+                    },
                     "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                     "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
                     "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
