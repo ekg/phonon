@@ -4660,6 +4660,12 @@ pub struct UnifiedSignalGraph {
     /// Used for pipelined rendering where dry signal is computed in parallel
     /// and sequential effects are applied in a separate sequential pass
     pub bypass_sequential_effects: bool,
+
+    /// Master limiter ceiling (0.0 to 1.0)
+    /// Applied to all output to prevent clipping and protect speakers/ears
+    /// Default: 0.95 (slightly below 0dB for safety margin)
+    /// Set to 1.0 or above to disable
+    pub master_limiter_ceiling: f32,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4725,6 +4731,7 @@ impl Clone for UnifiedSignalGraph {
             // Shared state is preserved on clone (Arc gives cheap reference)
             shared_state: self.shared_state.clone(),
             bypass_sequential_effects: self.bypass_sequential_effects,
+            master_limiter_ceiling: self.master_limiter_ceiling,
         }
     }
 }
@@ -4783,6 +4790,7 @@ impl UnifiedSignalGraph {
             current_voice_gate: std::cell::Cell::new(None),
             shared_state: None, // Disabled by default
             bypass_sequential_effects: false, // Normal mode by default
+            master_limiter_ceiling: 0.95, // Default: -0.4dB headroom for safety
         }
     }
 
@@ -4807,6 +4815,19 @@ impl UnifiedSignalGraph {
     /// Used for pipelined rendering
     pub fn set_bypass_sequential_effects(&mut self, bypass: bool) {
         self.bypass_sequential_effects = bypass;
+    }
+
+    /// Set master limiter ceiling (0.0 to 1.0)
+    /// This is a safety limiter applied to all output to prevent clipping
+    /// Default: 0.95 (-0.4dB headroom)
+    /// Set to 1.0 or above to disable the limiter
+    pub fn set_master_limiter_ceiling(&mut self, ceiling: f32) {
+        self.master_limiter_ceiling = ceiling;
+    }
+
+    /// Get current master limiter ceiling
+    pub fn get_master_limiter_ceiling(&self) -> f32 {
+        self.master_limiter_ceiling
     }
 
     /// Enable shared state for parallel rendering
@@ -7267,6 +7288,17 @@ impl UnifiedSignalGraph {
             }
             OutputMixMode::None => {
                 // Direct sum - no gain compensation
+            }
+        }
+
+        // Phase 4b: Apply master limiter (safety limiter to protect speakers/ears)
+        // This is applied AFTER OutputMixMode to catch any peaks that slip through
+        // Default ceiling is 0.95 (-0.4dB) for safety margin
+        if self.master_limiter_ceiling < 1.0 {
+            let ceiling = self.master_limiter_ceiling;
+            for sample in buffer.iter_mut() {
+                // Hard limit to ceiling (brick-wall limiter)
+                *sample = sample.clamp(-ceiling, ceiling);
             }
         }
 
