@@ -18,6 +18,74 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+/// Parse a function call into a Transform enum variant.
+/// This is the SINGLE source of truth for transform name -> Transform mapping.
+/// All transform parsing should go through this function.
+fn parse_transform_from_call(name: &str, args: &[Expr]) -> Result<Transform, String> {
+    match name {
+        // Time manipulation
+        "fast" if args.len() == 1 => Ok(Transform::Fast(Box::new(args[0].clone()))),
+        "slow" if args.len() == 1 => Ok(Transform::Slow(Box::new(args[0].clone()))),
+        "squeeze" if args.len() == 1 => Ok(Transform::Squeeze(Box::new(args[0].clone()))),
+        "hurry" if args.len() == 1 => Ok(Transform::Hurry(Box::new(args[0].clone()))),
+        "fastGap" if args.len() == 1 => Ok(Transform::FastGap(Box::new(args[0].clone()))),
+
+        // Rotation/shifting
+        "rotL" if args.len() == 1 => Ok(Transform::RotL(Box::new(args[0].clone()))),
+        "rotR" if args.len() == 1 => Ok(Transform::RotR(Box::new(args[0].clone()))),
+        "early" if args.len() == 1 => Ok(Transform::Early(Box::new(args[0].clone()))),
+        "late" if args.len() == 1 => Ok(Transform::Late(Box::new(args[0].clone()))),
+
+        // Reversal/palindrome
+        "rev" if args.is_empty() => Ok(Transform::Rev),
+        "palindrome" if args.is_empty() => Ok(Transform::Palindrome),
+
+        // Degradation
+        "degrade" if args.is_empty() => Ok(Transform::Degrade),
+        "degradeBy" if args.len() == 1 => Ok(Transform::DegradeBy(Box::new(args[0].clone()))),
+
+        // Stutter/echo effects
+        "stutter" if args.len() == 1 => Ok(Transform::Stutter(Box::new(args[0].clone()))),
+        "stut" if args.len() == 3 => Ok(Transform::Stut {
+            n: Box::new(args[0].clone()),
+            time: Box::new(args[1].clone()),
+            decay: Box::new(args[2].clone()),
+        }),
+
+        // Shuffle/reorder
+        "shuffle" if args.len() == 1 => Ok(Transform::Shuffle(Box::new(args[0].clone()))),
+        "scramble" if args.len() == 1 => Ok(Transform::Scramble(Box::new(args[0].clone()))),
+
+        // Iteration
+        "iter" if args.len() == 1 => Ok(Transform::Iter(Box::new(args[0].clone()))),
+        "loopAt" if args.len() == 1 => Ok(Transform::LoopAt(Box::new(args[0].clone()))),
+        "ply" if args.len() == 1 => Ok(Transform::Ply(Box::new(args[0].clone()))),
+
+        // Slicing
+        "slice" if args.len() == 2 => Ok(Transform::Slice {
+            n: Box::new(args[0].clone()),
+            indices: Box::new(args[1].clone()),
+        }),
+        "chop" if args.len() == 1 => Ok(Transform::Chop(Box::new(args[0].clone()))),
+        "striate" if args.len() == 1 => Ok(Transform::Striate(Box::new(args[0].clone()))),
+
+        // Timing feel
+        "swing" if args.len() == 1 => Ok(Transform::Swing(Box::new(args[0].clone()))),
+
+        // Zoom/compress (time window)
+        "compress" if args.len() == 2 => Ok(Transform::Compress {
+            begin: Box::new(args[0].clone()),
+            end: Box::new(args[1].clone()),
+        }),
+        "zoom" if args.len() == 2 => Ok(Transform::Zoom {
+            begin: Box::new(args[0].clone()),
+            end: Box::new(args[1].clone()),
+        }),
+
+        _ => Err(format!("Unknown transform '{}' with {} args", name, args.len())),
+    }
+}
+
 /// Use AudioNode architecture (DAW-style block processing)
 /// Set to false to use legacy SignalNode architecture (sample-by-sample)
 const USE_AUDIO_NODES: bool = false;
@@ -2286,62 +2354,8 @@ fn compile_function_call(
                                             extract_transforms_from_chain(inner_expr, transforms)
                                         }
                                         Expr::Call { name, args } => {
-                                            // Convert Call to Transform
-                                            let t = match name.as_str() {
-                                                "fast" if args.len() == 1 => {
-                                                    Transform::Fast(Box::new(args[0].clone()))
-                                                }
-                                                "slow" if args.len() == 1 => {
-                                                    Transform::Slow(Box::new(args[0].clone()))
-                                                }
-                                                "squeeze" if args.len() == 1 => {
-                                                    Transform::Squeeze(Box::new(args[0].clone()))
-                                                }
-                                                "rev" if args.is_empty() => Transform::Rev,
-                                                "palindrome" if args.is_empty() => {
-                                                    Transform::Palindrome
-                                                }
-                                                "degrade" if args.is_empty() => Transform::Degrade,
-                                                "degradeBy" if args.len() == 1 => {
-                                                    Transform::DegradeBy(Box::new(args[0].clone()))
-                                                }
-                                                "stutter" if args.len() == 1 => {
-                                                    Transform::Stutter(Box::new(args[0].clone()))
-                                                }
-                                                "stut" if args.len() == 3 => Transform::Stut {
-                                                    n: Box::new(args[0].clone()),
-                                                    time: Box::new(args[1].clone()),
-                                                    decay: Box::new(args[2].clone()),
-                                                },
-                                                "shuffle" if args.len() == 1 => {
-                                                    Transform::Shuffle(Box::new(args[0].clone()))
-                                                }
-                                                "fastGap" if args.len() == 1 => {
-                                                    Transform::FastGap(Box::new(args[0].clone()))
-                                                }
-                                                "iter" if args.len() == 1 => {
-                                                    Transform::Iter(Box::new(args[0].clone()))
-                                                }
-                                                "loopAt" if args.len() == 1 => {
-                                                    Transform::LoopAt(Box::new(args[0].clone()))
-                                                }
-                                                "early" if args.len() == 1 => {
-                                                    Transform::Early(Box::new(args[0].clone()))
-                                                }
-                                                "slice" if args.len() == 2 => Transform::Slice {
-                                                    n: Box::new(args[0].clone()),
-                                                    indices: Box::new(args[1].clone()),
-                                                },
-                                                "late" if args.len() == 1 => {
-                                                    Transform::Late(Box::new(args[0].clone()))
-                                                }
-                                                _ => {
-                                                    return Err(format!(
-                                                        "Unknown transform: {}",
-                                                        name
-                                                    ))
-                                                }
-                                            };
+                                            // Convert Call to Transform using central helper
+                                            let t = parse_transform_from_call(name, args)?;
                                             transforms.push(t);
                                             Ok(())
                                         }
@@ -2363,42 +2377,7 @@ fn compile_function_call(
                             }
                             Expr::Call { name, args } => {
                                 // Handle Call expressions as transforms (e.g., s "bd" $ squeeze 3)
-                                let transform = match name.as_str() {
-                                    "fast" if args.len() == 1 => {
-                                        Transform::Fast(Box::new(args[0].clone()))
-                                    }
-                                    "slow" if args.len() == 1 => {
-                                        Transform::Slow(Box::new(args[0].clone()))
-                                    }
-                                    "hurry" if args.len() == 1 => {
-                                        Transform::Hurry(Box::new(args[0].clone()))
-                                    }
-                                    "squeeze" if args.len() == 1 => {
-                                        Transform::Squeeze(Box::new(args[0].clone()))
-                                    }
-                                    "rev" if args.is_empty() => Transform::Rev,
-                                    "palindrome" if args.is_empty() => Transform::Palindrome,
-                                    "degrade" if args.is_empty() => Transform::Degrade,
-                                    "degradeBy" if args.len() == 1 => {
-                                        Transform::DegradeBy(Box::new(args[0].clone()))
-                                    }
-                                    "slice" if args.len() == 2 => Transform::Slice {
-                                        n: Box::new(args[0].clone()),
-                                        indices: Box::new(args[1].clone()),
-                                    },
-                                    "stutter" if args.len() == 1 => {
-                                        Transform::Stutter(Box::new(args[0].clone()))
-                                    }
-                                    "stut" if args.len() == 3 => Transform::Stut {
-                                        n: Box::new(args[0].clone()),
-                                        time: Box::new(args[1].clone()),
-                                        decay: Box::new(args[2].clone()),
-                                    },
-                                    "loopAt" if args.len() == 1 => {
-                                        Transform::LoopAt(Box::new(args[0].clone()))
-                                    }
-                                    _ => return Err(format!("Unknown transform: {}", name)),
-                                };
+                                let transform = parse_transform_from_call(name, args)?;
                                 pattern = apply_transform_to_pattern(ctx, pattern, transform)?;
                             }
                             Expr::TemplateRef(name) => {
@@ -2519,32 +2498,7 @@ fn compile_function_call(
                                         // Handle Call expressions that are actually transforms
                                         // This handles cases like "rev $ fast 2" where "fast 2" is parsed as a Call
                                         Expr::Call { name, args } => {
-                                            let transform = match name.as_str() {
-                                            "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
-                                            "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
-                                            "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
-                                            "rev" if args.is_empty() => Transform::Rev,
-                                            "palindrome" if args.is_empty() => Transform::Palindrome,
-                                            "degrade" if args.is_empty() => Transform::Degrade,
-                                            "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
-                                            "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
-                                            "stut" if args.len() == 3 => Transform::Stut {
-                                                n: Box::new(args[0].clone()),
-                                                time: Box::new(args[1].clone()),
-                                                decay: Box::new(args[2].clone()),
-                                            },
-                                            "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
-                                            "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
-                                            "slice" if args.len() == 2 => Transform::Slice {
-                                                n: Box::new(args[0].clone()),
-                                                indices: Box::new(args[1].clone()),
-                                            },
-                                            "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
-                                            "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
-                                            "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
-                                            "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
-                                            _ => return Err(format!("Unknown transform or invalid call in transform chain: {}", name)),
-                                        };
+                                            let transform = parse_transform_from_call(name, args)?;
                                             transforms.push(transform);
                                             // A Call that's a transform has no inner pattern - it's a leaf
                                             // Return empty string as placeholder
@@ -7926,38 +7880,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 args,
             } = template_expr
             {
-                // Match against known transform functions
-                let transform = match fn_name.as_str() {
-                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
-                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
-                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
-                    "rev" if args.is_empty() => Transform::Rev,
-                    "palindrome" if args.is_empty() => Transform::Palindrome,
-                    "degrade" if args.is_empty() => Transform::Degrade,
-                    "degradeBy" if args.len() == 1 => {
-                        Transform::DegradeBy(Box::new(args[0].clone()))
-                    }
-                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
-                    "stut" if args.len() == 3 => Transform::Stut {
-                        n: Box::new(args[0].clone()),
-                        time: Box::new(args[1].clone()),
-                        decay: Box::new(args[2].clone()),
-                    },
-                    "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
-                    "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
-                    "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
-                    "slice" if args.len() == 2 => Transform::Slice {
-                        n: Box::new(args[0].clone()),
-                        indices: Box::new(args[1].clone()),
-                    },
-                    "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
-                    "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
-                    "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
-                    "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
-                    "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
-                    _ => return Err(format!("Template @{} is not a valid transform", name)),
-                };
-
+                // Use central transform parser
+                let transform = parse_transform_from_call(&fn_name, &args)?;
                 // Recursively apply the extracted transform
                 apply_transform_to_pattern(ctx, pattern, transform)
             } else {
@@ -7980,38 +7904,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 args,
             } = transform_expr
             {
-                // Match against known transform functions
-                let transform = match fn_name.as_str() {
-                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
-                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
-                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
-                    "rev" if args.is_empty() => Transform::Rev,
-                    "palindrome" if args.is_empty() => Transform::Palindrome,
-                    "degrade" if args.is_empty() => Transform::Degrade,
-                    "degradeBy" if args.len() == 1 => {
-                        Transform::DegradeBy(Box::new(args[0].clone()))
-                    }
-                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
-                    "stut" if args.len() == 3 => Transform::Stut {
-                        n: Box::new(args[0].clone()),
-                        time: Box::new(args[1].clone()),
-                        decay: Box::new(args[2].clone()),
-                    },
-                    "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
-                    "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
-                    "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
-                    "slice" if args.len() == 2 => Transform::Slice {
-                        n: Box::new(args[0].clone()),
-                        indices: Box::new(args[1].clone()),
-                    },
-                    "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
-                    "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
-                    "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
-                    "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
-                    "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
-                    _ => return Err(format!("Transform bus ~{} is not a valid transform", name)),
-                };
-
+                // Use central transform parser
+                let transform = parse_transform_from_call(&fn_name, &args)?;
                 // Recursively apply the extracted transform
                 apply_transform_to_pattern(ctx, pattern, transform)
             } else {
