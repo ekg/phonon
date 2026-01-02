@@ -1504,14 +1504,16 @@ fn parse_bus_call_expr(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
-/// Parse a bus call argument - can be bus ref, parenthesized expr, number, or var
+/// Parse a bus call argument - can be parenthesized expr or string literal
 fn parse_bus_call_arg(input: &str) -> IResult<&str, Expr> {
-    // Bus call args should ONLY be bus refs or parenthesized expressions
-    // NOT plain numbers - otherwise ~cutoff 0.8 gets parsed as BusCall instead of BusRef
-    // To pass a number to a bus call, use parens: ~mix (~a) (0.5)
+    // Bus call args should ONLY be parenthesized expressions or string literals
+    // NOT bare bus refs - otherwise `mix ~a ~b ~c` gets parsed as BusCall("a", [~b, ~c])
+    // instead of mix(~a, ~b, ~c)
+    // To pass a bus ref to a bus call, use parens: ~mix (~a) (~b)
     alt((
         parse_paren_expr,
-        parse_bus_ref_expr,
+        parse_string_literal,
+        // parse_bus_ref_expr, // REMOVED: causes ambiguity with `mix ~a ~b ~c`
         // parse_var, // Variables could be ambiguous too - removed for safety
     ))(input)
 }
