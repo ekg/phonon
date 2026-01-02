@@ -6191,6 +6191,23 @@ impl UnifiedSignalGraph {
                 collect!(window_size);
             }
 
+            // === Conditional and Select (signal routing) ===
+            SignalNode::Conditional {
+                condition,
+                then_signal,
+                else_signal,
+            } => {
+                collect!(condition);
+                collect!(then_signal);
+                collect!(else_signal);
+            }
+            SignalNode::Select { index, inputs } => {
+                collect!(index);
+                for sig in inputs {
+                    collect!(sig);
+                }
+            }
+
             // === Catch-all for nodes not yet covered ===
             _ => {
                 // Many more node types exist - add as needed
