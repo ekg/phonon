@@ -6267,6 +6267,525 @@ impl UnifiedSignalGraph {
                 collect!(input);
             }
 
+            // === Additional oscillators ===
+            SignalNode::Blip { frequency, .. } => {
+                collect!(frequency);
+            }
+            SignalNode::VCO {
+                frequency,
+                waveform,
+                pulse_width,
+                ..
+            } => {
+                collect!(frequency);
+                collect!(waveform);
+                collect!(pulse_width);
+            }
+            SignalNode::Pulse { freq, width, .. } => {
+                collect!(freq);
+                collect!(width);
+            }
+            SignalNode::Wavetable { freq, .. } => {
+                collect!(freq);
+            }
+            SignalNode::Impulse { frequency, .. } => {
+                collect!(frequency);
+            }
+
+            // === Physical modeling ===
+            SignalNode::Granular {
+                source,
+                grain_size_ms,
+                density,
+                pitch,
+                ..
+            } => {
+                collect!(source);
+                collect!(grain_size_ms);
+                collect!(density);
+                collect!(pitch);
+            }
+            SignalNode::KarplusStrong {
+                freq,
+                damping,
+                trigger,
+                ..
+            } => {
+                collect!(freq);
+                collect!(damping);
+                collect!(trigger);
+            }
+            SignalNode::Waveguide {
+                freq,
+                damping,
+                pickup_position,
+                ..
+            } => {
+                collect!(freq);
+                collect!(damping);
+                collect!(pickup_position);
+            }
+            SignalNode::Additive { freq, .. } => {
+                collect!(freq);
+            }
+            SignalNode::Vocoder {
+                modulator,
+                carrier,
+                ..
+            } => {
+                collect!(modulator);
+                collect!(carrier);
+            }
+            SignalNode::PitchShift {
+                input, semitones, ..
+            } => {
+                collect!(input);
+                collect!(semitones);
+            }
+
+            // === Additional filters ===
+            SignalNode::SVF {
+                input,
+                frequency,
+                resonance,
+                ..
+            } => {
+                collect!(input);
+                collect!(frequency);
+                collect!(resonance);
+            }
+            SignalNode::Biquad {
+                input,
+                frequency,
+                q,
+                ..
+            } => {
+                collect!(input);
+                collect!(frequency);
+                collect!(q);
+            }
+            SignalNode::Resonz {
+                input,
+                frequency,
+                q,
+                ..
+            } => {
+                collect!(input);
+                collect!(frequency);
+                collect!(q);
+            }
+            SignalNode::RLPF {
+                input,
+                cutoff,
+                resonance,
+                ..
+            } => {
+                collect!(input);
+                collect!(cutoff);
+                collect!(resonance);
+            }
+            SignalNode::RHPF {
+                input,
+                cutoff,
+                resonance,
+                ..
+            } => {
+                collect!(input);
+                collect!(cutoff);
+                collect!(resonance);
+            }
+            SignalNode::DJFilter { input, value, .. } => {
+                collect!(input);
+                collect!(value);
+            }
+            SignalNode::Comb {
+                input,
+                frequency,
+                feedback,
+                ..
+            } => {
+                collect!(input);
+                collect!(frequency);
+                collect!(feedback);
+            }
+            SignalNode::ParametricEQ {
+                input,
+                low_freq,
+                low_gain,
+                low_q,
+                mid_freq,
+                mid_gain,
+                mid_q,
+                high_freq,
+                high_gain,
+                high_q,
+                ..
+            } => {
+                collect!(input);
+                collect!(low_freq);
+                collect!(low_gain);
+                collect!(low_q);
+                collect!(mid_freq);
+                collect!(mid_gain);
+                collect!(mid_q);
+                collect!(high_freq);
+                collect!(high_gain);
+                collect!(high_q);
+            }
+
+            // === Envelopes ===
+            SignalNode::Envelope {
+                input,
+                trigger,
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            } => {
+                collect!(input);
+                collect!(trigger);
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+            }
+            SignalNode::ADSR {
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            } => {
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+            }
+            SignalNode::AD { attack, decay, .. } => {
+                collect!(attack);
+                collect!(decay);
+            }
+            SignalNode::ASR {
+                gate,
+                attack,
+                release,
+                ..
+            } => {
+                collect!(gate);
+                collect!(attack);
+                collect!(release);
+            }
+            SignalNode::Line { start, end } => {
+                collect!(start);
+                collect!(end);
+            }
+            SignalNode::Curve {
+                start,
+                end,
+                duration,
+                curve,
+                ..
+            } => {
+                collect!(start);
+                collect!(end);
+                collect!(duration);
+                collect!(curve);
+            }
+            SignalNode::Lag {
+                input, lag_time, ..
+            } => {
+                collect!(input);
+                collect!(lag_time);
+            }
+            SignalNode::XLine {
+                start,
+                end,
+                duration,
+                ..
+            } => {
+                collect!(start);
+                collect!(end);
+                collect!(duration);
+            }
+
+            // === Pattern-triggered envelopes ===
+            SignalNode::EnvelopePattern {
+                input,
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            } => {
+                collect!(input);
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+            }
+            SignalNode::StructuredSignal {
+                input,
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            } => {
+                collect!(input);
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+            }
+            SignalNode::TriggeredAR {
+                attack, release, ..
+            } => {
+                collect!(attack);
+                collect!(release);
+            }
+            SignalNode::TriggeredADSR {
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            } => {
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+            }
+
+            // === Analysis ===
+            SignalNode::RMS {
+                input,
+                window_size,
+                ..
+            } => {
+                collect!(input);
+                collect!(window_size);
+            }
+            SignalNode::Schmidt {
+                input,
+                high_threshold,
+                low_threshold,
+                ..
+            } => {
+                collect!(input);
+                collect!(high_threshold);
+                collect!(low_threshold);
+            }
+            SignalNode::Latch { input, gate, .. } => {
+                collect!(input);
+                collect!(gate);
+            }
+            SignalNode::Timer { trigger, .. } => {
+                collect!(trigger);
+            }
+            SignalNode::Pitch { input, .. } => {
+                collect!(input);
+            }
+            SignalNode::Transient {
+                input, threshold, ..
+            } => {
+                collect!(input);
+                collect!(threshold);
+            }
+            SignalNode::PeakFollower {
+                input,
+                attack_time,
+                release_time,
+                ..
+            } => {
+                collect!(input);
+                collect!(attack_time);
+                collect!(release_time);
+            }
+            SignalNode::ZeroCrossing { input, .. } => {
+                collect!(input);
+            }
+
+            // === Control / Utility ===
+            SignalNode::SampleAndHold {
+                input, trigger, ..
+            } => {
+                collect!(input);
+                collect!(trigger);
+            }
+            SignalNode::Decimator {
+                input,
+                factor,
+                smooth,
+                ..
+            } => {
+                collect!(input);
+                collect!(factor);
+                collect!(smooth);
+            }
+            SignalNode::XFade {
+                signal_a,
+                signal_b,
+                position,
+            } => {
+                collect!(signal_a);
+                collect!(signal_b);
+                collect!(position);
+            }
+            SignalNode::When { input, condition } => {
+                collect!(input);
+                collect!(condition);
+            }
+
+            // === Additional effects ===
+            SignalNode::SpectralFreeze {
+                input, trigger, ..
+            } => {
+                collect!(input);
+                collect!(trigger);
+            }
+            SignalNode::Vibrato {
+                input, rate, depth, ..
+            } => {
+                collect!(input);
+                collect!(rate);
+                collect!(depth);
+            }
+            SignalNode::Phaser {
+                input,
+                rate,
+                depth,
+                feedback,
+                ..
+            } => {
+                collect!(input);
+                collect!(rate);
+                collect!(depth);
+                collect!(feedback);
+            }
+            SignalNode::RingMod { input, freq, .. } => {
+                collect!(input);
+                collect!(freq);
+            }
+            SignalNode::FMCrossMod {
+                carrier,
+                modulator,
+                mod_depth,
+            } => {
+                collect!(carrier);
+                collect!(modulator);
+                collect!(mod_depth);
+            }
+            SignalNode::Tap { input, .. } => {
+                collect!(input);
+            }
+            SignalNode::AdaptiveCompressor {
+                main_input,
+                sidechain_input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                adaptive_factor,
+                ..
+            } => {
+                collect!(main_input);
+                collect!(sidechain_input);
+                collect!(threshold);
+                collect!(ratio);
+                collect!(attack);
+                collect!(release);
+                collect!(adaptive_factor);
+            }
+
+            // === Conditional effects ===
+            SignalNode::EveryEffect { input, effect, .. } => {
+                collect!(input);
+                collect!(effect);
+            }
+            SignalNode::SometimesEffect {
+                input, effect, prob, ..
+            } => {
+                collect!(input);
+                collect!(effect);
+                collect!(prob);
+            }
+            SignalNode::WhenmodEffect { input, effect, .. } => {
+                collect!(input);
+                collect!(effect);
+            }
+
+            // === Panning ===
+            SignalNode::Pan2Left { input, position } => {
+                collect!(input);
+                collect!(position);
+            }
+            SignalNode::Pan2Right { input, position } => {
+                collect!(input);
+                collect!(position);
+            }
+
+            // === Pattern sources (may have signal parameters) ===
+            SignalNode::CycleTrigger { pulse_width, .. } => {
+                collect!(pulse_width);
+            }
+            SignalNode::SignalAsPattern { signal, .. } => {
+                collect!(signal);
+            }
+            SignalNode::SynthPattern {
+                attack,
+                decay,
+                sustain,
+                release,
+                filter_cutoff,
+                filter_resonance,
+                filter_env_amount,
+                gain,
+                pan,
+                ..
+            } => {
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+                collect!(filter_cutoff);
+                collect!(filter_resonance);
+                collect!(filter_env_amount);
+                collect!(gain);
+                collect!(pan);
+            }
+            SignalNode::MidiSynth {
+                attack,
+                decay,
+                sustain,
+                release,
+                filter_cutoff,
+                filter_resonance,
+                gain,
+                ..
+            } => {
+                collect!(attack);
+                collect!(decay);
+                collect!(sustain);
+                collect!(release);
+                collect!(filter_cutoff);
+                collect!(filter_resonance);
+                collect!(gain);
+            }
+            SignalNode::MidiPolySynth {
+                attack, release, ..
+            } => {
+                collect!(attack);
+                collect!(release);
+            }
+
+            // === FundspUnit (variable inputs) ===
+            SignalNode::FundspUnit { inputs, .. } => {
+                for sig in inputs {
+                    collect!(sig);
+                }
+            }
+
             // === Catch-all for nodes not yet covered ===
             _ => {
                 // Many more node types exist - add as needed

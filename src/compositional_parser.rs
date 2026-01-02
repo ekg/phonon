@@ -1504,17 +1504,20 @@ fn parse_bus_call_expr(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
-/// Parse a bus call argument - can be parenthesized expr or string literal
+/// Parse a bus call argument - can be parenthesized expr, string, bus ref, or var
+/// This is used for `~busname arg1 arg2` syntax
 fn parse_bus_call_arg(input: &str) -> IResult<&str, Expr> {
-    // Bus call args should ONLY be parenthesized expressions or string literals
-    // NOT bare bus refs - otherwise `mix ~a ~b ~c` gets parsed as BusCall("a", [~b, ~c])
-    // instead of mix(~a, ~b, ~c)
-    // To pass a bus ref to a bus call, use parens: ~mix (~a) (~b)
+    // Bus call args can be:
+    // - Parenthesized expressions (any expr inside parens)
+    // - String literals
+    // - Simple bus refs (NOT bus calls - that would be recursive/greedy)
+    // - Variables
     alt((
         parse_paren_expr,
         parse_string_literal,
-        // parse_bus_ref_expr, // REMOVED: causes ambiguity with `mix ~a ~b ~c`
-        // parse_var, // Variables could be ambiguous too - removed for safety
+        parse_bus_ref_expr, // Simple bus refs allowed (for ~doubled ~osc)
+        parse_var,          // Variables allowed
+        map(parse_number, Expr::Number),
     ))(input)
 }
 
@@ -1600,10 +1603,31 @@ fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
+/// Parse a non-greedy argument expression
+/// This is like parse_primary_expr but prefers simple bus refs over bus calls
+/// to avoid `mix ~a ~b ~c` being parsed as `mix BusCall("a", [~b, ~c])`
+fn parse_non_greedy_arg(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = space0(input)?;
+
+    alt((
+        map(parse_number, Expr::Number),
+        parse_string_literal,
+        parse_signal_function_call, // ~add, ~sub, ~mul, ~div
+        parse_bus_ref_expr,         // Simple bus ref FIRST (not bus call!)
+        parse_template_ref_expr,
+        parse_pattern_ref_expr,
+        parse_paren_expr,           // For complex expressions, use parens
+        parse_list_expr,
+        parse_var,                  // Bare variable
+        // NOTE: parse_bus_call_expr is NOT included - use parens for bus calls in args
+        // NOTE: parse_function_call is NOT included - use parens for nested calls
+    ))(input)
+}
+
 /// Parse either a kwarg or a regular argument
 fn parse_arg_or_kwarg(input: &str) -> IResult<&str, Expr> {
-    // Try kwarg first (:name value), then fall back to regular primary expr
-    alt((parse_kwarg, parse_primary_expr))(input)
+    // Try kwarg first (:name value), then fall back to non-greedy arg
+    alt((parse_kwarg, parse_non_greedy_arg))(input)
 }
 
 /// Parse function call: name arg1 arg2 ...
