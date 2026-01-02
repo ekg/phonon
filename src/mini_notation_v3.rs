@@ -587,8 +587,42 @@ impl MiniNotationParser {
                     self.advance();
                     // Parse chord type (maj, min, etc.)
                     if let Some(Token::Symbol(chord_type)) = self.current() {
-                        let chord = format!("{s}'{chord_type}");
+                        let chord_type = chord_type.clone();
                         self.advance();
+                        let chord = format!("{s}'{chord_type}");
+
+                        // Check for Euclidean rhythm AFTER chord notation: c4'maj(3,8)
+                        if let Some(Token::OpenParen) = self.current() {
+                            let start_pos = self.position;
+                            self.advance(); // consume (
+
+                            let first_arg = self.parse_argument();
+
+                            if let Some(Token::Comma) = self.current() {
+                                self.advance();
+                                let steps = Box::new(self.parse_argument());
+
+                                let rotation = if let Some(Token::Comma) = self.current() {
+                                    self.advance();
+                                    Some(Box::new(self.parse_argument()))
+                                } else {
+                                    None
+                                };
+
+                                if let Some(Token::CloseParen) = self.current() {
+                                    self.advance();
+                                    return Some(AstNode::Euclid {
+                                        sample: chord,
+                                        pulses: Box::new(first_arg),
+                                        steps,
+                                        rotation,
+                                    });
+                                }
+                            }
+                            // Not valid Euclidean, reset
+                            self.position = start_pos;
+                        }
+
                         return Some(AstNode::Atom(PatternValue::String(chord)));
                     }
                 }
