@@ -1842,25 +1842,33 @@ impl Pattern<bool> {
         let step_duration = 1.0 / steps as f64;
         Pattern::new(move |state| {
             let mut haps = Vec::new();
-            let cycle = state.span.begin.to_float().floor();
 
-            for (i, &active) in result.iter().enumerate() {
-                if active {
-                    let begin = cycle + (i as f64 * step_duration);
-                    let end = begin + step_duration;
+            // Handle multi-cycle queries
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
 
-                    if begin < state.span.end.to_float() && end > state.span.begin.to_float() {
-                        haps.push(Hap::new(
-                            Some(TimeSpan::new(
-                                Fraction::from_float(begin),
-                                Fraction::from_float(end),
-                            )),
-                            TimeSpan::new(
-                                Fraction::from_float(begin.max(state.span.begin.to_float())),
-                                Fraction::from_float(end.min(state.span.end.to_float())),
-                            ),
-                            true,
-                        ));
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+
+                for (i, &active) in result.iter().enumerate() {
+                    if active {
+                        let begin = cycle_f + (i as f64 * step_duration);
+                        let end = begin + step_duration;
+
+                        if begin < state.span.end.to_float() && end > state.span.begin.to_float()
+                        {
+                            haps.push(Hap::new(
+                                Some(TimeSpan::new(
+                                    Fraction::from_float(begin),
+                                    Fraction::from_float(end),
+                                )),
+                                TimeSpan::new(
+                                    Fraction::from_float(begin.max(state.span.begin.to_float())),
+                                    Fraction::from_float(end.min(state.span.end.to_float())),
+                                ),
+                                true,
+                            ));
+                        }
                     }
                 }
             }

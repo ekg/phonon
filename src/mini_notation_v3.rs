@@ -201,6 +201,11 @@ enum Operator {
     ReplicatePattern(Box<AstNode>), // For dynamic replication with patterns
     Degrade(f64),
     Late(f64),
+    Euclid {
+        pulses: Box<AstNode>,
+        steps: Box<AstNode>,
+        rotation: Option<Box<AstNode>>,
+    },
 }
 
 /// Tokenizer for mini-notation
@@ -759,6 +764,41 @@ impl MiniNotationParser {
                         };
                     }
                 }
+                Token::OpenParen => {
+                    // Euclidean rhythm applied to the preceding pattern: <a b>(3,8)
+                    let start_pos = self.position;
+                    self.advance(); // consume (
+
+                    let first_arg = self.parse_argument();
+
+                    if let Some(Token::Comma) = self.current() {
+                        self.advance();
+                        let steps = Box::new(self.parse_argument());
+
+                        let rotation = if let Some(Token::Comma) = self.current() {
+                            self.advance();
+                            Some(Box::new(self.parse_argument()))
+                        } else {
+                            None
+                        };
+
+                        if let Some(Token::CloseParen) = self.current() {
+                            self.advance();
+                            node = AstNode::Operator {
+                                pattern: Box::new(node),
+                                op: Operator::Euclid {
+                                    pulses: Box::new(first_arg),
+                                    steps,
+                                    rotation,
+                                },
+                            };
+                            continue;
+                        }
+                    }
+                    // Not valid Euclidean, reset and break
+                    self.position = start_pos;
+                    break;
+                }
                 _ => break,
             }
         }
@@ -982,6 +1022,65 @@ fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                 }
                 Operator::Degrade(amount) => pat.degrade_by(Pattern::pure(amount)),
                 Operator::Late(amount) => pat.late(Pattern::pure(amount)),
+                Operator::Euclid {
+                    pulses,
+                    steps,
+                    rotation,
+                } => {
+                    // Get pulses and steps as numbers
+                    let k = match *pulses {
+                        AstNode::Atom(PatternValue::Number(n)) => n as usize,
+                        _ => 3,
+                    };
+                    let n = match *steps {
+                        AstNode::Atom(PatternValue::Number(n)) => n as usize,
+                        _ => 8,
+                    };
+                    let r = rotation
+                        .map(|r| match *r {
+                            AstNode::Atom(PatternValue::Number(n)) => n as i32,
+                            _ => 0,
+                        })
+                        .unwrap_or(0);
+
+                    // Create the euclidean boolean pattern
+                    let euclid_bool = Pattern::<bool>::euclid(k, n, r);
+
+                    // Map the boolean pattern by querying the inner pattern at hit positions
+                    Pattern::new(move |query_state| {
+                        let bool_events = euclid_bool.query(query_state);
+
+                        bool_events
+                            .into_iter()
+                            .flat_map(|hap| {
+                                if hap.value {
+                                    // Query inner pattern at this event's time
+                                    let inner_state = crate::pattern::State {
+                                        span: hap.part.clone(),
+                                        controls: query_state.controls.clone(),
+                                    };
+                                    pat.query(&inner_state)
+                                        .into_iter()
+                                        .map(|inner_hap| crate::pattern::Hap {
+                                            whole: hap.whole.clone(),
+                                            part: hap.part.clone(),
+                                            value: inner_hap.value,
+                                            context: inner_hap.context,
+                                        })
+                                        .collect::<Vec<_>>()
+                                } else {
+                                    // Rest - use "~" string
+                                    vec![crate::pattern::Hap {
+                                        whole: hap.whole,
+                                        part: hap.part,
+                                        value: PatternValue::String("~".to_string()),
+                                        context: std::collections::HashMap::new(),
+                                    }]
+                                }
+                            })
+                            .collect()
+                    })
+                }
             }
         }
 
@@ -1071,6 +1170,65 @@ fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                 }
                 Operator::Degrade(amount) => pat.degrade_by(Pattern::pure(amount)),
                 Operator::Late(amount) => pat.late(Pattern::pure(amount)),
+                Operator::Euclid {
+                    pulses,
+                    steps,
+                    rotation,
+                } => {
+                    // Get pulses and steps as static numbers
+                    let p = match *pulses {
+                        AstNode::Atom(PatternValue::Number(n)) => n as usize,
+                        _ => 3,
+                    };
+                    let s = match *steps {
+                        AstNode::Atom(PatternValue::Number(n)) => n as usize,
+                        _ => 8,
+                    };
+                    let r = rotation
+                        .map(|r| match *r {
+                            AstNode::Atom(PatternValue::Number(n)) => n as i32,
+                            _ => 0,
+                        })
+                        .unwrap_or(0);
+
+                    // Create the euclidean boolean pattern
+                    let euclid_bool = Pattern::<bool>::euclid(p, s, r);
+
+                    // Map the boolean pattern by querying the inner pattern at hit positions
+                    Pattern::new(move |query_state| {
+                        let bool_events = euclid_bool.query(query_state);
+
+                        bool_events
+                            .into_iter()
+                            .flat_map(|hap| {
+                                if hap.value {
+                                    // Query inner pattern at this event's time
+                                    let inner_state = crate::pattern::State {
+                                        span: hap.part.clone(),
+                                        controls: query_state.controls.clone(),
+                                    };
+                                    pat.query(&inner_state)
+                                        .into_iter()
+                                        .map(|inner_hap| crate::pattern::Hap {
+                                            whole: hap.whole.clone(),
+                                            part: hap.part.clone(),
+                                            value: inner_hap.value,
+                                            context: inner_hap.context,
+                                        })
+                                        .collect::<Vec<_>>()
+                                } else {
+                                    // Rest - return "~"
+                                    vec![crate::pattern::Hap {
+                                        whole: hap.whole,
+                                        part: hap.part,
+                                        value: "~".to_string(),
+                                        context: std::collections::HashMap::new(),
+                                    }]
+                                }
+                            })
+                            .collect()
+                    })
+                }
             }
         }
 
