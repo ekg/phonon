@@ -1405,16 +1405,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let block_samples = (total_samples - block_start).min(BLOCK_SIZE);
 
                                 my_graph.seek_to_sample(block_idx * BLOCK_SIZE);
-                                let mut block_buffer = vec![0.0f32; block_samples];
+                                // CRITICAL: process_buffer expects STEREO (interleaved L/R), so 2x size
+                                let mut stereo_buffer = vec![0.0f32; block_samples * 2];
                                 let block_start_time = Instant::now();
-                                my_graph.process_buffer(&mut block_buffer);
+                                my_graph.process_buffer(&mut stereo_buffer);
                                 let block_time = block_start_time.elapsed();
 
-                                for sample in &mut block_buffer {
-                                    *sample = (*sample * gain).clamp(-1.0, 1.0);
+                                // Extract mono (left channel) and apply gain
+                                let mut mono_buffer = Vec::with_capacity(block_samples);
+                                for i in 0..block_samples {
+                                    let mono = stereo_buffer[i * 2]; // Left channel
+                                    mono_buffer.push((mono * gain).clamp(-1.0, 1.0));
                                 }
 
-                                thread_blocks.push((block_idx, block_buffer, block_time));
+                                thread_blocks.push((block_idx, mono_buffer, block_time));
                             }
 
                             thread_blocks
@@ -1436,22 +1440,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for block_idx in 0..num_blocks {
                         let remaining = total_samples - output_buffer.len();
                         let block_samples = remaining.min(BLOCK_SIZE);
-                        let mut block_buffer = vec![0.0f32; block_samples];
+                        // CRITICAL: process_buffer expects STEREO (interleaved L/R), so 2x size
+                        let mut stereo_buffer = vec![0.0f32; block_samples * 2];
 
                         let start = Instant::now();
-                        graph.process_buffer(&mut block_buffer);
+                        graph.process_buffer(&mut stereo_buffer);
                         let elapsed = start.elapsed();
 
                         total_process_time += elapsed;
                         min_block_time = min_block_time.min(elapsed);
                         max_block_time = max_block_time.max(elapsed);
 
-                        // Apply gain and clamp
-                        for sample in &mut block_buffer {
-                            *sample = (*sample * gain).clamp(-1.0, 1.0);
+                        // Extract mono (left channel) and apply gain
+                        for i in 0..block_samples {
+                            let mono = stereo_buffer[i * 2]; // Left channel
+                            output_buffer.push((mono * gain).clamp(-1.0, 1.0));
                         }
-
-                        output_buffer.extend_from_slice(&block_buffer);
 
                         // Progress reporting
                         if block_idx % 100 == 0 {

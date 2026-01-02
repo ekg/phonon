@@ -4104,10 +4104,11 @@ pub enum OutputMixMode {
 
 impl Default for OutputMixMode {
     fn default() -> Self {
-        // Use Tanh for soft saturation - prevents harsh clipping from voice accumulation
-        // while maintaining musical dynamics. Direct sum (None) can cause clipping when
-        // many synthesis voices overlap (e.g., chords with long attack times).
-        OutputMixMode::Tanh
+        // Use None (direct sum) for clean, predictable output.
+        // Users can opt into soft saturation with `outmix: tanh` if needed.
+        // Note: Sample playback has its own per-voice gain management, and
+        // synthesis voices have ADSR envelopes that prevent accumulation issues.
+        OutputMixMode::None
     }
 }
 
