@@ -6208,6 +6208,65 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            // === Formant and Vowel synthesis ===
+            SignalNode::Formant {
+                source,
+                f1,
+                f2,
+                f3,
+                bw1,
+                bw2,
+                bw3,
+                ..
+            } => {
+                collect!(source);
+                collect!(f1);
+                collect!(f2);
+                collect!(f3);
+                collect!(bw1);
+                collect!(bw2);
+                collect!(bw3);
+            }
+            SignalNode::Vowel {
+                source,
+                vowel,
+                ..
+            } => {
+                collect!(source);
+                collect!(vowel);
+            }
+
+            // === Additional filters ===
+            SignalNode::Notch { input, center, q, .. } => {
+                collect!(input);
+                collect!(center);
+                collect!(q);
+            }
+
+            // === Tremolo ===
+            SignalNode::Tremolo {
+                input,
+                rate,
+                depth,
+                ..
+            } => {
+                collect!(input);
+                collect!(rate);
+                collect!(depth);
+            }
+
+            // === Wrap ===
+            SignalNode::Wrap { input, min, max } => {
+                collect!(input);
+                collect!(min);
+                collect!(max);
+            }
+
+            // === Router ===
+            SignalNode::Router { input, .. } => {
+                collect!(input);
+            }
+
             // === Catch-all for nodes not yet covered ===
             _ => {
                 // Many more node types exist - add as needed
