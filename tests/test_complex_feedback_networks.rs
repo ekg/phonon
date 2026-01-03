@@ -36,6 +36,9 @@ fn test_zero_crossing_detector_basic() {
 
     graph.set_output(zc_node);
 
+    // Disable master limiter since we're measuring frequency values (hundreds of Hz)
+    graph.set_master_limiter_ceiling(1000.0);
+
     // Render enough samples to get frequency estimate
     let buffer = graph.render(8820); // 200ms
 

@@ -6936,6 +6936,18 @@ impl UnifiedSignalGraph {
             .borrow_mut()
             .process_buffer_vec(buffer_size, self.max_node_id);
 
+        if std::env::var("DEBUG_VOICE_BUFFERS").is_ok() {
+            let non_empty: Vec<_> = self.voice_buffers.buffers.iter().enumerate()
+                .filter(|(_, b)| !b.is_empty() && b.iter().any(|&x| x != 0.0))
+                .map(|(i, b)| (i, b.len(), b.iter().take(5).cloned().collect::<Vec<_>>()))
+                .collect();
+            if !non_empty.is_empty() {
+                eprintln!("[VOICE_BUFFERS_DAG] Non-empty buffers: {:?}", non_empty);
+            } else {
+                eprintln!("[VOICE_BUFFERS_DAG] All buffers are empty!");
+            }
+        }
+
         // CRITICAL: Precompute pattern events (same as legacy path)
         // This caches pattern events to avoid 512 query() calls per Pattern node
         // NOTE: Use buffer_size (number of samples) not buffer.len() (stereo interleaved length)
@@ -7172,13 +7184,14 @@ impl UnifiedSignalGraph {
                             SignalNode::Multiply { .. } => "Multiply",
                             SignalNode::Oscillator { .. } => "Oscillator",
                             SignalNode::UnitDelay { .. } => "UnitDelay",
-                            SignalNode::Constant { .. } => "Constant",
+                            SignalNode::Constant { value } => format!("Constant({})", value).leak(),
+                            SignalNode::Sample { pattern_str, .. } => format!("Sample({})", pattern_str).leak(),
                             _ => "Other",
                         }
                     } else {
                         "None"
                     };
-                    eprintln!("    Processing node {} ({})...", node_id, node_type);
+                    eprintln!("    Processing node {} ({}), output={:?}...", node_id, node_type, self.output);
                 }
                 // Gather input buffers from predecessors
                 let input_ids = deps.get(&node_id).cloned().unwrap_or_default();
@@ -7230,11 +7243,19 @@ impl UnifiedSignalGraph {
             if !self.hushed_channels.contains(&0) {
                 num_active_channels += 1;
                 if let Some(mono_buf) = current_buffers.get(&out_id) {
+                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                        let sum: f32 = mono_buf.iter().sum();
+                        eprintln!("[OUTPUT_BUFFER] out_id={}, buffer len={}, sum={}", out_id, mono_buf.len(), sum);
+                    }
                     // Convert mono to stereo interleaved
                     for i in 0..buffer_size {
                         let sample = mono_buf[i];
                         buffer[i * 2] = sample;     // Left
                         buffer[i * 2 + 1] = sample; // Right
+                    }
+                } else {
+                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                        eprintln!("[OUTPUT_BUFFER] out_id={} NOT FOUND in current_buffers! keys: {:?}", out_id, current_buffers.keys().collect::<Vec<_>>());
                     }
                 }
             }
@@ -7436,6 +7457,9 @@ impl UnifiedSignalGraph {
             // (active_voice_count() is unreliable because voices can finish mid-buffer)
             let new_voice_idx = self.voice_manager.borrow_mut().take_last_triggered_voice_index();
             if let Some(voice_idx) = new_voice_idx {
+                if std::env::var("DEBUG_VOICE_DAG").is_ok() {
+                    eprintln!("[VOICE_DAG] sample {} triggered voice_idx={}", i, voice_idx);
+                }
                 // Process the newly triggered voice IMMEDIATELY for this sample
                 // This ensures the first sample of audio goes into the current output
                 let voice_output = self
@@ -7445,6 +7469,9 @@ impl UnifiedSignalGraph {
 
                 if let Some(((left, right), source_node)) = voice_output {
                     let mono = (left + right) / std::f32::consts::SQRT_2;
+                    if std::env::var("DEBUG_VOICE_DAG").is_ok() {
+                        eprintln!("[VOICE_DAG] voice_idx={} produced mono={:.6}, source_node={}", voice_idx, mono, source_node);
+                    }
                     self.voice_output_cache
                         .entry(source_node)
                         .and_modify(|v| *v += mono)
@@ -13464,14 +13491,17 @@ impl UnifiedSignalGraph {
                                     // Trigger voice using appropriate envelope type
                                     // TIDAL-COMPATIBLE DURATION: Use delta as default (notes fill their slot)
                                     // Priority: dur (absolute) > legato (relative) > delta (slot duration)
+                                    // BUT: If user specified explicit ar envelope, respect that instead of delta
                                     let delta_seconds_opt = event
                                         .context
                                         .get("delta")
                                         .and_then(|s| s.parse::<f32>().ok());
 
+                                    // Only use delta as default if no explicit ar envelope was set
+                                    let user_specified_ar = attack_val != 0.0 || release_val != 0.0;
                                     let duration_seconds_opt = dur_seconds_opt
                                         .or_else(|| legato_duration_opt.map(|cycles| cycles / self.cps))
-                                        .or(delta_seconds_opt);  // Default to delta (Tidal behavior)
+                                        .or_else(|| if user_specified_ar { None } else { delta_seconds_opt });
 
                                     if let Some(duration_seconds) = duration_seconds_opt {
                                         // Use ADSR with brick-wall envelope for controlled duration

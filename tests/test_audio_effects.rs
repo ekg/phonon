@@ -143,9 +143,13 @@ fn test_distortion_changes_waveform() {
 
     graph.set_output(distortion);
 
+    // Disable the master limiter so we can see the full distortion output
+    graph.set_master_limiter_ceiling(1.0);
+
     let buffer = graph.render(4410); // 100ms
 
     // Check that distortion flattens the peaks (waveshaping)
+    // With drive=20 on a sine wave, tanh will saturate to near ±1.0
     let peak_count = buffer.iter().filter(|&&x| x.abs() > 0.95).count();
 
     // Heavily distorted sine should have many samples near ±1.0

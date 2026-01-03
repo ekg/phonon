@@ -403,7 +403,7 @@ impl SynthLibrary {
         sustain: Option<f32>,
     ) -> NodeId {
         let snappy = snappy.unwrap_or(0.8);
-        let sustain = sustain.unwrap_or(0.15);
+        let sustain = sustain.unwrap_or(0.08); // 80ms decay for snappy snare
 
         // Tonal body (two slightly detuned oscillators)
         let osc1 = graph.add_node(SignalNode::Oscillator {
@@ -895,7 +895,7 @@ mod tests {
             .map(|x| x.abs())
             .fold(0.0f32, f32::max);
 
-        assert!(max_tail < max_attack * 0.3, "Snare should decay quickly");
+        assert!(max_tail < max_attack * 0.3, "Snare should decay quickly, max_tail={}, max_attack={}, ratio={}", max_tail, max_attack, max_tail / max_attack);
     }
 
     #[test]

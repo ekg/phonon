@@ -330,6 +330,9 @@ fn test_unit_delay_feedback_accumulation() {
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
 
+    // Disable master limiter so we can see the full convergence to 1.0
+    graph.set_master_limiter_ceiling(1.0);
+
     // Render 1000 samples
     let buffer = graph.render(1000);
 

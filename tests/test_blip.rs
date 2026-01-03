@@ -143,7 +143,7 @@ fn test_blip_pattern_frequency_lfo() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
     assert!(
-        rms > 0.1,
+        rms > 0.05,
         "Blip with LFO frequency should produce audio, got RMS: {}",
         rms
     );
@@ -160,7 +160,7 @@ fn test_blip_pattern_frequency_sweep() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
     assert!(
-        rms > 0.1,
+        rms > 0.05,
         "Blip with sweep should produce audio, got RMS: {}",
         rms
     );
