@@ -1015,6 +1015,7 @@ impl VoiceManager {
                 self.voices[idx].trigger_with_adsr(
                     sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
                 );
+                self.voices[idx].source_node = self.default_source_node; // Set source node
                 self.next_voice_index = (idx + 1) % max_voices;
                 self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
                 return;
@@ -1033,6 +1034,7 @@ impl VoiceManager {
         self.voices[oldest_idx].trigger_with_adsr(
             sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
         );
+        self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
         self.next_voice_index = (oldest_idx + 1) % max_voices;
         self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
     }
@@ -1065,7 +1067,9 @@ impl VoiceManager {
             if self.voices[idx].is_available() {
                 self.voices[idx]
                     .trigger_with_segments(sample, gain, pan, speed, cut_group, levels, times);
+                self.voices[idx].source_node = self.default_source_node; // Set source node
                 self.next_voice_index = (idx + 1) % max_voices;
+                self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
                 return;
             }
         }
@@ -1081,7 +1085,9 @@ impl VoiceManager {
         }
         self.voices[oldest_idx]
             .trigger_with_segments(sample, gain, pan, speed, cut_group, levels, times);
+        self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
         self.next_voice_index = (oldest_idx + 1) % max_voices;
+        self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
     }
 
     /// Trigger a sample with curve envelope
@@ -1115,7 +1121,9 @@ impl VoiceManager {
                 self.voices[idx].trigger_with_curve(
                     sample, gain, pan, speed, cut_group, start, end, duration, curve,
                 );
+                self.voices[idx].source_node = self.default_source_node; // Set source node
                 self.next_voice_index = (idx + 1) % max_voices;
+                self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
                 return;
             }
         }
@@ -1132,7 +1140,9 @@ impl VoiceManager {
         self.voices[oldest_idx].trigger_with_curve(
             sample, gain, pan, speed, cut_group, start, end, duration, curve,
         );
+        self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
         self.next_voice_index = (oldest_idx + 1) % max_voices;
+        self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
     }
 
     /// Trigger a continuous synthesis voice (no pre-rendered buffer)
