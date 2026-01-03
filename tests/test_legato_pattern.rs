@@ -204,3 +204,45 @@ fn test_dur_vs_legato() {
         ratio
     );
 }
+
+#[test]
+fn test_default_duration_matches_tidal() {
+    // In Tidal, the default behavior is that notes fill their slot (delta)
+    // This means s "bd*4" without any legato should behave like legato 1
+    // No overlap, no gaps - each sample plays for exactly its slot duration
+
+    let default_code = r#"
+        tempo: 2.0
+        out $ s "bd*4"
+    "#;
+
+    let legato1_code = r#"
+        tempo: 2.0
+        out $ s "bd*4" $ legato 1.0
+    "#;
+
+    let default_buffer = render_dsl(default_code, 2.0);
+    let legato1_buffer = render_dsl(legato1_code, 2.0);
+
+    let default_rms = calculate_rms(&default_buffer);
+    let legato1_rms = calculate_rms(&legato1_buffer);
+
+    // Both should have audio
+    assert!(default_rms > 0.01, "Default should have audio");
+    assert!(legato1_rms > 0.01, "Legato 1 should have audio");
+
+    // Default behavior should match legato 1 (within 20% tolerance)
+    // because both use delta as the duration
+    let ratio = if default_rms > legato1_rms {
+        default_rms / legato1_rms
+    } else {
+        legato1_rms / default_rms
+    };
+    assert!(
+        ratio < 1.2,
+        "Default behavior should match legato 1 (ratio: {}). Default RMS: {}, Legato 1 RMS: {}",
+        ratio,
+        default_rms,
+        legato1_rms
+    );
+}

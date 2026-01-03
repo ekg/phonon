@@ -13462,11 +13462,16 @@ impl UnifiedSignalGraph {
                                     let smart_release = final_release;
 
                                     // Trigger voice using appropriate envelope type
-                                    // DURATION OVERRIDE: When dur or legato is present, use ADSR with sharp settings
-                                    // dur (absolute seconds) takes priority over legato (cycle-relative)
-                                    let duration_seconds_opt = dur_seconds_opt.or_else(|| {
-                                        legato_duration_opt.map(|cycles| cycles / self.cps)
-                                    });
+                                    // TIDAL-COMPATIBLE DURATION: Use delta as default (notes fill their slot)
+                                    // Priority: dur (absolute) > legato (relative) > delta (slot duration)
+                                    let delta_seconds_opt = event
+                                        .context
+                                        .get("delta")
+                                        .and_then(|s| s.parse::<f32>().ok());
+
+                                    let duration_seconds_opt = dur_seconds_opt
+                                        .or_else(|| legato_duration_opt.map(|cycles| cycles / self.cps))
+                                        .or(delta_seconds_opt);  // Default to delta (Tidal behavior)
 
                                     if let Some(duration_seconds) = duration_seconds_opt {
                                         // Use ADSR with brick-wall envelope for controlled duration
