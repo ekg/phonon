@@ -8207,6 +8207,22 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
             }
         }
+        Transform::Dur(seconds_expr) => {
+            // Absolute duration in seconds (like Tidal's sustain parameter)
+            match seconds_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based duration - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let dur_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.1));
+                    Ok(pattern.dur(dur_pattern))
+                }
+                _ => {
+                    // Constant duration
+                    let seconds = extract_number(&seconds_expr)?;
+                    Ok(pattern.dur(Pattern::pure(seconds)))
+                }
+            }
+        }
         Transform::Echo {
             times,
             time,

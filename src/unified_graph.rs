@@ -13266,8 +13266,18 @@ impl UnifiedSignalGraph {
                             .get("legato_duration")
                             .and_then(|s| s.parse::<f32>().ok());
 
+                        // Check if event has absolute duration in seconds (from dur transform)
+                        // This takes priority over legato_duration (matches Tidal's sustain parameter)
+                        let dur_seconds_opt = event
+                            .context
+                            .get("dur")
+                            .and_then(|s| s.parse::<f32>().ok());
+
                         // Legacy: Update release_val for old code paths (will be superseded by ADSR+auto-release)
-                        if let Some(duration_cycles) = legato_duration_opt {
+                        // dur takes priority over legato_duration
+                        if let Some(dur_seconds) = dur_seconds_opt {
+                            release_val = dur_seconds.max(0.001).min(10.0);
+                        } else if let Some(duration_cycles) = legato_duration_opt {
                             // Convert duration from cycles to seconds using tempo
                             // cps is cycles/second, so seconds = cycles / cps
                             let duration_seconds = duration_cycles / self.cps;
@@ -13452,9 +13462,14 @@ impl UnifiedSignalGraph {
                                     let smart_release = final_release;
 
                                     // Trigger voice using appropriate envelope type
-                                    // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
-                                    if let Some(legato_cycles) = legato_duration_opt {
-                                        // Use ADSR with brick-wall envelope for legato
+                                    // DURATION OVERRIDE: When dur or legato is present, use ADSR with sharp settings
+                                    // dur (absolute seconds) takes priority over legato (cycle-relative)
+                                    let duration_seconds_opt = dur_seconds_opt.or_else(|| {
+                                        legato_duration_opt.map(|cycles| cycles / self.cps)
+                                    });
+
+                                    if let Some(duration_seconds) = duration_seconds_opt {
+                                        // Use ADSR with brick-wall envelope for controlled duration
                                         // Attack: 1ms (instant), Decay: 1ms, Sustain: 100%, Release: 3ms (instant)
                                         let sharp_attack = 0.001;
                                         let sharp_decay = 0.001;
@@ -13474,8 +13489,7 @@ impl UnifiedSignalGraph {
                                         );
 
                                         // Calculate auto-release time
-                                        // Convert legato duration from cycles to seconds
-                                        let duration_seconds = legato_cycles / self.cps;
+                                        // duration_seconds is already in seconds (from dur or converted from legato)
                                         // Subtract attack and release times to get sustain duration
                                         let sustain_seconds =
                                             (duration_seconds - sharp_attack - sharp_release)
@@ -16691,7 +16705,56 @@ impl UnifiedSignalGraph {
                     };
 
                     // Query pattern once for entire buffer
-                    let events = pattern.query(&state);
+                    let mut events = pattern.query(&state);
+
+                    // Calculate delta (inter-onset time) for each event
+                    // This matches Tidal/SuperDirt behavior - delta is time to next event
+                    if events.len() > 1 {
+                        // Sort by event start time
+                        events.sort_by(|a, b| {
+                            let a_start = a.whole.as_ref().map(|w| w.begin.to_float())
+                                .unwrap_or_else(|| a.part.begin.to_float());
+                            let b_start = b.whole.as_ref().map(|w| w.begin.to_float())
+                                .unwrap_or_else(|| b.part.begin.to_float());
+                            a_start.partial_cmp(&b_start).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+
+                        // Calculate delta for each event
+                        for i in 0..events.len() {
+                            let current_start = events[i].whole.as_ref()
+                                .map(|w| w.begin.to_float())
+                                .unwrap_or_else(|| events[i].part.begin.to_float());
+
+                            let next_start = if i + 1 < events.len() {
+                                events[i + 1].whole.as_ref()
+                                    .map(|w| w.begin.to_float())
+                                    .unwrap_or_else(|| events[i + 1].part.begin.to_float())
+                            } else {
+                                // For last event, delta is time to next cycle boundary
+                                (current_start.ceil()).max(current_start + 0.001)
+                            };
+
+                            let delta_cycles = (next_start - current_start).max(0.001);
+                            // Convert delta to seconds for convenience
+                            let delta_seconds = delta_cycles / self.cps as f64;
+
+                            events[i].context.insert(
+                                "delta".to_string(),
+                                delta_seconds.to_string(),
+                            );
+                        }
+                    } else if events.len() == 1 {
+                        // Single event: delta is 1 cycle (or to next cycle boundary)
+                        let current_start = events[0].whole.as_ref()
+                            .map(|w| w.begin.to_float())
+                            .unwrap_or_else(|| events[0].part.begin.to_float());
+                        let delta_cycles = (current_start.ceil() - current_start).max(1.0);
+                        let delta_seconds = delta_cycles / self.cps as f64;
+                        events[0].context.insert(
+                            "delta".to_string(),
+                            delta_seconds.to_string(),
+                        );
+                    }
 
                     // Cache events for this node
                     self.pattern_event_cache.insert(NodeId(node_idx), events);

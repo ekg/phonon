@@ -278,6 +278,41 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.legato(factor)
     }
 
+    /// Set absolute note duration in seconds (Tidal's "sustain" parameter)
+    /// Unlike legato which multiplies slot duration, dur sets an exact time
+    pub fn dur(self, seconds: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        Pattern::new(move |state: &State| {
+            // Query duration pattern at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let dur_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let dur_haps = seconds.query(&dur_state);
+            let duration_seconds = dur_haps.first().map(|h| h.value).unwrap_or(0.1);
+
+            let haps = self.query(state);
+            haps.into_iter()
+                .map(|mut hap| {
+                    // Add absolute duration in seconds to context
+                    // Voice manager will use this instead of legato if present
+                    hap.context.insert(
+                        "dur".to_string(),
+                        duration_seconds.to_string(),
+                    );
+                    hap
+                })
+                .collect()
+        })
+    }
+
     /// Swing time - delay every other event
     pub fn swing(self, amount: Pattern<f64>) -> Self
     where

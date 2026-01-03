@@ -216,6 +216,8 @@ pub enum Transform {
     Legato(Box<Expr>),
     /// staccato factor: make events shorter
     Staccato(Box<Expr>),
+    /// dur seconds: set absolute note duration in seconds (like Tidal's sustain)
+    Dur(Box<Expr>),
     /// echo times time feedback: echo/delay effect on pattern
     Echo {
         times: Box<Expr>,
@@ -964,6 +966,7 @@ fn try_extract_transform_from_call(expr: &Expr) -> Option<Transform> {
             "late" if args.len() == 1 => Some(Transform::Late(Box::new(args[0].clone()))),
             "legato" if args.len() == 1 => Some(Transform::Legato(Box::new(args[0].clone()))),
             "staccato" if args.len() == 1 => Some(Transform::Staccato(Box::new(args[0].clone()))),
+            "dur" if args.len() == 1 => Some(Transform::Dur(Box::new(args[0].clone()))),
             "stretch" if args.is_empty() => Some(Transform::Stretch),
             _ => None,
         },
@@ -1877,6 +1880,11 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
 /// Additional transform parsers (split due to nom's 21-alternative limit)
 fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
     alt((
+        // dur seconds (absolute duration, like Tidal's sustain)
+        map(
+            preceded(terminated(tag("dur"), space1), parse_primary_expr),
+            |expr| Transform::Dur(Box::new(expr)),
+        ),
         // bite n selector - MUST come before other single-param transforms
         map(
             tuple((
@@ -1932,6 +1940,11 @@ fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("staccato"), space1), parse_primary_expr),
             |expr| Transform::Staccato(Box::new(expr)),
+        ),
+        // dur seconds (absolute duration, like Tidal's sustain)
+        map(
+            preceded(terminated(tag("dur"), space1), parse_primary_expr),
+            |expr| Transform::Dur(Box::new(expr)),
         ),
     ))(input)
 }
