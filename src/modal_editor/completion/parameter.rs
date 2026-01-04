@@ -5,7 +5,7 @@ use super::function_metadata::{FunctionMetadata, FUNCTION_METADATA};
 /// - Generating parameter templates with _ placeholders
 /// - Showing parameter suggestions
 /// - Inserting complete parameter templates
-use super::generated_metadata::{get_all_nodes, GeneratedNodeMetadata};
+use super::generated_metadata::{get_all_functions, GeneratedNodeMetadata};
 
 /// Generate parameter template for a function
 ///
@@ -23,7 +23,7 @@ pub fn generate_param_template(function_name: &str) -> Option<String> {
     }
 
     // Fall back to auto-generated node metadata
-    let generated_nodes = get_all_nodes();
+    let generated_nodes = get_all_functions();
     if let Some(node_metadata) = generated_nodes.get(function_name) {
         return Some(generate_template_from_generated(node_metadata));
     }
@@ -129,7 +129,7 @@ pub fn get_param_hints(function_name: &str) -> Option<String> {
     }
 
     // Fall back to auto-generated metadata
-    let generated_nodes = get_all_nodes();
+    let generated_nodes = get_all_functions();
     if let Some(node_metadata) = generated_nodes.get(function_name) {
         let hints: Vec<String> = node_metadata
             .params
@@ -144,7 +144,7 @@ pub fn get_param_hints(function_name: &str) -> Option<String> {
 
 /// Check if a function exists in either metadata source
 pub fn function_exists(function_name: &str) -> bool {
-    FUNCTION_METADATA.contains_key(function_name) || get_all_nodes().contains_key(function_name)
+    FUNCTION_METADATA.contains_key(function_name) || get_all_functions().contains_key(function_name)
 }
 
 /// Get list of all available functions (both curated and generated)
@@ -157,7 +157,7 @@ pub fn get_all_function_names() -> Vec<String> {
     }
 
     // Add auto-generated node names
-    for name in get_all_nodes().keys() {
+    for name in get_all_functions().keys() {
         names.push(name.clone());
     }
 
