@@ -956,6 +956,7 @@ pub enum SignalNode {
         filter_env_amount: Signal, // Filter envelope modulation amount in Hz (pattern-modulatable)
         gain: Signal,
         pan: Signal,
+        n: Signal,               // Semitone transposition (pattern-modulatable)
     },
 
     /// MIDI-triggered polyphonic synthesizer
@@ -1423,6 +1424,11 @@ pub enum SignalNode {
 
     /// Minimum of two signals (sample-by-sample)
     Min { a: Signal, b: Signal },
+
+    /// MIDI to Frequency conversion
+    /// Converts MIDI note numbers to frequency in Hz
+    /// Formula: freq = 440 * 2^((midi - 69) / 12)
+    MidiToFreq { midi: Signal },
 
     /// Wrap signal into [min, max] range using modulo
     /// Wraps values outside the range back into the range periodically
@@ -5713,6 +5719,42 @@ impl UnifiedSignalGraph {
         deps
     }
 
+    /// Find all nodes reachable from output (including numbered outputs)
+    /// This is used to filter out orphaned nodes that shouldn't produce audio
+    fn nodes_reachable_from_output(&self, deps: &HashMap<usize, Vec<usize>>) -> std::collections::HashSet<usize> {
+        let mut reachable = std::collections::HashSet::new();
+        let mut stack = Vec::new();
+
+        // Start from main output
+        if let Some(output_id) = self.output {
+            stack.push(output_id.0);
+        }
+
+        // Add numbered outputs
+        for &output_id in self.outputs.values() {
+            stack.push(output_id.0);
+        }
+
+        // DFS to find all reachable nodes
+        while let Some(node_id) = stack.pop() {
+            if reachable.contains(&node_id) {
+                continue;
+            }
+            reachable.insert(node_id);
+
+            // Add all dependencies
+            if let Some(dep_list) = deps.get(&node_id) {
+                for &dep_id in dep_list {
+                    if !reachable.contains(&dep_id) {
+                        stack.push(dep_id);
+                    }
+                }
+            }
+        }
+
+        reachable
+    }
+
     /// Topological sort with cycle detection (Kahn's algorithm)
     /// Returns nodes in execution order. Cycles are handled by processing
     /// cyclic nodes after acyclic ones (they'll read from prev_node_buffers).
@@ -6160,6 +6202,11 @@ impl UnifiedSignalGraph {
             | SignalNode::Min { a, b } => {
                 collect!(a);
                 collect!(b);
+            }
+
+            // === MIDI to Frequency ===
+            SignalNode::MidiToFreq { midi } => {
+                collect!(midi);
             }
 
             // === Multi-input ===
@@ -7090,8 +7137,14 @@ impl UnifiedSignalGraph {
             self.outputs.values().map(|id| id.0).collect();
 
         let topo_order: Vec<usize> = if bus_node_ids.is_empty() {
-            // No buses - process all nodes
+            // No buses - only process nodes reachable from output
+            // This prevents orphaned nodes (like unmodified SynthPatterns after # n modifier)
+            // from producing unwanted audio
+            let reachable = self.nodes_reachable_from_output(&deps);
             full_topo_order
+                .into_iter()
+                .filter(|node_id| reachable.contains(node_id))
+                .collect()
         } else {
             // Has buses - only process buses, main output, and numbered outputs
             full_topo_order
@@ -8664,6 +8717,9 @@ impl UnifiedSignalGraph {
                 self.traverse_signal_for_samples(a, visited, sample_nodes);
                 self.traverse_signal_for_samples(b, visited, sample_nodes);
             }
+            SignalNode::MidiToFreq { midi } => {
+                self.traverse_signal_for_samples(midi, visited, sample_nodes);
+            }
             SignalNode::Mix { signals } => {
                 for signal in signals {
                     self.traverse_signal_for_samples(signal, visited, sample_nodes);
@@ -8799,6 +8855,9 @@ impl UnifiedSignalGraph {
                 SignalNode::Min { a, b } => {
                     self.find_signal_dependencies(a, visited);
                     self.find_signal_dependencies(b, visited);
+                }
+                SignalNode::MidiToFreq { midi } => {
+                    self.find_signal_dependencies(midi, visited);
                 }
                 SignalNode::Wrap { input, min, max } => {
                     self.find_signal_dependencies(input, visited);
@@ -9025,6 +9084,12 @@ impl UnifiedSignalGraph {
                 let a_val = self.eval_signal_from_buffers(a, sample_idx);
                 let b_val = self.eval_signal_from_buffers(b, sample_idx);
                 Some(a_val.min(b_val))
+            }
+            SignalNode::MidiToFreq { midi } => {
+                let midi_val = self.eval_signal_from_buffers(midi, sample_idx);
+                // freq = 440 * 2^((midi - 69) / 12)
+                let freq = 440.0 * (2.0_f32).powf((midi_val - 69.0) / 12.0);
+                Some(freq)
             }
             SignalNode::Wrap { input, min, max } => {
                 let input_val = self.eval_signal_from_buffers(input, sample_idx);
@@ -11393,6 +11458,12 @@ impl UnifiedSignalGraph {
 
             SignalNode::Min { a, b } => self.eval_signal(&a).min(self.eval_signal(&b)),
 
+            SignalNode::MidiToFreq { midi } => {
+                let midi_val = self.eval_signal(&midi);
+                // freq = 440 * 2^((midi - 69) / 12)
+                440.0 * (2.0_f32).powf((midi_val - 69.0) / 12.0)
+            }
+
             SignalNode::Wrap { input, min, max } => {
                 let input_val = self.eval_signal(&input);
                 let min_val = self.eval_signal(&min);
@@ -13706,6 +13777,7 @@ impl UnifiedSignalGraph {
                 filter_env_amount,
                 gain,
                 pan,
+                n,
                 ..
             } => {
                 use crate::pattern_tonal::{midi_to_freq, note_to_midi};
@@ -13714,6 +13786,7 @@ impl UnifiedSignalGraph {
                 // Evaluate DSP parameters (all pattern-modulatable at sample rate)
                 let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
                 let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
+                let n_val = self.eval_signal(&n); // Semitone transposition
 
                 // Evaluate envelope parameters (sampled at trigger time for each note)
                 let attack_val = self.eval_signal(&attack).max(0.0001);
@@ -13819,7 +13892,9 @@ impl UnifiedSignalGraph {
                         let scaled_gain = gain_val * chord_gain_scale;
 
                         for midi_note in midi_notes {
-                            let frequency = midi_to_freq(midi_note) as f32;
+                            // Apply transposition (n_val is in semitones)
+                            let transposed_midi = ((midi_note as f32 + n_val).round() as i32).clamp(0, 127) as u8;
+                            let frequency = midi_to_freq(transposed_midi) as f32;
 
                             self.synth_voice_manager.borrow_mut().trigger_note(
                                 frequency,

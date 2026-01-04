@@ -10,6 +10,7 @@
 
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, State, TimeSpan};
+use crate::pattern_tonal::note_to_midi;
 
 /// A parameter that can be a constant, pattern, or reference
 #[derive(Clone, Debug)]
@@ -99,7 +100,14 @@ impl DspParameter {
                 // Get the first event's value, or default to 0
                 if let Some(event) = events.first() {
                     // The value is a String, try to parse as number
-                    event.value.parse::<f32>().unwrap_or(0.0)
+                    // Also support note names (c4, e4, etc.) by converting to MIDI
+                    if let Ok(num) = event.value.parse::<f32>() {
+                        num
+                    } else if let Some(midi) = note_to_midi(&event.value) {
+                        midi as f32
+                    } else {
+                        0.0 // Unknown format
+                    }
                 } else {
                     0.0 // No event at this position
                 }

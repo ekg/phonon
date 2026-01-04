@@ -2115,6 +2115,7 @@ impl DslCompiler {
                                     filter_env_amount: Signal::Value(filter_env_amount.unwrap_or(0.0)),
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
+                                    n: Signal::Value(0.0),
                                 });
                             }
                         }
@@ -2177,6 +2178,7 @@ impl DslCompiler {
                                     filter_env_amount: Signal::Value(filter_env_amount.unwrap_or(0.0)),
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
+                                    n: Signal::Value(0.0),
                                 });
                             }
                         }
@@ -2746,6 +2748,7 @@ impl DslCompiler {
                     filter_env_amount: Signal::Value(0.0),     // No envelope modulation by default
                     gain: gain_signal,
                     pan: pan_signal,
+                    n: Signal::Value(0.0),                     // No transposition by default
                 })
             }
             DslExpression::Delay {

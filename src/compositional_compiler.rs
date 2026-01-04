@@ -8,6 +8,7 @@ use crate::compositional_parser::{BinOp, BusType, Expr, Statement, Transform, Un
 use crate::midi_input::{ArpPattern, Arpeggiator, MidiEventQueue, Scale, parse_root_note};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
+use crate::pattern_tonal::note_to_midi;
 use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{
     DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph,
@@ -2891,6 +2892,9 @@ fn compile_function_call(
         "scan" => compile_scan(ctx, args),
         "irand" => compile_irand(ctx, args),
         "rand" => compile_rand(ctx, args),
+
+        // ========== MIDI/Frequency Conversion ==========
+        "mtof" => compile_mtof(ctx, args),
         // NOTE: sine/saw/tri/square are already defined as oscillators above
         // Pattern generators would need different names like "sine_wave", "saw_wave" etc.
         "cosine" => compile_cosine_wave(ctx, args),
@@ -4660,6 +4664,7 @@ fn compile_synth_pattern(
         filter_env_amount: Signal::Value(0.0),     // No envelope modulation by default
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
+        n: Signal::Value(0.0),                     // No transposition by default
     };
 
     Ok(ctx.graph.add_node(node))
@@ -7269,6 +7274,7 @@ fn modify_sample_param(
         filter_env_amount,
         gain,
         pan,
+        n,
         ..
     } = sample_node
     {
@@ -7323,6 +7329,11 @@ fn modify_sample_param(
                 new_value.clone()
             } else {
                 pan.clone()
+            },
+            n: if param_name == "n" || param_name == "note" {
+                new_value.clone()
+            } else {
+                n.clone()
             },
         };
 
@@ -9020,8 +9031,19 @@ fn try_extract_numeric_pattern(expr: &Expr) -> Option<(Pattern<f64>, String)> {
     match expr {
         Expr::String(s) => {
             // Parse mini-notation and convert String pattern to f64 pattern
+            // Support both numeric values and note names (convert to MIDI)
             let string_pattern = parse_mini_notation(s);
-            let f64_pattern = string_pattern.fmap(|v| v.parse::<f64>().unwrap_or(0.0));
+            let f64_pattern = string_pattern.fmap(|v| {
+                // Try parsing as number first
+                if let Ok(num) = v.parse::<f64>() {
+                    num
+                } else if let Some(midi) = note_to_midi(&v) {
+                    // Convert note name to MIDI number
+                    midi as f64
+                } else {
+                    0.0
+                }
+            });
             Some((f64_pattern, s.clone()))
         }
         Expr::Number(n) => {
@@ -9222,18 +9244,11 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         }
     };
 
-    eprintln!(
-        "[DEBUG] n modifier: input node = {}, creating modified node...",
-        sample_node_id.0
-    );
-
-    // Second arg is the n pattern
+    // Compile the n pattern
     let n_value = compile_expr(ctx, args[1].clone())?;
 
-    // Modify the Sample node
-    let result = modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))?;
-    eprintln!("[DEBUG] n modifier: output node = {}", result.0);
-    Ok(result)
+    // Modify the Sample or SynthPattern node
+    modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))
 }
 
 /// Compile note function/modifier
@@ -9916,6 +9931,40 @@ fn compile_rand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     // Wrap in PatternEvaluator node
     let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile mtof (MIDI to frequency) conversion
+/// mtof(midi_pattern) -> frequency pattern
+/// Formula: freq = 440 * 2^((midi - 69) / 12)
+fn compile_mtof(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!("mtof requires 1 argument (midi), got {}", args.len()));
+    }
+
+    // Compile the input (MIDI values)
+    let midi_node = compile_expr(ctx, args[0].clone())?;
+
+    // Create mtof conversion node: freq = 440 * 2^((midi - 69) / 12)
+    // First: midi - 69
+    let sub_node = ctx.graph.add_node(SignalNode::Add {
+        a: Signal::Node(midi_node),
+        b: Signal::Value(-69.0),
+    });
+
+    // Then: (midi - 69) / 12
+    let div_node = ctx.graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(sub_node),
+        b: Signal::Value(1.0 / 12.0),
+    });
+
+    // Then: 2^(...)
+    // We'll use an Exp2 node if available, or approximate with existing nodes
+    // For now, use the MidiToFreq node which does exactly this
+    let node = SignalNode::MidiToFreq {
+        midi: Signal::Node(midi_node),
+    };
+
     Ok(ctx.graph.add_node(node))
 }
 

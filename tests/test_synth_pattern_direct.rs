@@ -28,6 +28,7 @@ fn test_synth_pattern_direct_api() {
         filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.3),
         pan: Signal::Value(0.0),
+        n: Signal::Value(0.0),
     });
 
     graph.set_output(synth_node);
@@ -81,6 +82,7 @@ fn test_synth_pattern_polyphony() {
         filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.2),
         pan: Signal::Value(0.0),
+        n: Signal::Value(0.0),
     });
 
     graph.set_output(synth_node);
@@ -125,6 +127,7 @@ fn test_synth_pattern_adsr() {
         filter_env_amount: Signal::Value(0.0),
         gain: Signal::Value(0.5),
         pan: Signal::Value(0.0),
+        n: Signal::Value(0.0),
     });
 
     graph.set_output(synth_node);
