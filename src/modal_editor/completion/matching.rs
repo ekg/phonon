@@ -4,6 +4,7 @@
 
 use super::context::CompletionContext;
 use super::function_metadata::FUNCTION_METADATA;
+use super::generated_metadata::get_all_functions;
 use crate::modal_editor::highlighting::FUNCTIONS;
 
 /// Type of completion item
@@ -88,6 +89,80 @@ impl FzfMatch {
             matched_indices,
         }
     }
+}
+
+/// Which field the search matched against
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchField {
+    Name,
+    Description,
+    Example,
+}
+
+/// Result of multi-field docstring search
+#[derive(Debug, Clone)]
+pub struct DocstringMatch {
+    /// Best match score (already weighted)
+    pub score: i32,
+    /// Which field produced the best match
+    pub matched_field: MatchField,
+    /// Matched indices (only valid for Name matches - used for highlighting)
+    pub matched_indices: Vec<usize>,
+}
+
+/// Search across multiple fields with appropriate weighting
+///
+/// Searches: name (full score), description (half), example (third)
+/// Returns the best match across all fields
+pub fn docstring_search(
+    query: &str,
+    name: &str,
+    description: Option<&str>,
+    example: Option<&str>,
+) -> Option<DocstringMatch> {
+    let mut best: Option<DocstringMatch> = None;
+
+    // Search name (full weight)
+    if let Some(fzf) = fzf_match(query, name) {
+        let match_result = DocstringMatch {
+            score: fzf.score,
+            matched_field: MatchField::Name,
+            matched_indices: fzf.matched_indices,
+        };
+        best = Some(match_result);
+    }
+
+    // Search description (half weight)
+    if let Some(desc) = description {
+        if let Some(fzf) = fzf_match(query, desc) {
+            let weighted_score = fzf.score / 2;
+            if best.as_ref().map_or(true, |b| weighted_score > b.score) {
+                best = Some(DocstringMatch {
+                    score: weighted_score,
+                    matched_field: MatchField::Description,
+                    matched_indices: vec![], // Can't highlight name from desc match
+                });
+            }
+        }
+    }
+
+    // Search example (third weight)
+    if let Some(ex) = example {
+        if !ex.is_empty() {
+            if let Some(fzf) = fzf_match(query, ex) {
+                let weighted_score = fzf.score / 3;
+                if best.as_ref().map_or(true, |b| weighted_score > b.score) {
+                    best = Some(DocstringMatch {
+                        score: weighted_score,
+                        matched_field: MatchField::Example,
+                        matched_indices: vec![], // Can't highlight name from example match
+                    });
+                }
+            }
+        }
+    }
+
+    best
 }
 
 /// Score for fuzzy matching (internal, for backwards compatibility)
@@ -363,39 +438,60 @@ pub fn filter_completions(
 
     match context {
         CompletionContext::Function => {
-            // Show functions with fuzzy matching on name and description
-            for func in FUNCTIONS.iter() {
-                // Try matching on function name
-                if let Some(fzf) = fzf_match(partial, func) {
-                    let description = FUNCTION_METADATA
-                        .get(func)
-                        .map(|meta| meta.description.to_string());
+            // Show functions with docstring search (name, description, example)
+            let generated = get_all_functions();
 
+            for func in FUNCTIONS.iter() {
+                // Gather metadata from both sources
+                let curated = FUNCTION_METADATA.get(func);
+                let gen = generated.get(*func);
+
+                // Get description and example (prefer curated, fall back to generated)
+                let description = curated
+                    .map(|m| m.description)
+                    .or_else(|| gen.map(|g| g.description.as_str()));
+                let example = curated
+                    .and_then(|m| {
+                        // Curated metadata doesn't have example field yet
+                        None::<&str>
+                    })
+                    .or_else(|| gen.map(|g| g.example.as_str()));
+
+                // Search across all fields
+                if let Some(doc_match) = docstring_search(partial, func, description, example) {
                     completions.push((
                         Completion::with_match(
                             func.to_string(),
                             CompletionType::Function,
-                            description,
-                            fzf.matched_indices,
+                            description.map(|s| s.to_string()),
+                            doc_match.matched_indices,
                         ),
-                        fzf.score,
+                        doc_match.score,
                     ));
-                } else if let Some(metadata) = FUNCTION_METADATA.get(func) {
-                    // Try matching on description
-                    if let Some(fzf) = fzf_match(partial, metadata.description) {
-                        // Description matches get lower score than name matches
-                        let adjusted_score = fzf.score / 2;
-                        // Note: matched_indices here apply to description, not name
-                        // We leave matched_indices empty since we can't highlight the name
-                        completions.push((
-                            Completion::new(
-                                func.to_string(),
-                                CompletionType::Function,
-                                Some(metadata.description.to_string()),
-                            ),
-                            adjusted_score,
-                        ));
-                    }
+                }
+            }
+
+            // Also search generated functions not in FUNCTIONS list
+            for (name, gen_meta) in generated.iter() {
+                if FUNCTIONS.contains(&name.as_str()) {
+                    continue; // Already handled above
+                }
+
+                if let Some(doc_match) = docstring_search(
+                    partial,
+                    name,
+                    Some(gen_meta.description.as_str()),
+                    Some(gen_meta.example.as_str()),
+                ) {
+                    completions.push((
+                        Completion::with_match(
+                            name.clone(),
+                            CompletionType::Function,
+                            Some(gen_meta.description.clone()),
+                            doc_match.matched_indices,
+                        ),
+                        doc_match.score,
+                    ));
                 }
             }
         }
@@ -511,62 +607,111 @@ pub fn filter_completions(
         }
 
         CompletionContext::AfterChain => {
-            // Filter to Effects + Filters only
+            // Filter to Effects + Filters only, with docstring search
+            let generated = get_all_functions();
+
             for func in FUNCTIONS.iter() {
-                if let Some(metadata) = FUNCTION_METADATA.get(func) {
-                    if metadata.category == "Effects" || metadata.category == "Filters" {
-                        if let Some(fzf) = fzf_match(partial, func) {
-                            let completion = Completion::with_match(
-                                func.to_string(),
-                                CompletionType::Function,
-                                Some(metadata.description.to_string()),
-                                fzf.matched_indices,
-                            );
-                            completions.push((completion, fzf.score));
-                        }
-                    }
+                let curated = FUNCTION_METADATA.get(func);
+                let gen = generated.get(*func);
+
+                // Check category (prefer curated)
+                let category = curated
+                    .map(|m| m.category)
+                    .or_else(|| gen.map(|g| g.category.as_str()));
+
+                if !matches!(category, Some("Effects") | Some("Filters")) {
+                    continue;
+                }
+
+                let description = curated
+                    .map(|m| m.description)
+                    .or_else(|| gen.map(|g| g.description.as_str()));
+                let example = gen.map(|g| g.example.as_str());
+
+                if let Some(doc_match) = docstring_search(partial, func, description, example) {
+                    completions.push((
+                        Completion::with_match(
+                            func.to_string(),
+                            CompletionType::Function,
+                            description.map(|s| s.to_string()),
+                            doc_match.matched_indices,
+                        ),
+                        doc_match.score,
+                    ));
                 }
             }
         }
 
         CompletionContext::AfterTransform => {
-            // Filter to Transforms only
+            // Filter to Transforms only, with docstring search
+            let generated = get_all_functions();
+
             for func in FUNCTIONS.iter() {
-                if let Some(metadata) = FUNCTION_METADATA.get(func) {
-                    if metadata.category == "Transforms" {
-                        if let Some(fzf) = fzf_match(partial, func) {
-                            let completion = Completion::with_match(
-                                func.to_string(),
-                                CompletionType::Function,
-                                Some(metadata.description.to_string()),
-                                fzf.matched_indices,
-                            );
-                            completions.push((completion, fzf.score));
-                        }
-                    }
+                let curated = FUNCTION_METADATA.get(func);
+                let gen = generated.get(*func);
+
+                let category = curated
+                    .map(|m| m.category)
+                    .or_else(|| gen.map(|g| g.category.as_str()));
+
+                if category != Some("Transforms") {
+                    continue;
+                }
+
+                let description = curated
+                    .map(|m| m.description)
+                    .or_else(|| gen.map(|g| g.description.as_str()));
+                let example = gen.map(|g| g.example.as_str());
+
+                if let Some(doc_match) = docstring_search(partial, func, description, example) {
+                    completions.push((
+                        Completion::with_match(
+                            func.to_string(),
+                            CompletionType::Function,
+                            description.map(|s| s.to_string()),
+                            doc_match.matched_indices,
+                        ),
+                        doc_match.score,
+                    ));
                 }
             }
         }
 
         CompletionContext::AfterBusAssignment => {
-            // Filter to Generators + Oscillators + Synths + Patterns
+            // Filter to Generators + Oscillators + Synths + Patterns, with docstring search
+            let generated = get_all_functions();
+
             for func in FUNCTIONS.iter() {
-                if let Some(metadata) = FUNCTION_METADATA.get(func) {
-                    let valid = matches!(
-                        metadata.category,
-                        "Generators" | "Oscillators" | "Synths" | "Patterns"
-                    );
-                    if valid {
-                        if let Some(fzf) = fzf_match(partial, func) {
-                            let completion = Completion::with_match(
-                                func.to_string(),
-                                CompletionType::Function,
-                                Some(metadata.description.to_string()),
-                                fzf.matched_indices,
-                            );
-                            completions.push((completion, fzf.score));
-                        }
-                    }
+                let curated = FUNCTION_METADATA.get(func);
+                let gen = generated.get(*func);
+
+                let category = curated
+                    .map(|m| m.category)
+                    .or_else(|| gen.map(|g| g.category.as_str()));
+
+                let valid = matches!(
+                    category,
+                    Some("Generators") | Some("Oscillators") | Some("Synths") | Some("Patterns")
+                );
+                if !valid {
+                    continue;
+                }
+
+                let description = curated
+                    .map(|m| m.description)
+                    .or_else(|| gen.map(|g| g.description.as_str()));
+                let example = gen.map(|g| g.example.as_str());
+
+                if let Some(doc_match) = docstring_search(partial, func, description, example) {
+                    completions.push((
+                        Completion::with_match(
+                            func.to_string(),
+                            CompletionType::Function,
+                            description.map(|s| s.to_string()),
+                            doc_match.matched_indices,
+                        ),
+                        doc_match.score,
+                    ));
                 }
             }
         }
@@ -990,6 +1135,106 @@ mod tests {
     fn test_fuzzy_score_no_match() {
         let score = fuzzy_score("xyz", "reverb");
         assert_eq!(score, None);
+    }
+
+    // ===== DOCSTRING SEARCH TESTS =====
+
+    #[test]
+    fn test_docstring_search_name_match() {
+        // Name match should have full score
+        let result = docstring_search("lpf", "lpf", Some("Low-pass filter"), None);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        assert_eq!(m.matched_field, MatchField::Name);
+        assert!(!m.matched_indices.is_empty());
+    }
+
+    #[test]
+    fn test_docstring_search_description_match() {
+        // Description match when name doesn't match
+        let result = docstring_search("filter", "lpf", Some("Low-pass filter"), None);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        // "filter" is in description, not name "lpf"
+        assert_eq!(m.matched_field, MatchField::Description);
+        // No indices for description matches (can't highlight the name)
+        assert!(m.matched_indices.is_empty());
+    }
+
+    #[test]
+    fn test_docstring_search_example_match() {
+        // Example match when name and description don't match
+        let result = docstring_search(
+            "bass",
+            "lpf",
+            Some("Low-pass filter"),
+            Some("saw 55 # lpf 800 -- bass"),
+        );
+        assert!(result.is_some());
+        let m = result.unwrap();
+        assert_eq!(m.matched_field, MatchField::Example);
+    }
+
+    #[test]
+    fn test_docstring_search_name_wins_over_description() {
+        // Name match should score higher than description match
+        let result = docstring_search("rev", "rev", Some("Reverse the pattern"), None);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        // "rev" matches both name and description, but name should win
+        assert_eq!(m.matched_field, MatchField::Name);
+    }
+
+    #[test]
+    fn test_docstring_search_no_match() {
+        // Should return None if nothing matches
+        let result = docstring_search("xyz123", "lpf", Some("Low-pass filter"), Some("example"));
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_docstring_search_empty_query() {
+        // Empty query should match name
+        let result = docstring_search("", "lpf", Some("Low-pass filter"), None);
+        assert!(result.is_some());
+        let m = result.unwrap();
+        assert_eq!(m.matched_field, MatchField::Name);
+    }
+
+    #[test]
+    fn test_filter_completions_finds_by_description() {
+        // Test that filter_completions finds functions by searching descriptions
+        let samples = vec![];
+        let buses = vec![];
+        let context = CompletionContext::Function;
+
+        // "echo" should find "delay" because delay's description mentions echo
+        let completions = filter_completions("echo", &context, &samples, &buses);
+
+        // Should find delay (description mentions echo/delay)
+        assert!(
+            completions.iter().any(|c| c.text == "delay"),
+            "Should find 'delay' by searching description for 'echo'"
+        );
+    }
+
+    #[test]
+    fn test_filter_completions_name_ranks_higher() {
+        // Name matches should rank higher than description matches
+        let samples = vec![];
+        let buses = vec![];
+        let context = CompletionContext::Function;
+
+        // "rev" matches both "rev" (name) and "reverb" (name)
+        // and could match descriptions of other functions
+        let completions = filter_completions("rev", &context, &samples, &buses);
+
+        // The exact match "rev" should be first or second (with reverb)
+        let top_3: Vec<_> = completions.iter().take(3).map(|c| c.text.as_str()).collect();
+        assert!(
+            top_3.contains(&"rev"),
+            "Exact name match 'rev' should be in top 3"
+        );
     }
 
     #[test]
