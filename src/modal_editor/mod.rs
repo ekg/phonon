@@ -2624,7 +2624,22 @@ impl ModalEditor {
 
         // Determine partial text and token start position
         let (partial_text, token_start) = match token {
-            Some(t) => (t.text.clone(), t.start),
+            Some(t) => {
+                // In Keyword context, check if there's a ':' before the token
+                // This is needed because ':' is a token delimiter, so "gain :am"
+                // gives us token "am" but we need to know the ':' is there
+                let text = if matches!(context, completion::CompletionContext::Keyword(_)) {
+                    // Check if the character before token is ':'
+                    if t.start > 0 && line.chars().nth(t.start - 1) == Some(':') {
+                        format!(":{}", t.text)
+                    } else {
+                        t.text.clone()
+                    }
+                } else {
+                    t.text.clone()
+                };
+                (text, t.start)
+            }
             None => {
                 // No token found - check if we're in a context that allows empty completion
                 match context {
@@ -2692,7 +2707,7 @@ impl ModalEditor {
             let token_start = self.completion_state.token_start();
             let token_end = self.cursor_pos;
 
-            if token_start < self.content.len() {
+            if token_start <= self.content.len() {
                 self.content
                     .replace_range(token_start..token_end, &completion.text);
                 self.cursor_pos = token_start + completion.text.len();
@@ -2803,11 +2818,28 @@ impl ModalEditor {
 
         // Determine partial text
         let (partial_text, token_start) = match token {
-            Some(t) => (t.text.clone(), t.start),
+            Some(t) => {
+                // In Keyword context, check if there's a ':' before the token
+                // This is needed because ':' is a token delimiter, so "gain :am"
+                // gives us token "am" but we need to know the ':' is there
+                let text = if matches!(context, completion::CompletionContext::Keyword(_)) {
+                    // Check if the character before token is ':'
+                    if t.start > 0 && line.chars().nth(t.start - 1) == Some(':') {
+                        format!(":{}", t.text)
+                    } else {
+                        t.text.clone()
+                    }
+                } else {
+                    t.text.clone()
+                };
+                (text, t.start)
+            }
             None => {
                 // No token - check if we're in a completable context
                 match context {
-                    completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
+                    completion::CompletionContext::Sample
+                    | completion::CompletionContext::Bus
+                    | completion::CompletionContext::Keyword(_) => {
                         ("".to_string(), col)
                     }
                     _ => {
