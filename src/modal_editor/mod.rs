@@ -1168,16 +1168,49 @@ impl ModalEditor {
                 let actual_idx = scroll_offset + displayed_idx;
                 let is_selected = actual_idx == selected_index;
                 let prefix = if is_selected { "► " } else { "  " };
-                let style = if is_selected {
+                let base_style = if is_selected {
                     Style::default().fg(Color::Black).bg(Color::Cyan)
                 } else {
                     Style::default().fg(Color::White)
                 };
+                let highlight_style = if is_selected {
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .bg(Color::Cyan)
+                        .add_modifier(ratatui::style::Modifier::BOLD)
+                } else {
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(ratatui::style::Modifier::BOLD)
+                };
 
-                // Format: "  completion_text     [type]"
-                let line_text = format!("{}{:20} {}", prefix, completion.text, completion.label());
+                // Build spans with highlighted matched characters
+                let mut spans = vec![Span::styled(prefix, base_style)];
 
-                popup_lines.push(Line::from(Span::styled(line_text, style)));
+                // Build the completion text with highlighted characters
+                let text_chars: Vec<char> = completion.text.chars().collect();
+                let matched_set: std::collections::HashSet<usize> =
+                    completion.matched_indices.iter().copied().collect();
+
+                for (i, ch) in text_chars.iter().enumerate() {
+                    let style = if matched_set.contains(&i) {
+                        highlight_style
+                    } else {
+                        base_style
+                    };
+                    spans.push(Span::styled(ch.to_string(), style));
+                }
+
+                // Pad to 20 chars for alignment
+                let padding_needed = 20usize.saturating_sub(completion.text.len());
+                if padding_needed > 0 {
+                    spans.push(Span::styled(" ".repeat(padding_needed), base_style));
+                }
+
+                // Add the type label
+                spans.push(Span::styled(format!(" {}", completion.label()), base_style));
+
+                popup_lines.push(Line::from(spans));
             }
 
             // Show scroll indicator at bottom if there are items below

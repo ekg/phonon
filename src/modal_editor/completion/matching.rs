@@ -36,6 +36,8 @@ pub struct Completion {
     pub completion_type: CompletionType,
     /// Optional description for the completion
     pub description: Option<String>,
+    /// Indices of matched characters in the text (for highlighting)
+    pub matched_indices: Vec<usize>,
 }
 
 impl Completion {
@@ -45,6 +47,22 @@ impl Completion {
             text,
             completion_type,
             description,
+            matched_indices: vec![],
+        }
+    }
+
+    /// Create a new completion with matched indices
+    pub fn with_match(
+        text: String,
+        completion_type: CompletionType,
+        description: Option<String>,
+        matched_indices: Vec<usize>,
+    ) -> Self {
+        Self {
+            text,
+            completion_type,
+            description,
+            matched_indices,
         }
     }
 
@@ -54,75 +72,275 @@ impl Completion {
     }
 }
 
-/// Score for fuzzy matching
+/// Result of fzf-style fuzzy matching
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FzfMatch {
+    /// Match score (higher is better)
+    pub score: i32,
+    /// Indices of matched characters in the candidate (for highlighting)
+    pub matched_indices: Vec<usize>,
+}
+
+impl FzfMatch {
+    fn new(score: i32, matched_indices: Vec<usize>) -> Self {
+        Self {
+            score,
+            matched_indices,
+        }
+    }
+}
+
+/// Score for fuzzy matching (internal, for backwards compatibility)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct FuzzyScore(usize);
 
-/// Calculate fuzzy match score between input and candidate
+// fzf-style scoring constants
+const SCORE_MATCH: i32 = 16;
+const SCORE_GAP_START: i32 = -3;
+const SCORE_GAP_EXTENSION: i32 = -1;
+const BONUS_BOUNDARY: i32 = 8;
+const BONUS_CAMEL: i32 = 7;
+const BONUS_FIRST_CHAR: i32 = 8;
+const BONUS_CONSECUTIVE: i32 = 4;
+
+/// Classify a character for word boundary detection
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CharClass {
+    Lower,
+    Upper,
+    Digit,
+    Delimiter,
+    Other,
+}
+
+fn char_class(c: char) -> CharClass {
+    if c.is_lowercase() {
+        CharClass::Lower
+    } else if c.is_uppercase() {
+        CharClass::Upper
+    } else if c.is_ascii_digit() {
+        CharClass::Digit
+    } else if c == '_' || c == '-' || c == ' ' || c == '/' || c == '.' {
+        CharClass::Delimiter
+    } else {
+        CharClass::Other
+    }
+}
+
+/// Calculate word boundary bonus based on previous and current character
+fn boundary_bonus(prev_class: CharClass, curr_class: CharClass) -> i32 {
+    match (prev_class, curr_class) {
+        // After delimiter is a strong boundary
+        (CharClass::Delimiter, _) => BONUS_BOUNDARY,
+        // Start of string is like after delimiter
+        (CharClass::Other, _) if prev_class == CharClass::Other => BONUS_BOUNDARY,
+        // camelCase: lowercase followed by uppercase
+        (CharClass::Lower, CharClass::Upper) => BONUS_CAMEL,
+        // After digit transitioning to letter
+        (CharClass::Digit, CharClass::Lower) | (CharClass::Digit, CharClass::Upper) => BONUS_BOUNDARY / 2,
+        _ => 0,
+    }
+}
+
+/// fzf-style fuzzy matching algorithm
 ///
-/// Returns None if no match, or Some(score) where higher is better:
-/// - Exact match: 1000
-/// - Prefix match: 500 + (1000 - input_len)
-/// - Substring match: 100 + position bonus
-/// - Character-by-character fuzzy: sum of position bonuses
+/// Returns None if no match, or Some(FzfMatch) with:
+/// - score: Higher is better, based on:
+///   - Consecutive match bonus
+///   - Word boundary bonus (after _, -, space)
+///   - Camel case boundary bonus (lowercase -> uppercase)
+///   - First character match bonus
+///   - Gap penalty (unmatched chars between matches)
+/// - matched_indices: Positions of matched chars for highlighting
 ///
 /// # Arguments
-/// * `input` - The partial text being completed
+/// * `query` - The search query (what user typed)
 /// * `candidate` - The candidate text to match against
-fn fuzzy_score(input: &str, candidate: &str) -> Option<FuzzyScore> {
-    if input.is_empty() {
-        // Empty input matches everything with base score
-        return Some(FuzzyScore(50));
+pub fn fzf_match(query: &str, candidate: &str) -> Option<FzfMatch> {
+    if query.is_empty() {
+        // Empty query matches everything with base score
+        return Some(FzfMatch::new(50, vec![]));
     }
 
-    let input_lower = input.to_lowercase();
-    let candidate_lower = candidate.to_lowercase();
+    let query_lower: Vec<char> = query.to_lowercase().chars().collect();
+    let candidate_chars: Vec<char> = candidate.chars().collect();
+    let candidate_lower: Vec<char> = candidate.to_lowercase().chars().collect();
 
-    // Exact match: highest score
-    if candidate_lower == input_lower {
-        return Some(FuzzyScore(1000));
+    if query_lower.len() > candidate_lower.len() {
+        return None;
     }
 
-    // Prefix match: high score
-    // Bonus for shorter candidates (closer to exact match)
-    if candidate_lower.starts_with(&input_lower) {
-        let length_penalty = (candidate_lower.len() - input_lower.len()).min(400);
-        return Some(FuzzyScore(900 - length_penalty));
-    }
+    // First pass: check if all query chars exist in candidate (in order)
+    let mut query_idx = 0;
+    let mut first_match_positions: Vec<usize> = Vec::new();
 
-    // Substring match: medium score (bonus for position)
-    if let Some(pos) = candidate_lower.find(&input_lower) {
-        // Earlier position gets higher score
-        let position_bonus = 100 - pos.min(100);
-        return Some(FuzzyScore(100 + position_bonus));
-    }
-
-    // Character-by-character fuzzy matching
-    let mut input_chars = input_lower.chars().peekable();
-    let mut score = 0;
-    let mut last_match_pos = 0;
-
-    for (i, ch) in candidate_lower.chars().enumerate() {
-        if let Some(&input_ch) = input_chars.peek() {
-            if ch == input_ch {
-                input_chars.next();
-                // Bonus for consecutive matches
-                let consecutive_bonus = if i == last_match_pos + 1 { 5 } else { 0 };
-                score += 10 + consecutive_bonus;
-                last_match_pos = i;
-            }
-        } else {
-            // All input chars matched
-            break;
+    for (i, &c) in candidate_lower.iter().enumerate() {
+        if query_idx < query_lower.len() && c == query_lower[query_idx] {
+            first_match_positions.push(i);
+            query_idx += 1;
         }
     }
 
-    // Only count as match if all input characters were found
-    if input_chars.peek().is_none() {
-        Some(FuzzyScore(score))
-    } else {
-        None
+    if query_idx != query_lower.len() {
+        return None; // Not all query chars found
     }
+
+    // Use dynamic programming to find optimal match positions
+    // We want to maximize: match bonuses - gap penalties
+    let (score, matched_indices) =
+        find_best_match(&query_lower, &candidate_chars, &candidate_lower);
+
+    Some(FzfMatch::new(score, matched_indices))
+}
+
+/// Find the best matching positions using a greedy algorithm with lookahead
+fn find_best_match(
+    query: &[char],
+    candidate: &[char],
+    candidate_lower: &[char],
+) -> (i32, Vec<usize>) {
+    let n = query.len();
+    let m = candidate_lower.len();
+
+    if n == 0 {
+        return (50, vec![]);
+    }
+
+    // For each query char, find all possible positions in candidate
+    let mut possible_positions: Vec<Vec<usize>> = vec![vec![]; n];
+    for (i, &qc) in query.iter().enumerate() {
+        let start = if i == 0 {
+            0
+        } else {
+            possible_positions[i - 1].first().copied().unwrap_or(0) + 1
+        };
+        for j in start..m {
+            if candidate_lower[j] == qc {
+                possible_positions[i].push(j);
+            }
+        }
+    }
+
+    // Check if matching is possible
+    for (i, positions) in possible_positions.iter().enumerate() {
+        if positions.is_empty() {
+            return (0, vec![]); // Can't match
+        }
+        // Ensure positions are after previous query char's first position
+        if i > 0 {
+            let prev_min = possible_positions[i - 1].first().copied().unwrap_or(0);
+            if positions.iter().all(|&p| p <= prev_min) {
+                return (0, vec![]);
+            }
+        }
+    }
+
+    // Greedy matching with scoring
+    let mut matched_indices = Vec::with_capacity(n);
+    let mut total_score = 0i32;
+    let mut prev_match_idx: Option<usize> = None;
+    let mut in_gap = false;
+
+    for (qi, &qc) in query.iter().enumerate() {
+        let start_pos = prev_match_idx.map(|p| p + 1).unwrap_or(0);
+
+        // Find best position for this query char
+        let mut best_pos = None;
+        let mut best_pos_score = i32::MIN;
+
+        for ci in start_pos..m {
+            if candidate_lower[ci] != qc {
+                continue;
+            }
+
+            // Calculate score for matching at this position
+            let mut pos_score = SCORE_MATCH;
+
+            // First character bonus
+            if ci == 0 {
+                pos_score += BONUS_FIRST_CHAR;
+            }
+
+            // Consecutive match bonus
+            if let Some(prev) = prev_match_idx {
+                if ci == prev + 1 {
+                    pos_score += BONUS_CONSECUTIVE;
+                }
+            }
+
+            // Word boundary bonus
+            if ci > 0 {
+                let prev_class = char_class(candidate[ci - 1]);
+                let curr_class = char_class(candidate[ci]);
+                pos_score += boundary_bonus(prev_class, curr_class);
+            } else {
+                // First char is like after a boundary
+                pos_score += BONUS_BOUNDARY;
+            }
+
+            // Case match bonus (exact case match)
+            if candidate[ci] == query[qi] {
+                pos_score += 1;
+            }
+
+            // Prefer earlier matches (tie-breaker)
+            if best_pos.is_none() || pos_score > best_pos_score {
+                best_pos = Some(ci);
+                best_pos_score = pos_score;
+            }
+
+            // If we found a consecutive match, that's usually best
+            if let Some(prev) = prev_match_idx {
+                if ci == prev + 1 {
+                    break;
+                }
+            }
+        }
+
+        if let Some(pos) = best_pos {
+            // Apply gap penalty if there's a gap
+            if let Some(prev) = prev_match_idx {
+                let gap = pos - prev - 1;
+                if gap > 0 {
+                    if !in_gap {
+                        total_score += SCORE_GAP_START;
+                        in_gap = true;
+                    }
+                    total_score += SCORE_GAP_EXTENSION * (gap as i32 - 1).max(0);
+                } else {
+                    in_gap = false;
+                }
+            }
+
+            total_score += best_pos_score;
+            matched_indices.push(pos);
+            prev_match_idx = Some(pos);
+        } else {
+            // Should not happen if first pass succeeded
+            return (0, vec![]);
+        }
+    }
+
+    // Bonus for shorter candidates (prefer exact or close matches)
+    let length_bonus = ((20 - (m as i32 - n as i32)).max(0)) / 2;
+    total_score += length_bonus;
+
+    // Extra bonus for prefix match
+    if matched_indices.first() == Some(&0) {
+        total_score += 10;
+    }
+
+    // Extra bonus for exact match
+    if n == m && matched_indices == (0..n).collect::<Vec<_>>() {
+        total_score += 100;
+    }
+
+    (total_score, matched_indices)
+}
+
+/// Wrapper for backwards compatibility - returns FuzzyScore
+fn fuzzy_score(input: &str, candidate: &str) -> Option<FuzzyScore> {
+    fzf_match(input, candidate).map(|m| FuzzyScore(m.score.max(0) as usize))
 }
 
 /// Filter and sort completions based on partial input and context
@@ -134,34 +352,41 @@ fn fuzzy_score(input: &str, candidate: &str) -> Option<FuzzyScore> {
 /// * `bus_names` - Available bus names from current editor content
 ///
 /// # Returns
-/// A sorted list of matching completions
+/// A sorted list of matching completions with match indices for highlighting
 pub fn filter_completions(
     partial: &str,
     context: &CompletionContext,
     sample_names: &[String],
     bus_names: &[String],
 ) -> Vec<Completion> {
-    let mut completions: Vec<(Completion, FuzzyScore)> = Vec::new();
+    let mut completions: Vec<(Completion, i32)> = Vec::new();
 
     match context {
         CompletionContext::Function => {
             // Show functions with fuzzy matching on name and description
             for func in FUNCTIONS.iter() {
                 // Try matching on function name
-                if let Some(name_score) = fuzzy_score(partial, func) {
+                if let Some(fzf) = fzf_match(partial, func) {
                     let description = FUNCTION_METADATA
                         .get(func)
                         .map(|meta| meta.description.to_string());
 
                     completions.push((
-                        Completion::new(func.to_string(), CompletionType::Function, description),
-                        name_score,
+                        Completion::with_match(
+                            func.to_string(),
+                            CompletionType::Function,
+                            description,
+                            fzf.matched_indices,
+                        ),
+                        fzf.score,
                     ));
                 } else if let Some(metadata) = FUNCTION_METADATA.get(func) {
                     // Try matching on description
-                    if let Some(desc_score) = fuzzy_score(partial, metadata.description) {
+                    if let Some(fzf) = fzf_match(partial, metadata.description) {
                         // Description matches get lower score than name matches
-                        let adjusted_score = FuzzyScore(desc_score.0 / 2);
+                        let adjusted_score = fzf.score / 2;
+                        // Note: matched_indices here apply to description, not name
+                        // We leave matched_indices empty since we can't highlight the name
                         completions.push((
                             Completion::new(
                                 func.to_string(),
@@ -181,41 +406,50 @@ pub fn filter_completions(
                 // User typed ~, show only buses
                 let partial_no_tilde = partial.trim_start_matches('~');
                 for bus in bus_names {
-                    if let Some(score) = fuzzy_score(partial_no_tilde, bus) {
+                    if let Some(fzf) = fzf_match(partial_no_tilde, bus) {
+                        // Shift indices by 1 to account for ~ prefix
+                        let shifted_indices: Vec<usize> =
+                            fzf.matched_indices.iter().map(|&i| i + 1).collect();
                         completions.push((
-                            Completion::new(
+                            Completion::with_match(
                                 format!("~{}", bus),
                                 CompletionType::Bus,
                                 Some(format!("Bus reference: ~{}", bus)),
+                                shifted_indices,
                             ),
-                            score,
+                            fzf.score,
                         ));
                     }
                 }
             } else {
                 // Show both samples and buses
                 for sample in sample_names {
-                    if let Some(score) = fuzzy_score(partial, sample) {
+                    if let Some(fzf) = fzf_match(partial, sample) {
                         completions.push((
-                            Completion::new(
+                            Completion::with_match(
                                 sample.clone(),
                                 CompletionType::Sample,
                                 Some(format!("Sample: {}", sample)),
+                                fzf.matched_indices,
                             ),
-                            score,
+                            fzf.score,
                         ));
                     }
                 }
 
                 for bus in bus_names {
-                    if let Some(score) = fuzzy_score(partial, bus) {
+                    if let Some(fzf) = fzf_match(partial, bus) {
+                        // Shift indices by 1 to account for ~ prefix
+                        let shifted_indices: Vec<usize> =
+                            fzf.matched_indices.iter().map(|&i| i + 1).collect();
                         completions.push((
-                            Completion::new(
+                            Completion::with_match(
                                 format!("~{}", bus),
                                 CompletionType::Bus,
                                 Some(format!("Bus reference: ~{}", bus)),
+                                shifted_indices,
                             ),
-                            score,
+                            fzf.score,
                         ));
                     }
                 }
@@ -226,14 +460,18 @@ pub fn filter_completions(
             // User explicitly typed ~, only show buses
             let partial_no_tilde = partial.trim_start_matches('~');
             for bus in bus_names {
-                if let Some(score) = fuzzy_score(partial_no_tilde, bus) {
+                if let Some(fzf) = fzf_match(partial_no_tilde, bus) {
+                    // Shift indices by 1 to account for ~ prefix
+                    let shifted_indices: Vec<usize> =
+                        fzf.matched_indices.iter().map(|&i| i + 1).collect();
                     completions.push((
-                        Completion::new(
+                        Completion::with_match(
                             format!("~{}", bus),
                             CompletionType::Bus,
                             Some(format!("Bus reference: ~{}", bus)),
+                            shifted_indices,
                         ),
-                        score,
+                        fzf.score,
                     ));
                 }
             }
@@ -245,23 +483,27 @@ pub fn filter_completions(
                 for param in &metadata.params {
                     let search_term = partial.trim_start_matches(':');
 
-                    if let Some(score) = fuzzy_score(search_term, param.name) {
+                    if let Some(fzf) = fzf_match(search_term, param.name) {
                         // Include ':' prefix if user hasn't typed it yet
                         // "gain <tab>" → show ":amount"
                         // "gain :a<tab>" → show "amount" (: already typed)
-                        let completion_text = if partial.starts_with(':') {
-                            param.name.to_string() // Just "amount"
+                        let (completion_text, indices) = if partial.starts_with(':') {
+                            (param.name.to_string(), fzf.matched_indices)
                         } else {
-                            format!(":{}", param.name) // ":amount"
+                            // Shift indices by 1 to account for : prefix
+                            let shifted: Vec<usize> =
+                                fzf.matched_indices.iter().map(|&i| i + 1).collect();
+                            (format!(":{}", param.name), shifted)
                         };
 
                         completions.push((
-                            Completion::new(
+                            Completion::with_match(
                                 completion_text,
                                 CompletionType::Keyword,
                                 Some(param.description.to_string()),
+                                indices,
                             ),
-                            score,
+                            fzf.score,
                         ));
                     }
                 }
@@ -273,13 +515,14 @@ pub fn filter_completions(
             for func in FUNCTIONS.iter() {
                 if let Some(metadata) = FUNCTION_METADATA.get(func) {
                     if metadata.category == "Effects" || metadata.category == "Filters" {
-                        if let Some(name_score) = fuzzy_score(partial, func) {
-                            let completion = Completion::new(
+                        if let Some(fzf) = fzf_match(partial, func) {
+                            let completion = Completion::with_match(
                                 func.to_string(),
                                 CompletionType::Function,
                                 Some(metadata.description.to_string()),
+                                fzf.matched_indices,
                             );
-                            completions.push((completion, name_score));
+                            completions.push((completion, fzf.score));
                         }
                     }
                 }
@@ -291,13 +534,14 @@ pub fn filter_completions(
             for func in FUNCTIONS.iter() {
                 if let Some(metadata) = FUNCTION_METADATA.get(func) {
                     if metadata.category == "Transforms" {
-                        if let Some(name_score) = fuzzy_score(partial, func) {
-                            let completion = Completion::new(
+                        if let Some(fzf) = fzf_match(partial, func) {
+                            let completion = Completion::with_match(
                                 func.to_string(),
                                 CompletionType::Function,
                                 Some(metadata.description.to_string()),
+                                fzf.matched_indices,
                             );
-                            completions.push((completion, name_score));
+                            completions.push((completion, fzf.score));
                         }
                     }
                 }
@@ -313,13 +557,14 @@ pub fn filter_completions(
                         "Generators" | "Oscillators" | "Synths" | "Patterns"
                     );
                     if valid {
-                        if let Some(name_score) = fuzzy_score(partial, func) {
-                            let completion = Completion::new(
+                        if let Some(fzf) = fzf_match(partial, func) {
+                            let completion = Completion::with_match(
                                 func.to_string(),
                                 CompletionType::Function,
                                 Some(metadata.description.to_string()),
+                                fzf.matched_indices,
                             );
-                            completions.push((completion, name_score));
+                            completions.push((completion, fzf.score));
                         }
                     }
                 }
@@ -331,7 +576,7 @@ pub fn filter_completions(
         }
     }
 
-    // Sort by fuzzy score (descending), then by type priority, then alphabetically
+    // Sort by score (descending), then by type priority, then alphabetically
     completions.sort_by(|(a_completion, a_score), (b_completion, b_score)| {
         use std::cmp::Ordering;
 
@@ -547,30 +792,198 @@ mod tests {
     #[test]
     fn test_fuzzy_score_exact_match() {
         let score = fuzzy_score("test", "test");
-        assert_eq!(score, Some(FuzzyScore(1000)));
+        assert!(score.is_some());
+        // Exact match should score very high
+        assert!(score.unwrap().0 > 100);
     }
 
     #[test]
     fn test_fuzzy_score_prefix_match() {
         let score = fuzzy_score("rev", "reverb");
         assert!(score.is_some());
-        // Prefix matches score high (900 minus length penalty)
-        assert!(score.unwrap().0 >= 800);
-        assert!(score.unwrap().0 < 1000); // But less than exact match
+        // Prefix matches should score positively
+        assert!(score.unwrap().0 > 0);
+
+        // Prefix match should score less than exact match
+        let exact_score = fuzzy_score("reverb", "reverb");
+        assert!(exact_score.unwrap().0 > score.unwrap().0);
     }
 
     #[test]
     fn test_fuzzy_score_substring_match() {
         let score = fuzzy_score("verb", "reverb");
         assert!(score.is_some());
-        assert!(score.unwrap().0 >= 100);
-        assert!(score.unwrap().0 < 500);
+        assert!(score.unwrap().0 > 0);
+
+        // Substring match should score less than prefix match
+        let prefix_score = fuzzy_score("rev", "reverb");
+        assert!(prefix_score.unwrap().0 > score.unwrap().0);
     }
 
     #[test]
     fn test_fuzzy_score_character_match() {
         let score = fuzzy_score("lpf", "lowpass_filter");
         assert!(score.is_some());
+    }
+
+    // ===== FZF-SPECIFIC TESTS =====
+
+    #[test]
+    fn test_fzf_match_returns_matched_indices() {
+        // Matching "lpf" in "lowpass_filter" should return the positions of l, p, f
+        let result = fzf_match("lpf", "lowpass_filter");
+        assert!(result.is_some());
+
+        let m = result.unwrap();
+        assert_eq!(m.matched_indices.len(), 3); // 3 chars matched
+        assert_eq!(m.matched_indices[0], 0); // 'l' at position 0
+        // 'p' at position 3 (lowPass)
+        assert_eq!(m.matched_indices[1], 3);
+        // 'f' at position 8 (lowpass_Filter)
+        assert_eq!(m.matched_indices[2], 8);
+    }
+
+    #[test]
+    fn test_fzf_match_exact_match_indices() {
+        let result = fzf_match("rev", "rev");
+        assert!(result.is_some());
+
+        let m = result.unwrap();
+        assert_eq!(m.matched_indices, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_fzf_match_word_boundary_bonus() {
+        // "lf" matching "lowpass_filter" should prefer matching at word boundary
+        // l at 0, f at 8 (after underscore) should score higher than f at some other position
+        let result = fzf_match("lf", "lowpass_filter");
+        assert!(result.is_some());
+
+        let m = result.unwrap();
+        assert_eq!(m.matched_indices[0], 0); // 'l' at start
+        assert_eq!(m.matched_indices[1], 8); // 'f' at word boundary after _
+    }
+
+    #[test]
+    fn test_fzf_match_camel_case_bonus() {
+        // Matching "gn" in "getNodeId" should match g at 0 and N (word boundary)
+        let result = fzf_match("gn", "getNodeId");
+        assert!(result.is_some());
+
+        let m = result.unwrap();
+        assert_eq!(m.matched_indices[0], 0); // 'g' at start
+        assert_eq!(m.matched_indices[1], 3); // 'N' at camelCase boundary
+    }
+
+    #[test]
+    fn test_fzf_match_consecutive_bonus() {
+        // "rev" in "reverb" - consecutive matches should score higher than spread out
+        let result_consecutive = fzf_match("rev", "reverb");
+        let result_spread = fzf_match("rvb", "reverb");
+
+        assert!(result_consecutive.is_some());
+        assert!(result_spread.is_some());
+
+        // Consecutive should score higher
+        assert!(result_consecutive.unwrap().score > result_spread.unwrap().score);
+    }
+
+    #[test]
+    fn test_fzf_match_prefers_shorter_candidates() {
+        // "rev" should score higher for "rev" than for "reverb"
+        let result_short = fzf_match("rev", "rev");
+        let result_long = fzf_match("rev", "reverb");
+
+        assert!(result_short.is_some());
+        assert!(result_long.is_some());
+
+        assert!(result_short.unwrap().score > result_long.unwrap().score);
+    }
+
+    #[test]
+    fn test_fzf_match_case_insensitive() {
+        // Should match regardless of case
+        let result = fzf_match("REV", "reverb");
+        assert!(result.is_some());
+
+        let result2 = fzf_match("rev", "REVERB");
+        assert!(result2.is_some());
+    }
+
+    #[test]
+    fn test_fzf_match_case_bonus() {
+        // Exact case match should score slightly higher
+        let result_exact_case = fzf_match("Rev", "Reverb");
+        let result_diff_case = fzf_match("rev", "Reverb");
+
+        assert!(result_exact_case.is_some());
+        assert!(result_diff_case.is_some());
+
+        // Exact case gets a small bonus
+        assert!(result_exact_case.unwrap().score >= result_diff_case.unwrap().score);
+    }
+
+    #[test]
+    fn test_fzf_match_no_match() {
+        let result = fzf_match("xyz", "reverb");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_fzf_match_empty_query() {
+        let result = fzf_match("", "reverb");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().matched_indices, Vec::<usize>::new());
+    }
+
+    #[test]
+    fn test_fzf_match_query_longer_than_candidate() {
+        let result = fzf_match("reverb_long", "rev");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_fzf_match_first_char_bonus() {
+        // Matching at first char should score higher than later
+        let result_start = fzf_match("r", "reverb");
+        let result_middle = fzf_match("v", "reverb");
+
+        assert!(result_start.is_some());
+        assert!(result_middle.is_some());
+
+        // First char match has bonus
+        assert!(result_start.unwrap().score > result_middle.unwrap().score);
+    }
+
+    #[test]
+    fn test_completion_has_matched_indices() {
+        // Verify that filter_completions returns completions with matched_indices set
+        let samples = vec!["bass".to_string()];
+        let buses = vec![];
+        let context = CompletionContext::Sample;
+
+        let completions = filter_completions("bs", &context, &samples, &buses);
+
+        // Should find "bass" with b and s highlighted
+        assert_eq!(completions.len(), 1);
+        let bass = &completions[0];
+        assert_eq!(bass.text, "bass");
+        // "bs" matches "bass" at indices 0 (b) and 2 (s)
+        assert_eq!(bass.matched_indices, vec![0, 2]);
+    }
+
+    #[test]
+    fn test_completion_empty_query_no_indices() {
+        // Empty query should have no matched indices
+        let samples = vec!["bass".to_string()];
+        let buses = vec![];
+        let context = CompletionContext::Sample;
+
+        let completions = filter_completions("", &context, &samples, &buses);
+
+        assert!(!completions.is_empty());
+        // Empty query = no matches to highlight
+        assert!(completions[0].matched_indices.is_empty());
     }
 
     #[test]
