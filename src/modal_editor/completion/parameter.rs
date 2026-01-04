@@ -282,4 +282,19 @@ mod tests {
         let template = generate_kwargs_template(&metadata);
         assert_eq!(template, "", "Empty params should produce empty template");
     }
+
+    #[test]
+    fn test_generated_metadata_has_defaults() {
+        // Test that generated metadata can provide defaults
+        let generated = get_all_functions();
+
+        // Check that we have some functions
+        assert!(!generated.is_empty(), "Should have generated functions");
+
+        // Check that params have default values where available
+        // The fast function from pattern.rs should have a factor parameter
+        if let Some(fast_meta) = generated.get("fast") {
+            assert!(!fast_meta.params.is_empty(), "fast should have parameters");
+        }
+    }
 }

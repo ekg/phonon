@@ -958,9 +958,15 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
-            // Ctrl+Space: Expand kwargs template
+            // Ctrl+Space: Accept completion with defaults, or expand kwargs at cursor
             KeyCode::Char(' ') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.expand_kwargs_template();
+                if self.completion_state.is_visible() {
+                    // Accept current completion with default parameters
+                    self.accept_completion_with_defaults();
+                } else {
+                    // Expand kwargs for function at cursor
+                    self.expand_kwargs_template();
+                }
                 KeyResult::Continue
             }
 
@@ -2802,7 +2808,7 @@ impl ModalEditor {
             .show(completions.clone(), partial_text, line_start + token_start);
 
         self.status_message = format!(
-            "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
+            "{} completions | ↑↓: nav | Enter: accept | C-Spc: +defaults | ?: docs",
             completions.len()
         );
     }
@@ -2817,20 +2823,61 @@ impl ModalEditor {
         self.completion_state.previous();
     }
 
-    /// Accept the current completion (Enter)
+    /// Accept the current completion (Enter or Tab)
     fn accept_completion(&mut self) {
+        self.accept_completion_inner(false);
+    }
+
+    /// Accept the current completion with default parameters (Ctrl+Space)
+    fn accept_completion_with_defaults(&mut self) {
+        self.accept_completion_inner(true);
+    }
+
+    /// Inner implementation for accepting completion
+    fn accept_completion_inner(&mut self, with_defaults: bool) {
         if let Some(completion) = self.completion_state.accept() {
             // Replace the token at cursor with the completion
             let token_start = self.completion_state.token_start();
             let token_end = self.cursor_pos;
 
             if token_start <= self.content.len() {
-                self.content
-                    .replace_range(token_start..token_end, &completion.text);
-                self.cursor_pos = token_start + completion.text.len();
-            }
+                // Build the text to insert
+                let insert_text = if with_defaults {
+                    // Get kwargs template for this function
+                    if let Some(metadata) = completion::FUNCTION_METADATA.get(completion.text.as_str()) {
+                        let kwargs = completion::generate_kwargs_template(metadata);
+                        format!("{}{}", completion.text, kwargs)
+                    } else {
+                        // Try generated metadata for positional defaults
+                        let generated = completion::generated_metadata::get_all_functions();
+                        if let Some(gen_meta) = generated.get(&completion.text) {
+                            // Generate positional defaults from params
+                            let defaults: Vec<String> = gen_meta.params.iter()
+                                .map(|p| p.default.clone().unwrap_or_else(|| "_".to_string()))
+                                .collect();
+                            if defaults.is_empty() {
+                                completion.text.clone()
+                            } else {
+                                format!("{} {}", completion.text, defaults.join(" "))
+                            }
+                        } else {
+                            completion.text.clone()
+                        }
+                    }
+                } else {
+                    completion.text.clone()
+                };
 
-            self.status_message = format!("✓ {}", completion.text);
+                self.content
+                    .replace_range(token_start..token_end, &insert_text);
+                self.cursor_pos = token_start + insert_text.len();
+
+                if with_defaults {
+                    self.status_message = format!("✓ {} (with defaults)", completion.text);
+                } else {
+                    self.status_message = format!("✓ {}", completion.text);
+                }
+            }
         }
     }
 
@@ -2991,7 +3038,7 @@ impl ModalEditor {
             .show(completions.clone(), partial_text, line_start + token_start);
 
         self.status_message = format!(
-            "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
+            "{} completions | ↑↓: nav | Enter: accept | C-Spc: +defaults | ?: docs",
             completions.len()
         );
     }

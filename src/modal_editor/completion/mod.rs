@@ -9,7 +9,7 @@ mod context;
 mod discovery;
 mod docs;
 mod function_metadata;
-mod generated_metadata;
+pub mod generated_metadata;
 mod matching;
 mod parameter;
 mod state;
