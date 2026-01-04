@@ -7,6 +7,7 @@
 
 mod context;
 mod discovery;
+mod docs;
 mod function_metadata;
 mod generated_metadata;
 mod matching;
@@ -15,6 +16,7 @@ mod state;
 
 pub use context::{get_completion_context, get_token_at_cursor, CompletionContext};
 pub use discovery::{discover_samples, extract_bus_names};
+pub use docs::{DocLine, DocLineStyle, FunctionDocs, ParamDoc};
 pub use function_metadata::{
     functions_by_category, search_functions, FunctionMetadata, FUNCTION_METADATA,
 };

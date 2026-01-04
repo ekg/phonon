@@ -28,6 +28,8 @@ pub enum CompletionAction {
 pub struct CompletionState {
     /// Whether the popup is visible
     visible: bool,
+    /// Whether the documentation panel is visible
+    docs_panel_visible: bool,
     /// Available completions
     completions: Vec<Completion>,
     /// Currently selected index
@@ -43,6 +45,7 @@ impl CompletionState {
     pub fn new() -> Self {
         Self {
             visible: false,
+            docs_panel_visible: true, // Docs panel visible by default
             completions: Vec::new(),
             selected_index: 0,
             original_token: String::new(),
@@ -53,6 +56,26 @@ impl CompletionState {
     /// Check if the popup is visible
     pub fn is_visible(&self) -> bool {
         self.visible
+    }
+
+    /// Check if the documentation panel is visible
+    pub fn is_docs_panel_visible(&self) -> bool {
+        self.docs_panel_visible
+    }
+
+    /// Toggle the documentation panel visibility
+    pub fn toggle_docs_panel(&mut self) {
+        self.docs_panel_visible = !self.docs_panel_visible;
+    }
+
+    /// Show the documentation panel
+    pub fn show_docs_panel(&mut self) {
+        self.docs_panel_visible = true;
+    }
+
+    /// Hide the documentation panel
+    pub fn hide_docs_panel(&mut self) {
+        self.docs_panel_visible = false;
     }
 
     /// Get the list of completions
@@ -242,5 +265,34 @@ mod tests {
         let mut state = CompletionState::new();
         let accepted = state.accept();
         assert!(accepted.is_none());
+    }
+
+    #[test]
+    fn test_docs_panel_visible_by_default() {
+        let state = CompletionState::new();
+        assert!(state.is_docs_panel_visible());
+    }
+
+    #[test]
+    fn test_toggle_docs_panel() {
+        let mut state = CompletionState::new();
+        assert!(state.is_docs_panel_visible());
+
+        state.toggle_docs_panel();
+        assert!(!state.is_docs_panel_visible());
+
+        state.toggle_docs_panel();
+        assert!(state.is_docs_panel_visible());
+    }
+
+    #[test]
+    fn test_show_hide_docs_panel() {
+        let mut state = CompletionState::new();
+
+        state.hide_docs_panel();
+        assert!(!state.is_docs_panel_visible());
+
+        state.show_docs_panel();
+        assert!(state.is_docs_panel_visible());
     }
 }

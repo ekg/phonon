@@ -987,6 +987,12 @@ impl ModalEditor {
 
             // Regular character input
             KeyCode::Char(c) => {
+                // '?' toggles docs panel when completion is visible
+                if c == '?' && self.completion_state.is_visible() {
+                    self.completion_state.toggle_docs_panel();
+                    return KeyResult::Continue;
+                }
+
                 self.insert_char(c);
                 // Re-filter completions if active
                 if self.completion_state.is_visible() {
@@ -1046,6 +1052,13 @@ impl ModalEditor {
             }
             KeyCode::End => {
                 self.move_cursor_line_end();
+                KeyResult::Continue
+            }
+            // F1 toggles docs panel when completion is visible
+            KeyCode::F(1) => {
+                if self.completion_state.is_visible() {
+                    self.completion_state.toggle_docs_panel();
+                }
                 KeyResult::Continue
             }
             _ => KeyResult::Continue,
@@ -1119,39 +1132,51 @@ impl ModalEditor {
         if self.completion_state.is_visible() {
             let completions = self.completion_state.completions();
             let selected_index = self.completion_state.selected_index();
+            let show_docs = self.completion_state.is_docs_panel_visible();
 
-            let popup_width = 50;
+            let popup_width = 55;
             let popup_y = 3;
 
-            // Calculate max height: from popup_y to bottom of screen
-            let max_height = editor_chunk.height.saturating_sub(popup_y + 1);
-            let popup_height = (completions.len() + 2).min(max_height as usize) as u16;
+            // Calculate max available height
+            let max_available = editor_chunk.height.saturating_sub(popup_y + 1) as usize;
 
-            // Position popup near cursor (simplified - center of screen)
-            let popup_x = editor_chunk.width.saturating_sub(popup_width + 2).max(2);
+            // Completion list height
+            let list_content_height = completions.len().min(8); // Max 8 visible items
+            let list_height = (list_content_height + 2) as u16; // +2 for borders
 
-            let popup_area = ratatui::layout::Rect {
-                x: editor_chunk.x + popup_x,
-                y: editor_chunk.y + popup_y,
-                width: popup_width,
-                height: popup_height,
+            // Docs panel height (if showing)
+            let docs_height = if show_docs {
+                if let Some(selected) = self.completion_state.selected_completion() {
+                    if let Some(docs) = completion::FunctionDocs::get(&selected.text) {
+                        let doc_lines = docs.format_lines(popup_width as usize - 4);
+                        (doc_lines.len() + 3).min(10) as u16 // +3 for borders and padding, max 10
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            } else {
+                0
             };
 
+            // Total popup height
+            let total_height = (list_height + docs_height).min(max_available as u16);
+
+            // Position popup near cursor
+            let popup_x = editor_chunk.width.saturating_sub(popup_width + 2).max(2);
+
             // Calculate scroll offset to keep selected item visible
-            // popup_height - 2 for borders = visible lines
-            let visible_items = (popup_height.saturating_sub(2)) as usize;
+            let visible_items = list_content_height;
             let scroll_offset = if selected_index < visible_items {
-                // Near the top, no scrolling needed
                 0
             } else {
-                // Keep selected item in the middle of visible area when possible
                 let ideal_offset = selected_index.saturating_sub(visible_items / 2);
-                // But don't scroll past the end
                 let max_offset = completions.len().saturating_sub(visible_items);
                 ideal_offset.min(max_offset)
             };
 
-            // Build popup content with type labels (only visible items)
+            // Build completion list content
             let mut popup_lines = Vec::new();
 
             // Show scroll indicator at top if there are items above
@@ -1164,7 +1189,7 @@ impl ModalEditor {
 
             let visible_completions = completions.iter().skip(scroll_offset).take(visible_items);
 
-            for (displayed_idx, completion) in visible_completions.enumerate() {
+            for (displayed_idx, compl) in visible_completions.enumerate() {
                 let actual_idx = scroll_offset + displayed_idx;
                 let is_selected = actual_idx == selected_index;
                 let prefix = if is_selected { "► " } else { "  " };
@@ -1187,10 +1212,9 @@ impl ModalEditor {
                 // Build spans with highlighted matched characters
                 let mut spans = vec![Span::styled(prefix, base_style)];
 
-                // Build the completion text with highlighted characters
-                let text_chars: Vec<char> = completion.text.chars().collect();
+                let text_chars: Vec<char> = compl.text.chars().collect();
                 let matched_set: std::collections::HashSet<usize> =
-                    completion.matched_indices.iter().copied().collect();
+                    compl.matched_indices.iter().copied().collect();
 
                 for (i, ch) in text_chars.iter().enumerate() {
                     let style = if matched_set.contains(&i) {
@@ -1202,13 +1226,13 @@ impl ModalEditor {
                 }
 
                 // Pad to 20 chars for alignment
-                let padding_needed = 20usize.saturating_sub(completion.text.len());
+                let padding_needed = 20usize.saturating_sub(compl.text.len());
                 if padding_needed > 0 {
                     spans.push(Span::styled(" ".repeat(padding_needed), base_style));
                 }
 
                 // Add the type label
-                spans.push(Span::styled(format!(" {}", completion.label()), base_style));
+                spans.push(Span::styled(format!(" {}", compl.label()), base_style));
 
                 popup_lines.push(Line::from(spans));
             }
@@ -1221,8 +1245,22 @@ impl ModalEditor {
                 )));
             }
 
+            // Render completion list
+            let list_area = ratatui::layout::Rect {
+                x: editor_chunk.x + popup_x,
+                y: editor_chunk.y + popup_y,
+                width: popup_width,
+                height: list_height.min(total_height),
+            };
+
+            let title = if show_docs {
+                "Completions [? toggle docs]"
+            } else {
+                "Completions [? show docs]"
+            };
+
             let popup_block = Block::default()
-                .title("Completions")
+                .title(title)
                 .borders(Borders::ALL)
                 .style(Style::default().fg(Color::Cyan).bg(Color::Black));
 
@@ -1230,7 +1268,53 @@ impl ModalEditor {
                 .block(popup_block)
                 .style(Style::default().bg(Color::Black));
 
-            f.render_widget(popup_paragraph, popup_area);
+            f.render_widget(popup_paragraph, list_area);
+
+            // Render docs panel below the completion list (if visible and we have docs)
+            if show_docs && docs_height > 0 {
+                if let Some(selected) = self.completion_state.selected_completion() {
+                    if let Some(docs) = completion::FunctionDocs::get(&selected.text) {
+                        let doc_lines = docs.format_lines(popup_width as usize - 4);
+
+                        let docs_area = ratatui::layout::Rect {
+                            x: editor_chunk.x + popup_x,
+                            y: editor_chunk.y + popup_y + list_height,
+                            width: popup_width,
+                            height: docs_height,
+                        };
+
+                        let mut styled_lines: Vec<Line> = Vec::new();
+
+                        for doc_line in doc_lines.iter().take(docs_height as usize - 2) {
+                            let style = match doc_line.style {
+                                completion::DocLineStyle::Header => Style::default()
+                                    .fg(Color::Cyan)
+                                    .add_modifier(ratatui::style::Modifier::BOLD),
+                                completion::DocLineStyle::Subheader => {
+                                    Style::default().fg(Color::Yellow)
+                                }
+                                completion::DocLineStyle::Param => Style::default().fg(Color::White),
+                                completion::DocLineStyle::Example => {
+                                    Style::default().fg(Color::Green)
+                                }
+                                completion::DocLineStyle::Empty => Style::default(),
+                            };
+                            styled_lines.push(Line::from(Span::styled(&doc_line.text, style)));
+                        }
+
+                        let docs_block = Block::default()
+                            .title(format!("{} [{}]", docs.name, docs.category))
+                            .borders(Borders::ALL)
+                            .style(Style::default().fg(Color::Magenta).bg(Color::Black));
+
+                        let docs_paragraph = Paragraph::new(styled_lines)
+                            .block(docs_block)
+                            .style(Style::default().bg(Color::Black));
+
+                        f.render_widget(docs_paragraph, docs_area);
+                    }
+                }
+            }
         }
 
         // Configuration panel (if visible)
