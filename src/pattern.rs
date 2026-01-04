@@ -672,8 +672,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Speed up a pattern by a factor (pattern-controlled)
-    /// Accepts a Pattern<f64> for the speed - use Pattern::pure(2.0) for constants
+    /// Speed up a pattern by a factor
+    ///
+    /// Compresses the pattern in time, making events happen faster.
+    /// A factor of 2 plays the pattern twice as fast (twice per cycle).
+    /// The speed can be pattern-controlled for dynamic tempo changes.
+    ///
+    /// # Parameters
+    /// * `speed` - Speed multiplier (float, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~fast $ s "bd sn hh cp" $ fast 2
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn fast(self, speed: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -725,9 +739,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Hurry - fast + speed combined (Tidal's hurry function)
-    /// Speeds up pattern AND adds speed multiplier to context
-    /// Example: hurry 2 doubles pattern speed and sets playback speed to 2x
+    /// Hurry - fast + speed combined
+    ///
+    /// Speeds up the pattern AND increases sample playback speed.
+    /// Unlike `fast` which only changes event timing, `hurry` also
+    /// pitches samples up, creating a more intense acceleration effect.
+    ///
+    /// # Parameters
+    /// * `factor` - Speed/pitch multiplier (float, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~intense $ s "bd sn" $ hurry 2
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn hurry(self, factor: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -762,8 +789,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Slow down a pattern by a factor (pattern-controlled)
-    /// Accepts a Pattern<f64> for the speed - use Pattern::pure(2.0) for constants
+    /// Slow down a pattern by a factor
+    ///
+    /// Stretches the pattern in time, making events happen slower.
+    /// A factor of 2 plays the pattern at half speed (once every 2 cycles).
+    /// The speed can be pattern-controlled for dynamic tempo changes.
+    ///
+    /// # Parameters
+    /// * `speed` - Slowdown factor (float, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~slow $ s "bd sn hh cp" $ slow 2
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn slow(self, speed: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -955,6 +996,17 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Reverse a pattern within each cycle
+    ///
+    /// Plays the pattern backwards. Events are mirrored around
+    /// the center of each cycle, so the last event plays first.
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~backwards $ s "bd sn hh cp" $ rev
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn rev(self) -> Self {
         Pattern::new(move |state| {
             let mut result = Vec::new();
@@ -1012,6 +1064,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Apply a function every n cycles
+    ///
+    /// The function is applied on cycles 0, n, 2n, 3n, etc.
+    /// On other cycles, the pattern plays unchanged.
+    /// Great for creating variation and builds.
+    ///
+    /// # Parameters
+    /// * `n` - Apply function every n cycles (int, required)
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~varied $ s "bd sn" $ every 4 (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn every(self, n: i32, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -1028,13 +1096,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Rotate pattern left by n cycles (Tidal-style rotL)
+    /// Rotate pattern left by n cycles
     ///
-    /// rotL shifts the pattern backward in time, so events occur earlier.
+    /// Shifts the pattern backward in time, so events occur earlier.
     /// `rotL 0.25` on "a b c d" gives "b c d a" - 'b' now starts at cycle 0.
+    /// The pattern wraps around cyclically.
     ///
-    /// Implementation: shift query forward by n, shift results back by n
-    /// This is equivalent to Tidal's: withResultTime (subtract n) $ withQueryTime (+ n)
+    /// # Parameters
+    /// * `n` - Rotation amount in cycles (cycles, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~rotated $ s "bd sn hh cp" $ rotL 0.25
+    /// ```
+    ///
+    /// # Category
+    /// Time
     pub fn rotate_left(self, n: f64) -> Self {
         Pattern::new(move |state| {
             // Step 1: Shift query time FORWARD by n (look into the future)
@@ -1067,7 +1144,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Rotate pattern right by n steps
+    /// Rotate pattern right by n cycles
+    ///
+    /// Shifts the pattern forward in time, so events occur later.
+    /// `rotR 0.25` on "a b c d" gives "d a b c" - 'd' now starts at cycle 0.
+    /// The pattern wraps around cyclically.
+    ///
+    /// # Parameters
+    /// * `n` - Rotation amount in cycles (cycles, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~rotated $ s "bd sn hh cp" $ rotR 0.25
+    /// ```
+    ///
+    /// # Category
+    /// Time
     pub fn rotate_right(self, n: f64) -> Self {
         self.rotate_left(-n)
     }

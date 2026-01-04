@@ -11,6 +11,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     // ============= Time Manipulation =============
 
     /// Shift pattern forward in time
+    ///
+    /// Delays all events in the pattern by the specified amount in cycles.
+    /// Useful for creating offbeat patterns or phase effects between layers.
+    ///
+    /// # Parameters
+    /// * `amount` - Shift amount (cycles, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~offbeat $ s "hh*4" $ late 0.5
+    /// ```
+    ///
+    /// # Category
+    /// Time
     pub fn late(self, amount: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -54,6 +68,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Shift pattern backward in time
+    ///
+    /// Moves all events earlier by the specified amount in cycles.
+    /// Opposite of `late`. Useful for anticipating beats.
+    ///
+    /// # Parameters
+    /// * `amount` - Shift amount (cycles, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~anticipate $ s "bd" $ early 0.125
+    /// ```
+    ///
+    /// # Category
+    /// Time
     pub fn early(self, amount: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -73,11 +101,38 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Offset pattern by a fraction of a cycle
+    ///
+    /// Convenience wrapper around `late` for constant offsets.
+    ///
+    /// # Parameters
+    /// * `amount` - Offset in cycles (cycles, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~shifted $ s "bd sn" $ offset 0.25
+    /// ```
+    ///
+    /// # Category
+    /// Time
     pub fn offset(self, amount: f64) -> Self {
         self.late(Pattern::pure(amount))
     }
 
     /// Loop a pattern within a cycle
+    ///
+    /// Repeats the pattern n times within each cycle.
+    /// Similar to `fast` but implemented differently.
+    ///
+    /// # Parameters
+    /// * `n` - Number of repetitions (int, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~looped $ s "bd sn" $ loop_pattern 2
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn loop_pattern(self, n: usize) -> Self {
         Pattern::new(move |state| {
             let mut all_haps = Vec::new();
@@ -94,6 +149,21 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     // ============= Randomness & Probability =============
 
     /// Randomly drop events with given probability
+    ///
+    /// Each event has a chance of being removed based on the probability.
+    /// Events are dropped deterministically based on their position,
+    /// so the same pattern produces the same results.
+    ///
+    /// # Parameters
+    /// * `probability` - Chance to drop each event 0-1 (float, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sparse $ s "hh*8" $ degradeBy 0.3
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn degrade_by(self, probability: Pattern<f64>) -> Self {
         Pattern::new(move |state| {
             // Query probability at cycle start
@@ -136,11 +206,35 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Degrade 50% of events
+    ///
+    /// Randomly drops half of the events. Shorthand for `degradeBy 0.5`.
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sparse $ s "hh*8" $ degrade
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn degrade(self) -> Self {
         self.degrade_by(Pattern::pure(0.5))
     }
 
     /// Sometimes apply a function (50% chance per cycle)
+    ///
+    /// On each cycle, there's a 50% chance the function is applied.
+    /// The decision is deterministic based on cycle number.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~varied $ s "bd sn" $ sometimes (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn sometimes(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -149,6 +243,21 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Sometimes apply a function with specific probability
+    ///
+    /// On each cycle, there's a configurable chance the function is applied.
+    /// More general version of `sometimes`, `rarely`, `often`.
+    ///
+    /// # Parameters
+    /// * `prob` - Probability 0-1 (float, required)
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~varied $ s "bd sn" $ sometimesBy 0.3 (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn sometimes_by(
         self,
         prob: f64,
@@ -172,6 +281,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Rarely apply a function (10% chance)
+    ///
+    /// Applies function on roughly 1 in 10 cycles.
+    /// Shorthand for `sometimesBy 0.1`.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~surprise $ s "bd sn" $ rarely (fast 4)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn rarely(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -180,6 +303,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Often apply a function (75% chance)
+    ///
+    /// Applies function on roughly 3 out of 4 cycles.
+    /// Shorthand for `sometimesBy 0.75`.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~mostly $ s "bd sn" $ often (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn often(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -188,6 +325,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Almost always apply a function (90% chance)
+    ///
+    /// Applies function on 9 out of 10 cycles.
+    /// Shorthand for `sometimesBy 0.9`.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~usual $ s "bd sn" $ almostAlways (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn almost_always(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -195,7 +346,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.sometimes_by(0.9, f)
     }
 
-    /// Almost never apply a function (10% chance - alias for rarely)
+    /// Almost never apply a function (10% chance)
+    ///
+    /// Alias for `rarely`. Applies function on roughly 1 in 10 cycles.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~rare $ s "bd sn" $ almostNever (fast 4)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn almost_never(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -203,7 +367,21 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.sometimes_by(0.1, f)
     }
 
-    /// Always apply a function (100% chance - mainly for consistency)
+    /// Always apply a function (100% chance)
+    ///
+    /// Applies the function unconditionally. Mainly for API consistency
+    /// when building dynamic chains.
+    ///
+    /// # Parameters
+    /// * `f` - Function to apply (function, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~always $ s "bd sn" $ always (fast 2)
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn always(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
         T: 'static,
@@ -214,19 +392,60 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     // ============= Pattern Combination =============
 
     /// Overlay this pattern with another
+    ///
+    /// Plays both patterns simultaneously (layering).
+    /// Events from both patterns occur at their original times.
+    ///
+    /// # Parameters
+    /// * `other` - Pattern to layer with (pattern, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~layered $ s "bd" $ overlay (s "hh*4")
+    /// ```
+    ///
+    /// # Category
+    /// Structure
     pub fn overlay(self, other: Pattern<T>) -> Pattern<T> {
         Pattern::stack(vec![self, other])
     }
 
     /// Append another pattern after this one
+    ///
+    /// Plays patterns sequentially, each taking half the cycle.
+    /// Creates a longer sequence from multiple patterns.
+    ///
+    /// # Parameters
+    /// * `other` - Pattern to append (pattern, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sequence $ s "bd bd" $ append (s "sn sn")
+    /// ```
+    ///
+    /// # Category
+    /// Structure
     pub fn append(self, other: Pattern<T>) -> Pattern<T> {
         Pattern::cat(vec![self, other])
     }
 
     // ============= Structural Manipulation =============
 
-    /// Repeat pattern n times fast (like bd*4 in TidalCycles)
-    /// This speeds up the pattern to fit n repetitions in the original timespan
+    /// Repeat pattern n times fast
+    ///
+    /// Speeds up the pattern to fit n repetitions in the original timespan.
+    /// Similar to `bd*4` in TidalCycles mini-notation.
+    ///
+    /// # Parameters
+    /// * `n` - Number of repetitions (int, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~rapid $ s "bd" $ dup 4
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn dup(self, n: usize) -> Self {
         if n == 0 {
             return Pattern::silence();
@@ -239,6 +458,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Stutter - repeat each event n times with subdivision
+    ///
+    /// Subdivides each event into n equal parts, creating a stutter effect.
+    /// Events maintain their total duration but are repeated internally.
+    ///
+    /// # Parameters
+    /// * `n` - Number of subdivisions (int, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~stutter $ s "bd sn" $ stutter 4
+    /// ```
+    ///
+    /// # Category
+    /// Transforms
     pub fn stutter(self, n: usize) -> Self {
         Pattern::new(move |state| {
             self.query(state)
@@ -264,8 +497,23 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Stut - Tidal's classic stutter/echo with decay
-    /// Creates n echoes of each event, delayed by time cycles, with volume decay
-    /// Example: stut 3 0.125 0.7 creates original + 2 echoes at 70%, 49% volume
+    ///
+    /// Creates n echoes of each event, delayed by time cycles, with volume decay.
+    /// Example: stut 3 0.125 0.7 creates original + 2 echoes at 70%, 49% volume.
+    /// Great for dub-style delays and rhythmic effects.
+    ///
+    /// # Parameters
+    /// * `n` - Number of echoes including original (int, required)
+    /// * `time` - Delay between echoes (cycles, required)
+    /// * `decay` - Volume multiplier per echo 0-1 (float, required)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~dub $ s "bd sn" $ stut 4 0.125 0.7
+    /// ```
+    ///
+    /// # Category
+    /// Effects
     pub fn stut(self, n: Pattern<f64>, time: Pattern<f64>, decay: Pattern<f64>) -> Self
     where
         T: Clone + 'static,
