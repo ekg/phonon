@@ -50,8 +50,8 @@ fn test_curve_modifier() {
 fn test_mixed_envelopes() {
     let dsl = r#"
         tempo: 0.5
-        ~drums: s "bd sn" # segments "0 1 0" "0.1 0.2"
-        ~bass: s "bd" # adsr 0.01 0.1 0.5 0.3
+        ~drums $ s "bd sn" # segments "0 1 0" "0.1 0.2"
+        ~bass $ s "bd" # adsr 0.01 0.1 0.5 0.3
         out $ ~drums * 0.5 + ~bass * 0.5
     "#;
 
