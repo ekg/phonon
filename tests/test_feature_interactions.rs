@@ -547,8 +547,8 @@ fn test_different_cut_groups_independent() {
 fn test_complex_fx_chain_with_patterns() {
     let input = r#"
         cps: 2.0
-        ~bass: saw "55 82.5 110"
-        ~filtered: ~bass >> lpf("500 2000" |> fast 2, 0.8)
+        ~bass $ saw "55 82.5 110"
+        ~filtered $ ~bass >> lpf "500 2000" 0.8
         out $ ~filtered * 0.3
     "#;
 

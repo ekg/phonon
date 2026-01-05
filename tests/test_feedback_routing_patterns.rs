@@ -56,7 +56,7 @@ fn test_cascaded_delays() {
     let code = r#"
         tempo: 1.0
         ~source $ sine 880 * 0.4
-        ~echout $ ~source # delay 0.25 0.6
+        ~echo1 $ ~source # delay 0.25 0.6
         ~echo2 $ ~echo1 # delay 0.25 0.5
         ~echo3 $ ~echo2 # delay 0.25 0.4
         out $ ~source * 0.4 + ~echo1 * 0.3 + ~echo2 * 0.2 + ~echo3 * 0.1
@@ -247,7 +247,7 @@ fn test_complex_fm_with_multiple_modulators() {
     // Multiple modulators affecting carrier
     let code = r#"
         tempo: 0.5
-        ~lfout $ sine 3.0 * 50
+        ~lfo1 $ sine 3.0 * 50
         ~lfo2 $ sine 7.0 * 30
         ~carrier $ sine (~lfo1 + ~lfo2 + 440)
         out $ ~carrier * 0.5
