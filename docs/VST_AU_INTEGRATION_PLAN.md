@@ -15,7 +15,7 @@
 | 4 | Preset & State System | ✅ Complete |
 | 5a | Plugin Discovery CLI | ✅ Complete |
 | 5b | GUI Hosting | ⏳ Pending (requires real plugins) |
-| 5c | Tab Completion & REPL | ⏳ Pending |
+| 5c | Tab Completion | ✅ Complete |
 
 ### What's Working
 
@@ -23,15 +23,16 @@
 - Effect chain: `input # vst "PluginName"`
 - Parameter kwargs: `vst "PluginName" cutoff=0.5`
 - CLI commands: `phonon plugins scan/list/search/info/params`
-- Plugin registry caching
-- Parameter automation infrastructure
-- Preset serialization (TOML/JSON)
+- Plugin registry caching to `~/.cache/phonon/plugin_cache.json`
+- Parameter automation infrastructure with ParameterMapper
+- Preset serialization (TOML/JSON/FXP formats)
+- Tab completion for plugin names in modal editor (after `vst "`, `au "`, etc.)
+- Plugin discovery from registry cache for completion
 
 ### Remaining Work
 
-- Actual plugin loading via Rack library (currently stubbed)
+- Actual plugin loading via Rack library (currently stubbed - passes through/silence)
 - GUI window hosting for plugins with UIs
-- Tab completion for plugin/parameter names in REPL
 
 ## Vision
 
