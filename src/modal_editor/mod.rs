@@ -8,14 +8,17 @@
 mod command_console;
 pub mod completion;
 mod highlighting;
+mod plugin_browser;
 pub mod test_harness;
 
 use command_console::CommandConsole;
 use highlighting::highlight_line;
+use plugin_browser::PluginBrowser;
 
 use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
 use crate::midi_input::{MidiEvent, MidiInputHandler, MidiMessageType, MidiRecorder};
+use crate::plugin_host::PluginInstanceManager;
 use crate::unified_graph::UnifiedSignalGraph;
 use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -129,6 +132,10 @@ pub struct ModalEditor {
     scroll_offset: u16,
     /// Last known viewport height (for scroll calculations)
     viewport_height: u16,
+    /// Plugin browser panel
+    plugin_browser: PluginBrowser,
+    /// Plugin instance manager
+    plugin_manager: PluginInstanceManager,
 }
 
 impl ModalEditor {
@@ -511,7 +518,13 @@ impl ModalEditor {
             recording_held_notes: String::new(),
             scroll_offset: 0,
             viewport_height: 20,
+            plugin_browser: PluginBrowser::new(),
+            plugin_manager: PluginInstanceManager::new(),
         };
+
+        // Initialize plugin manager
+        let _ = editor.plugin_manager.initialize(sample_rate, synthesis_buffer_size);
+        let _ = editor.plugin_manager.registry_mut().scan();
 
         // Auto-connect to first MIDI device if available
         editor.auto_connect_midi();
@@ -572,6 +585,8 @@ impl ModalEditor {
             recording_held_notes: String::new(),
             scroll_offset: 0,
             viewport_height: 20,
+            plugin_browser: PluginBrowser::new(),
+            plugin_manager: PluginInstanceManager::new(),
         })
     }
 
@@ -791,6 +806,11 @@ impl ModalEditor {
             return self.handle_console_key_event(key);
         }
 
+        // If plugin browser is visible, route keys to it
+        if self.plugin_browser.is_visible() {
+            return self.handle_plugin_browser_key_event(key);
+        }
+
         // If config panel is visible, handle config keys
         if self.show_config_panel {
             match key.code {
@@ -823,6 +843,12 @@ impl ModalEditor {
             // Alt+/ : Toggle command console
             KeyCode::Char('/') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.command_console.toggle();
+                KeyResult::Continue
+            }
+
+            // Alt+P: Toggle plugin browser
+            KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.plugin_browser.toggle();
                 KeyResult::Continue
             }
 
@@ -1524,6 +1550,25 @@ impl ModalEditor {
                 .style(Style::default().fg(Color::White));
 
             f.render_widget(console_paragraph, console_area);
+        }
+
+        // Plugin browser overlay (rendered on top of everything)
+        if self.plugin_browser.is_visible() {
+            // Create centered popup area (70% width, 70% height)
+            let area = f.size();
+            let popup_width = (area.width as f32 * 0.7) as u16;
+            let popup_height = (area.height as f32 * 0.7) as u16;
+            let popup_x = (area.width - popup_width) / 2;
+            let popup_y = (area.height - popup_height) / 2;
+
+            let popup_area = ratatui::layout::Rect {
+                x: popup_x,
+                y: popup_y,
+                width: popup_width,
+                height: popup_height,
+            };
+
+            self.plugin_browser.render(f, popup_area, &self.plugin_manager);
         }
 
         // Command console overlay (rendered on top of everything)
@@ -3086,6 +3131,131 @@ impl ModalEditor {
 
             _ => KeyResult::Continue,
         }
+    }
+
+    /// Handle key events when plugin browser is visible
+    fn handle_plugin_browser_key_event(&mut self, key: KeyEvent) -> KeyResult {
+        // Handle naming mode specially
+        if self.plugin_browser.is_naming() {
+            match key.code {
+                KeyCode::Esc => {
+                    self.plugin_browser.cancel_naming();
+                    KeyResult::Continue
+                }
+                KeyCode::Enter => {
+                    if let Some(instance_name) = self.plugin_browser.confirm_naming() {
+                        // Get the selected plugin and create the instance
+                        if let Some(plugin) = self.plugin_browser.selected_plugin(&self.plugin_manager) {
+                            let plugin_name = plugin.id.name.clone();
+                            match self.plugin_manager.create_named_instance(&plugin_name, &instance_name) {
+                                Ok(()) => {
+                                    self.plugin_browser.set_status(format!("Created ~{}", instance_name));
+                                    // Insert instance reference at cursor
+                                    let insert_text = format!("~{}", instance_name);
+                                    self.insert_text(&insert_text);
+                                }
+                                Err(e) => {
+                                    self.plugin_browser.set_status(format!("Error: {}", e));
+                                }
+                            }
+                        }
+                    }
+                    KeyResult::Continue
+                }
+                KeyCode::Char(c) => {
+                    self.plugin_browser.add_char(c);
+                    KeyResult::Continue
+                }
+                KeyCode::Backspace => {
+                    self.plugin_browser.delete_char();
+                    KeyResult::Continue
+                }
+                _ => KeyResult::Continue,
+            }
+        } else {
+            match key.code {
+                // Esc or Alt+P: Close browser
+                KeyCode::Esc => {
+                    self.plugin_browser.hide();
+                    KeyResult::Continue
+                }
+                KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::ALT) => {
+                    self.plugin_browser.toggle();
+                    KeyResult::Continue
+                }
+
+                // Tab: Switch between Available/Instances views
+                KeyCode::Tab => {
+                    self.plugin_browser.toggle_view();
+                    KeyResult::Continue
+                }
+
+                // Navigation
+                KeyCode::Up => {
+                    self.plugin_browser.select_prev();
+                    KeyResult::Continue
+                }
+                KeyCode::Down => {
+                    let max_items = match self.plugin_browser.current_view() {
+                        plugin_browser::BrowserView::Available => {
+                            self.plugin_manager.list_plugins().len()
+                        }
+                        plugin_browser::BrowserView::Instances => {
+                            self.plugin_manager.list_instances().len()
+                        }
+                    };
+                    self.plugin_browser.select_next(max_items);
+                    KeyResult::Continue
+                }
+
+                // Enter: Create instance (available view) or insert reference (instances view)
+                KeyCode::Enter => {
+                    match self.plugin_browser.current_view() {
+                        plugin_browser::BrowserView::Available => {
+                            if let Some(plugin) = self.plugin_browser.selected_plugin(&self.plugin_manager) {
+                                // Start naming mode with suggested name
+                                let suggested = format!("{}:1", plugin.id.name.to_lowercase().replace(' ', "_"));
+                                self.plugin_browser.start_naming(&suggested);
+                            }
+                        }
+                        plugin_browser::BrowserView::Instances => {
+                            if let Some(name) = self.plugin_browser.selected_instance_name(&self.plugin_manager) {
+                                // Insert instance reference at cursor
+                                let insert_text = format!("~{}", name);
+                                self.insert_text(&insert_text);
+                                self.plugin_browser.hide();
+                            }
+                        }
+                    }
+                    KeyResult::Continue
+                }
+
+                // Character input for filter
+                KeyCode::Char(c) => {
+                    self.plugin_browser.add_char(c);
+                    KeyResult::Continue
+                }
+
+                // Backspace for filter
+                KeyCode::Backspace => {
+                    self.plugin_browser.delete_char();
+                    KeyResult::Continue
+                }
+
+                _ => KeyResult::Continue,
+            }
+        }
+    }
+
+    /// Insert text at current cursor position
+    fn insert_text(&mut self, text: &str) {
+        // Push undo state
+        self.push_undo();
+
+        // Insert text at cursor
+        let (before, after) = self.content.split_at(self.cursor_pos);
+        self.content = format!("{}{}{}", before, text, after);
+        self.cursor_pos += text.len();
     }
 }
 

@@ -70,10 +70,89 @@ impl PluginRegistry {
     }
 
     /// Scan a directory for plugins
-    fn scan_directory(&mut self, _path: &Path) -> PluginResult<usize> {
-        // TODO: Use rack::Scanner to scan for plugins
-        // For now, return empty
-        Ok(0)
+    fn scan_directory(&mut self, path: &Path) -> PluginResult<usize> {
+        let mut count = 0;
+
+        let entries = match std::fs::read_dir(path) {
+            Ok(e) => e,
+            Err(_) => return Ok(0),
+        };
+
+        for entry in entries.flatten() {
+            let entry_path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            // VST3 bundles are directories ending in .vst3
+            if entry_path.is_dir() && name.ends_with(".vst3") {
+                let plugin_name = name.trim_end_matches(".vst3").to_string();
+                let info = PluginInfo {
+                    id: PluginId {
+                        format: PluginFormat::Vst3,
+                        identifier: entry_path.to_string_lossy().to_string(),
+                        name: plugin_name.clone(),
+                    },
+                    vendor: "Unknown".to_string(),
+                    version: "1.0.0".to_string(),
+                    category: PluginCategory::Instrument, // Default to instrument
+                    num_inputs: 0,
+                    num_outputs: 2,
+                    parameters: vec![], // TODO: Query from plugin
+                    factory_presets: vec![],
+                    has_gui: true,
+                    path: entry_path.to_string_lossy().to_string(),
+                };
+                self.add_plugin(info);
+                count += 1;
+            }
+
+            // CLAP plugins are single files ending in .clap
+            if entry_path.is_file() && name.ends_with(".clap") {
+                let plugin_name = name.trim_end_matches(".clap").to_string();
+                let info = PluginInfo {
+                    id: PluginId {
+                        format: PluginFormat::Clap,
+                        identifier: entry_path.to_string_lossy().to_string(),
+                        name: plugin_name.clone(),
+                    },
+                    vendor: "Unknown".to_string(),
+                    version: "1.0.0".to_string(),
+                    category: PluginCategory::Instrument,
+                    num_inputs: 0,
+                    num_outputs: 2,
+                    parameters: vec![],
+                    factory_presets: vec![],
+                    has_gui: true,
+                    path: entry_path.to_string_lossy().to_string(),
+                };
+                self.add_plugin(info);
+                count += 1;
+            }
+
+            // LV2 bundles are directories ending in .lv2
+            if entry_path.is_dir() && name.ends_with(".lv2") {
+                let plugin_name = name.trim_end_matches(".lv2").to_string();
+                let info = PluginInfo {
+                    id: PluginId {
+                        format: PluginFormat::Lv2,
+                        identifier: entry_path.to_string_lossy().to_string(),
+                        name: plugin_name.clone(),
+                    },
+                    vendor: "Unknown".to_string(),
+                    version: "1.0.0".to_string(),
+                    category: PluginCategory::Instrument,
+                    num_inputs: 0,
+                    num_outputs: 2,
+                    parameters: vec![],
+                    factory_presets: vec![],
+                    has_gui: true,
+                    path: entry_path.to_string_lossy().to_string(),
+                };
+                self.add_plugin(info);
+                count += 1;
+            }
+        }
+
+        Ok(count)
     }
 
     /// Get platform-specific plugin scan paths

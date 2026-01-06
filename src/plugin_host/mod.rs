@@ -38,6 +38,7 @@ pub mod instance;
 pub mod automation;
 pub mod preset;
 pub mod midi;
+pub mod manager;
 
 // Re-exports for convenience
 pub use types::*;
@@ -46,3 +47,4 @@ pub use instance::PluginInstanceHandle;
 pub use automation::{ParameterMapper, ParameterAutomation};
 pub use preset::PhononPreset;
 pub use midi::MidiEventBuffer;
+pub use manager::{PluginInstanceManager, PluginSettings, NamedPluginInstance};
