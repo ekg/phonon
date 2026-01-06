@@ -1,5 +1,38 @@
 # VST/AU Plugin Integration Plan
 
+## Implementation Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 0 | Core Dependencies (Rack crate) | ✅ Complete |
+| 1a | Plugin Types & Traits | ✅ Complete |
+| 1b | Plugin Registry & Scanner | ✅ Complete |
+| 1c | MIDI Event Pattern Integration | ✅ Complete |
+| 2 | PluginInstance SignalNode | ✅ Complete |
+| 3a | DSL Compiler Integration | ✅ Complete |
+| 3b | Buffer Processing Integration | ✅ Complete |
+| 3c | Parameter Automation & Mapping | ✅ Complete |
+| 4 | Preset & State System | ✅ Complete |
+| 5a | Plugin Discovery CLI | ✅ Complete |
+| 5b | GUI Hosting | ⏳ Pending (requires real plugins) |
+| 5c | Tab Completion & REPL | ⏳ Pending |
+
+### What's Working
+
+- DSL syntax: `vst "PluginName"`, `au "PluginName"`, `clap "PluginName"`, `lv2 "PluginName"`
+- Effect chain: `input # vst "PluginName"`
+- Parameter kwargs: `vst "PluginName" cutoff=0.5`
+- CLI commands: `phonon plugins scan/list/search/info/params`
+- Plugin registry caching
+- Parameter automation infrastructure
+- Preset serialization (TOML/JSON)
+
+### Remaining Work
+
+- Actual plugin loading via Rack library (currently stubbed)
+- GUI window hosting for plugins with UIs
+- Tab completion for plugin/parameter names in REPL
+
 ## Vision
 
 Enable Phonon to host external audio plugins (VST3, AU, CLAP, LV2), bringing professional synthesizers and effects into the live-coding workflow with pattern-controlled parameters.
