@@ -2926,6 +2926,9 @@ fn compile_function_call(
         "sample_hold" => compile_sample_hold(ctx, args),
         "decimator" => compile_decimator(ctx, args),
 
+        // ========== Plugin Hosting (VST/AU/CLAP/LV2) ==========
+        "vst" | "vst3" | "au" | "clap" | "lv2" | "plugin" => compile_vst(ctx, args),
+
         _ => {
             // Check if this is a common parameter modifier being used with $ instead of #
             let parameter_modifiers = [
@@ -10262,6 +10265,76 @@ fn compile_whenmod_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
     Ok(ctx.graph.add_node(node))
 }
 
+// ========== Plugin Hosting ==========
+
+/// Compile VST/AU/CLAP/LV2 plugin instantiation
+///
+/// Syntax:
+/// - Instrument: vst "PluginName"
+/// - Instrument with params: vst "PluginName" cutoff=0.5 resonance=0.8
+/// - Effect in chain: input # vst "PluginName"
+/// - Effect with params: input # vst "PluginName" mix=0.5
+/// - Note pattern: vst "PluginName" # note "c4 e4 g4"
+///
+/// Examples:
+/// ~synth $ vst "Osirus" # note "c4 e4 g4" # cutoff (~lfo * 0.5)
+/// ~filtered $ ~synth # vst "FabFilter Pro-Q 3" # gain 0.5
+fn compile_vst(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::plugin_host::PluginInstanceHandle;
+
+    if args.is_empty() {
+        return Err("vst/au/plugin requires at least a plugin name".to_string());
+    }
+
+    // Separate positional args from kwargs
+    let (positional_args, kwargs): (Vec<_>, Vec<_>) = args
+        .into_iter()
+        .partition(|arg| !matches!(arg, Expr::Kwarg { .. }));
+
+    // First positional arg might be chain input or plugin name
+    let (audio_inputs, plugin_name) = match positional_args.first() {
+        Some(Expr::ChainInput(node_id)) => {
+            // Chained: first arg is input from chain
+            if positional_args.len() < 2 {
+                return Err("vst in chain requires plugin name: input # vst \"PluginName\"".to_string());
+            }
+            let name = match &positional_args[1] {
+                Expr::String(s) => s.clone(),
+                _ => return Err("Plugin name must be a string".to_string()),
+            };
+            (vec![Signal::Node(*node_id)], name)
+        }
+        Some(Expr::String(s)) => {
+            // Standalone: first arg is plugin name
+            (vec![], s.clone())
+        }
+        _ => return Err("First argument to vst must be a plugin name string".to_string()),
+    };
+
+    // Parse parameter kwargs into HashMap<String, Signal>
+    let mut params: std::collections::HashMap<String, Signal> = std::collections::HashMap::new();
+    for kwarg in kwargs {
+        if let Expr::Kwarg { name, value } = kwarg {
+            let value_node = compile_expr(ctx, *value)?;
+            params.insert(name, Signal::Node(value_node));
+        }
+    }
+
+    // Note events will be populated by pattern evaluation at runtime
+    // For now, create empty vec - the note pattern will be added via # note "..." modifier
+    let note_events = Vec::new();
+
+    let node = SignalNode::PluginInstance {
+        plugin_id: plugin_name,
+        audio_inputs,
+        params,
+        note_events,
+        instance: std::cell::RefCell::new(None),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -10592,5 +10665,67 @@ mod tests {
             result.is_ok(),
             "Failed to compile sample bank with space syntax"
         );
+    }
+
+    // ========== VST/AU Plugin Hosting Tests ==========
+
+    #[test]
+    fn test_compile_vst_basic() {
+        // Basic VST plugin instantiation
+        let code = r#"out: vst "Osirus""#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        match result {
+            Ok(_) => {}
+            Err(e) => panic!("Failed to compile vst basic: {}", e),
+        }
+    }
+
+    #[test]
+    fn test_compile_au_alias() {
+        // AU alias for vst
+        let code = r#"out: au "Alchemy""#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        assert!(result.is_ok(), "Failed to compile au alias");
+    }
+
+    #[test]
+    fn test_compile_plugin_alias() {
+        // Plugin alias for vst
+        let code = r#"out: plugin "Vital""#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        assert!(result.is_ok(), "Failed to compile plugin alias");
+    }
+
+    #[test]
+    fn test_compile_clap_alias() {
+        // CLAP plugin format alias
+        let code = r#"out: clap "Surge XT""#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        assert!(result.is_ok(), "Failed to compile clap alias");
+    }
+
+    #[test]
+    fn test_compile_vst_as_effect() {
+        // VST plugin used as effect in chain
+        let code = r#"out: saw 110 # vst "FabFilter Pro-Q""#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        assert!(result.is_ok(), "Failed to compile vst as effect");
+    }
+
+    #[test]
+    fn test_compile_vst_in_bus() {
+        // VST in bus definition
+        let code = r#"
+            ~synth $ vst "Osirus"
+            out $ ~synth
+        "#;
+        let (_, statements) = parse_program(code).unwrap();
+        let result = compile_program(statements, 44100.0, None);
+        assert!(result.is_ok(), "Failed to compile vst in bus");
     }
 }
