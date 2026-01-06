@@ -327,6 +327,7 @@ pub mod pattern_structure;
 pub mod pattern_test;
 pub mod pattern_tonal;
 pub mod phonon_lang;
+pub mod plugin_host;
 pub mod render;
 pub mod sample_loader;
 pub mod shared_effect_state;

@@ -90,6 +90,12 @@ core_affinity = "0.8"  # Thread pinning for performance
 petgraph = "0.6"  # Topological sort, dependency analysis
 fastrand = "2.3.0"
 
+# Plugin hosting (VST3, AU, CLAP)
+rack = { version = "0.4", features = ["vst3"] }
+
+# Base64 encoding for preset state
+base64 = "0.22"
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 
