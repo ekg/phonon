@@ -281,3 +281,51 @@ fn test_settings_path_derivation() {
     let settings_path2 = PluginInstanceManager::settings_path_for_ph_file(&ph_path2);
     assert_eq!(settings_path2, PathBuf::from("untitled.ph.plugins"));
 }
+
+/// Test that plugin scanning finds real installed plugins
+/// This test verifies the full scan pipeline works
+#[test]
+fn test_real_plugin_scanning() {
+    let mut registry = PluginRegistry::new();
+    let count = registry.scan().unwrap();
+
+    // Should find some plugins if any are installed
+    // (gearmulator, Surge XT, etc.)
+    if count > 0 {
+        // Verify search works
+        let plugins = registry.list();
+        assert!(!plugins.is_empty());
+
+        // Each plugin should have valid info
+        for plugin in plugins {
+            assert!(!plugin.id.name.is_empty());
+            assert!(!plugin.path.is_empty());
+        }
+    }
+}
+
+/// Test plugin manager with real scanned plugins
+#[test]
+fn test_manager_with_real_plugins() {
+    let mut manager = PluginInstanceManager::new();
+    manager.initialize(44100.0, 512).unwrap();
+
+    // Scan for real plugins
+    let _ = manager.registry_mut().scan();
+
+    let plugins = manager.list_plugins();
+    if !plugins.is_empty() {
+        // Try to create an instance of the first plugin
+        let first_plugin_name = plugins[0].id.name.clone();
+        let result = manager.create_instance(&first_plugin_name);
+
+        // Should succeed in creating an instance
+        assert!(result.is_ok(), "Failed to create instance: {:?}", result);
+
+        let instance_name = result.unwrap();
+        assert!(!instance_name.is_empty());
+
+        // Should be able to retrieve the instance
+        assert!(manager.get_instance(&instance_name).is_some());
+    }
+}
