@@ -899,6 +899,12 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             if name == "brown_noise" {
                 return compile_brown_noise(ctx, vec![]);
             }
+            if name == "phasor" {
+                return compile_phasor(ctx, vec![]);
+            }
+            if name == "rand" {
+                return compile_rand(ctx, vec![]);
+            }
 
             // Zero-arg oscillators = LFOs at 1 Hz (for modulation)
             if name == "sine" {
@@ -2759,6 +2765,7 @@ fn compile_function_call(
         "limiter" => compile_limiter(ctx, args),
         "pan2_l" => compile_pan2_l(ctx, args),
         "pan2_r" => compile_pan2_r(ctx, args),
+        "pan2" => compile_pan2(ctx, args),
 
         // ========== fundsp UGens ==========
         "organ_hz" | "organ" => compile_organ_hz(ctx, args),
@@ -2892,6 +2899,7 @@ fn compile_function_call(
         "scan" => compile_scan(ctx, args),
         "irand" => compile_irand(ctx, args),
         "rand" => compile_rand(ctx, args),
+        "phasor" => compile_phasor(ctx, args),
 
         // ========== MIDI/Frequency Conversion ==========
         "mtof" => compile_mtof(ctx, args),
@@ -4316,6 +4324,46 @@ fn compile_pan2_r(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     };
 
     Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pan2 for stereo panning of any signal
+/// Usage: signal # pan2 position  or  pan2 signal position
+/// Position: -1.0 = full left, 0.0 = center, 1.0 = full right
+/// Returns sum of left and right channels (mono-compatible)
+/// For true stereo output, use --stereo flag when rendering
+fn compile_pan2(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Handle chain operator (input # pan2 position)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "pan2 requires 1 parameter (position), got {}",
+            params.len()
+        ));
+    }
+
+    let position_node = compile_expr(ctx, params[0].clone())?;
+
+    // Create Pan2Left node
+    let left_node = ctx.graph.add_node(SignalNode::Pan2Left {
+        input: input_signal.clone(),
+        position: Signal::Node(position_node),
+    });
+
+    // Create Pan2Right node
+    let right_node = ctx.graph.add_node(SignalNode::Pan2Right {
+        input: input_signal,
+        position: Signal::Node(position_node),
+    });
+
+    // Sum left and right for mono-compatible output
+    // When rendered with --stereo, the system will handle proper stereo separation
+    let sum_node = ctx.graph.add_node(SignalNode::Add {
+        a: Signal::Node(left_node),
+        b: Signal::Node(right_node),
+    });
+
+    Ok(sum_node)
 }
 
 /// Compile fundsp organ_hz oscillator
@@ -9900,24 +9948,43 @@ fn compile_scan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     Ok(ctx.graph.add_node(node))
 }
 
-/// Compile irand pattern generator: irand 4 -> random integers 0-3 per cycle
+/// Compile irand pattern generator
+/// irand n -> random integers 0 to n-1 per cycle
+/// irand min max -> random integers min to max per cycle
 fn compile_irand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    if args.len() != 1 {
-        return Err(format!("irand requires 1 argument (n), got {}", args.len()));
+    match args.len() {
+        1 => {
+            // irand n -> 0 to n-1
+            let n = extract_number(&args[0])? as usize;
+            if n == 0 {
+                return Err("irand requires n > 0".to_string());
+            }
+            let pattern = Pattern::<f64>::irand(n);
+            let node = SignalNode::PatternEvaluator { pattern };
+            Ok(ctx.graph.add_node(node))
+        }
+        2 => {
+            // irand min max -> min to max (inclusive)
+            let min = extract_number(&args[0])? as i64;
+            let max = extract_number(&args[1])? as i64;
+            if max < min {
+                return Err(format!(
+                    "irand max ({}) must be >= min ({})",
+                    max, min
+                ));
+            }
+            let range = (max - min + 1) as usize;
+            // Use irand(range) and add min offset
+            let base_pattern = Pattern::<f64>::irand(range);
+            let pattern = base_pattern.map(move |v| v + min as f64);
+            let node = SignalNode::PatternEvaluator { pattern };
+            Ok(ctx.graph.add_node(node))
+        }
+        _ => Err(format!(
+            "irand requires 1 or 2 arguments (n or min max), got {}",
+            args.len()
+        )),
     }
-
-    // Extract n value
-    let n = extract_number(&args[0])? as usize;
-    if n == 0 {
-        return Err("irand requires n > 0".to_string());
-    }
-
-    // Create the irand pattern
-    let pattern = Pattern::<f64>::irand(n);
-
-    // Wrap in PatternEvaluator node
-    let node = SignalNode::PatternEvaluator { pattern };
-    Ok(ctx.graph.add_node(node))
 }
 
 /// Compile rand pattern generator: rand -> random floats 0.0-1.0 per cycle
@@ -9931,6 +9998,29 @@ fn compile_rand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     // Wrap in PatternEvaluator node
     let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile phasor: cycle-synced ramp from 0 to 1
+/// phasor -> ramp 0 to 1 over each cycle (at 1 cycle per second = 1 Hz)
+/// phasor 2 -> ramp 0 to 1 twice per cycle (2x speed)
+/// Useful for LFO-like modulation synchronized to tempo
+fn compile_phasor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Speed defaults to 1.0 (one ramp per cycle)
+    let speed_node = if args.is_empty() {
+        ctx.graph.add_node(SignalNode::Constant { value: 1.0 })
+    } else if args.len() == 1 {
+        compile_expr(ctx, args[0].clone())?
+    } else {
+        return Err(format!(
+            "phasor takes 0 or 1 argument (speed), got {}",
+            args.len()
+        ));
+    };
+
+    let node = SignalNode::Phasor {
+        speed: Signal::Node(speed_node),
+    };
     Ok(ctx.graph.add_node(node))
 }
 

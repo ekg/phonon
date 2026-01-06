@@ -1105,6 +1105,13 @@ pub enum SignalNode {
     /// Constant value
     Constant { value: f32 },
 
+    /// Phasor - cycle-synced ramp from 0 to 1
+    /// Useful for LFO-like modulation synchronized to tempo
+    /// Output = fractional part of (cycle_position * speed)
+    Phasor {
+        speed: Signal, // Speed multiplier (1.0 = one ramp per cycle)
+    },
+
     /// Pattern evaluator - evaluates a numeric pattern at current cycle position
     /// Used for functions like run, scan that generate numeric patterns
     PatternEvaluator { pattern: Pattern<f64> },
@@ -5982,6 +5989,9 @@ impl UnifiedSignalGraph {
             | SignalNode::PatternTrigger { .. } => {
                 // No signal inputs for sources
             }
+            SignalNode::Phasor { speed } => {
+                collect!(speed);
+            }
 
             // === Single input effects ===
             SignalNode::LowPass { input, cutoff, q, .. }
@@ -8768,6 +8778,9 @@ impl UnifiedSignalGraph {
             | SignalNode::MidiVoiceGate => {
                 // Leaf nodes - no children
             }
+            SignalNode::Phasor { speed } => {
+                self.traverse_signal_for_samples(speed, visited, sample_nodes);
+            }
             _ => {
                 // For any other nodes, we rely on the catchall
                 // The main Sample/output traversal paths are covered above
@@ -11386,6 +11399,14 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Constant { value } => *value,
+
+            SignalNode::Phasor { speed } => {
+                // Cycle-synced ramp from 0 to 1
+                let speed_val = self.eval_signal(speed);
+                let cycle_pos = self.get_cycle_position();
+                // Return fractional part of (cycle_position * speed)
+                ((cycle_pos * speed_val as f64) % 1.0) as f32
+            }
 
             SignalNode::PatternEvaluator { pattern } => {
                 // Evaluate the pattern at the current cycle position
@@ -18166,6 +18187,27 @@ impl UnifiedSignalGraph {
             SignalNode::Constant { value } => {
                 // Simple case: fill buffer with constant value
                 output.fill(*value);
+            }
+
+            SignalNode::Phasor { speed } => {
+                // Cycle-synced ramp from 0 to 1
+                let speed_signal = speed.clone();
+                let is_constant_speed = matches!(speed_signal, Signal::Value(_));
+                let constant_speed = if let Signal::Value(s) = &speed_signal {
+                    *s
+                } else {
+                    1.0
+                };
+
+                for i in 0..buffer_size {
+                    let speed_val = if is_constant_speed {
+                        constant_speed
+                    } else {
+                        self.eval_signal(&speed_signal)
+                    };
+                    let cycle_pos = self.get_cycle_position_for_sample_offset(i);
+                    output[i] = ((cycle_pos * speed_val as f64) % 1.0) as f32;
+                }
             }
 
             SignalNode::Oscillator {
