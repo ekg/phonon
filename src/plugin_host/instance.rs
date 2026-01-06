@@ -7,6 +7,7 @@ use super::types::*;
 use std::sync::{Arc, Mutex};
 
 /// Handle to a loaded plugin instance
+#[derive(Debug)]
 pub struct PluginInstanceHandle {
     /// Plugin info
     info: PluginInfo,
@@ -20,6 +21,14 @@ pub struct PluginInstanceHandle {
     initialized: bool,
     // TODO: Add actual rack::Plugin handle when implementing
     // plugin: Option<rack::Plugin>,
+}
+
+impl Clone for PluginInstanceHandle {
+    fn clone(&self) -> Self {
+        // Clone creates a new uninitialized instance with the same plugin info
+        // Actual plugin state cannot be cloned - new instance must be re-initialized
+        Self::new(self.info.clone())
+    }
 }
 
 impl PluginInstanceHandle {

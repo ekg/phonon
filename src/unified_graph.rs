@@ -1116,6 +1116,24 @@ pub enum SignalNode {
     /// Used for functions like run, scan that generate numeric patterns
     PatternEvaluator { pattern: Pattern<f64> },
 
+    // === External Plugins ===
+    /// External plugin instance (VST3, AU, CLAP, LV2)
+    /// Hosts external synthesizers and effects with pattern-controlled parameters
+    /// Usage: ~synth $ vst "Osirus" # cutoff 0.5 # note "c4 e4 g4"
+    PluginInstance {
+        /// Plugin identifier (name or path)
+        plugin_id: String,
+        /// Audio inputs (for effects, empty for instruments)
+        audio_inputs: Vec<Signal>,
+        /// Parameter automation signals (param_name -> signal)
+        params: std::collections::HashMap<String, Signal>,
+        /// MIDI note events (from note patterns)
+        note_events: Vec<crate::plugin_host::midi::NoteEvent>,
+        /// Plugin instance handle (initialized lazily)
+        #[allow(dead_code)]
+        instance: std::cell::RefCell<Option<crate::plugin_host::PluginInstanceHandle>>,
+    },
+
     // === Conditional Effects ===
     /// Apply effect every N cycles, bypass otherwise
     /// Enables syntax like: s "bd" $ every 4 (# lpf 300)
@@ -5992,6 +6010,20 @@ impl UnifiedSignalGraph {
             SignalNode::Phasor { speed } => {
                 collect!(speed);
             }
+            SignalNode::PluginInstance {
+                audio_inputs,
+                params,
+                ..
+            } => {
+                // Collect all audio input signals
+                for input in audio_inputs {
+                    collect!(input);
+                }
+                // Collect all parameter automation signals
+                for signal in params.values() {
+                    collect!(signal);
+                }
+            }
 
             // === Single input effects ===
             SignalNode::LowPass { input, cutoff, q, .. }
@@ -8781,6 +8813,20 @@ impl UnifiedSignalGraph {
             SignalNode::Phasor { speed } => {
                 self.traverse_signal_for_samples(speed, visited, sample_nodes);
             }
+            SignalNode::PluginInstance {
+                audio_inputs,
+                params,
+                ..
+            } => {
+                // Traverse all audio input signals
+                for input in audio_inputs {
+                    self.traverse_signal_for_samples(input, visited, sample_nodes);
+                }
+                // Traverse all parameter automation signals
+                for signal in params.values() {
+                    self.traverse_signal_for_samples(signal, visited, sample_nodes);
+                }
+            }
             _ => {
                 // For any other nodes, we rely on the catchall
                 // The main Sample/output traversal paths are covered above
@@ -11428,6 +11474,53 @@ impl UnifiedSignalGraph {
                     .first()
                     .map(|hap| hap.value as f32)
                     .unwrap_or(0.0)
+            }
+
+            SignalNode::PluginInstance {
+                plugin_id,
+                audio_inputs,
+                params,
+                note_events: _,
+                instance,
+            } => {
+                // External plugin processing (single-sample evaluation)
+                // Note: For efficiency, prefer buffer-based evaluation in eval_buffer
+
+                // Get or initialize plugin instance
+                let mut inst_ref = instance.borrow_mut();
+                if inst_ref.is_none() {
+                    // Plugin would be loaded lazily here from registry
+                    // For now, log and return silence
+                    tracing::debug!("Plugin {} not loaded, returning silence", plugin_id);
+                    return 0.0;
+                }
+
+                let inst = inst_ref.as_mut().unwrap();
+
+                // Apply parameter automation
+                for (name, signal) in params {
+                    let value = self.eval_signal(signal);
+                    let _ = inst.set_parameter_by_name(name, value);
+                }
+
+                // Process single sample (inefficient but works for eval_node)
+                // Effects: process input audio
+                // Instruments: generate from MIDI
+                if audio_inputs.is_empty() {
+                    // Instrument: generate audio (would use MIDI events)
+                    // Single-sample mode just returns 0 - use buffer eval
+                    0.0
+                } else {
+                    // Effect: process input
+                    let input = if !audio_inputs.is_empty() {
+                        self.eval_signal(&audio_inputs[0])
+                    } else {
+                        0.0
+                    };
+
+                    // Pass through for now (actual processing in buffer mode)
+                    input
+                }
             }
 
             SignalNode::EveryEffect { input, effect, n } => {
@@ -18207,6 +18300,87 @@ impl UnifiedSignalGraph {
                     };
                     let cycle_pos = self.get_cycle_position_for_sample_offset(i);
                     output[i] = ((cycle_pos * speed_val as f64) % 1.0) as f32;
+                }
+            }
+
+            SignalNode::PluginInstance {
+                plugin_id,
+                audio_inputs,
+                params,
+                note_events,
+                instance,
+            } => {
+                // Buffer-based plugin processing
+
+                // Get or initialize plugin instance
+                let mut inst_ref = instance.borrow_mut();
+                if inst_ref.is_none() {
+                    // Plugin would be loaded lazily here from registry
+                    // For now, log and fill with silence or pass through
+                    tracing::debug!("Plugin {} not loaded in buffer mode", plugin_id);
+
+                    // If there's an audio input, pass it through; otherwise silence
+                    if !audio_inputs.is_empty() {
+                        // Evaluate first input into output buffer (sample-by-sample)
+                        let input_signal = audio_inputs[0].clone();
+                        for i in 0..buffer_size {
+                            output[i] = self.eval_signal(&input_signal);
+                        }
+                    } else {
+                        output.fill(0.0);
+                    }
+                    return;
+                }
+
+                let inst = inst_ref.as_mut().unwrap();
+
+                // Initialize plugin if needed
+                if !inst.is_initialized() {
+                    let _ = inst.initialize(self.sample_rate, buffer_size);
+                }
+
+                // Apply parameter automation (evaluated at buffer start)
+                for (name, signal) in params {
+                    let value = self.eval_signal(signal);
+                    let _ = inst.set_parameter_by_name(name, value);
+                }
+
+                // Prepare audio buffers
+                if audio_inputs.is_empty() {
+                    // Instrument mode: generate audio from MIDI events
+                    // Convert note events to MIDI buffer
+                    let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                        .iter()
+                        .flat_map(|ne| {
+                            let (on, off) = ne.to_midi_events();
+                            vec![on, off]
+                        })
+                        .collect();
+
+                    // Process through plugin
+                    // Create output slice array without moving
+                    {
+                        let output_slice: &mut [f32] = output;
+                        let mut output_bufs: [&mut [f32]; 1] = [output_slice];
+                        let _ = inst.process_with_midi(&midi_events, &mut output_bufs, buffer_size);
+                    }
+                } else {
+                    // Effect mode: process audio input
+                    // Evaluate input into a temporary buffer (sample-by-sample for now)
+                    let input_signal = audio_inputs[0].clone();
+                    let mut input_buf = vec![0.0f32; buffer_size];
+                    for i in 0..buffer_size {
+                        input_buf[i] = self.eval_signal(&input_signal);
+                    }
+
+                    // Process through plugin
+                    // Use reborrowing to avoid moving output
+                    {
+                        let input_refs: [&[f32]; 1] = [&input_buf];
+                        let output_slice: &mut [f32] = output;
+                        let mut output_refs: [&mut [f32]; 1] = [output_slice];
+                        let _ = inst.process(&input_refs, &mut output_refs, buffer_size);
+                    }
                 }
             }
 

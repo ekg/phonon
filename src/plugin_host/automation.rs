@@ -298,8 +298,9 @@ mod tests {
         assert_eq!(mapper.resolve("Cutoff"), Some(0));
         assert_eq!(mapper.resolve("Reso"), Some(1));
 
-        // Prefix match
-        assert_eq!(mapper.resolve("Filter"), Some(0));
+        // Prefix match (use unambiguous prefix)
+        assert_eq!(mapper.resolve("Filter C"), Some(0));
+        assert_eq!(mapper.resolve("Filter R"), Some(1));
 
         // Index syntax
         assert_eq!(mapper.resolve("p0"), Some(0));
