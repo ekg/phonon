@@ -159,6 +159,51 @@ enum Commands {
         #[arg(short, long)]
         list: bool,
     },
+
+    /// Manage VST/AU/CLAP/LV2 plugins
+    Plugins {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum PluginAction {
+    /// Scan system paths for available plugins
+    Scan {
+        /// Force rescan (ignore cache)
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// List all discovered plugins
+    List {
+        /// Filter by category: instrument, effect, or all
+        #[arg(short, long, default_value = "all")]
+        category: String,
+
+        /// Output format: table, json, or names
+        #[arg(short, long, default_value = "table")]
+        format: String,
+    },
+
+    /// Search for plugins by name
+    Search {
+        /// Search query (partial match)
+        query: String,
+    },
+
+    /// Show detailed info about a plugin
+    Info {
+        /// Plugin name (partial match)
+        name: String,
+    },
+
+    /// Show plugin parameters
+    Params {
+        /// Plugin name (partial match)
+        name: String,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -2118,7 +2163,237 @@ out sine(440) * 0.2
 
             println!("\n✅ Playback complete!");
         }
+
+        Commands::Plugins { action } => {
+            use phonon::plugin_host::{PluginCategory, PluginRegistry};
+            use std::path::PathBuf;
+
+            // Get cache path
+            let cache_path = dirs::cache_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("phonon")
+                .join("plugin_cache.json");
+
+            // Create cache directory if needed
+            if let Some(parent) = cache_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+
+            match action {
+                PluginAction::Scan { force } => {
+                    println!("🔍 Scanning for plugins...");
+
+                    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+                    // Load existing cache unless force rescan
+                    if !force {
+                        if let Ok(count) = registry.load_cache(&cache_path) {
+                            if count > 0 {
+                                println!("   Loaded {} plugins from cache", count);
+                            }
+                        }
+                    }
+
+                    // Scan for new plugins
+                    match registry.scan() {
+                        Ok(count) => {
+                            println!("✅ Found {} plugins", count);
+                            if count > 0 {
+                                println!("   Cache saved to: {}", cache_path.display());
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Scan failed: {}", e);
+                        }
+                    }
+                }
+
+                PluginAction::List { category, format } => {
+                    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+                    // Load from cache
+                    if let Err(_) = registry.load_cache(&cache_path) {
+                        println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
+                        return Ok(());
+                    }
+
+                    // Filter by category
+                    let plugins: Vec<_> = match category.to_lowercase().as_str() {
+                        "instrument" | "instruments" | "synth" | "synths" => {
+                            registry.list_by_category(PluginCategory::Instrument)
+                        }
+                        "effect" | "effects" | "fx" => {
+                            registry.list_by_category(PluginCategory::Effect)
+                        }
+                        _ => registry.list(),
+                    };
+
+                    if plugins.is_empty() {
+                        println!("No plugins found. Run 'phonon plugins scan' to discover plugins.");
+                        return Ok(());
+                    }
+
+                    match format.to_lowercase().as_str() {
+                        "json" => {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&plugins).unwrap_or_default()
+                            );
+                        }
+                        "names" => {
+                            for plugin in &plugins {
+                                println!("{}", plugin.id.name);
+                            }
+                        }
+                        _ => {
+                            // Table format
+                            println!(
+                                "\n{:<30} {:<12} {:<15} {}",
+                                "Name", "Format", "Category", "Vendor"
+                            );
+                            println!("{}", "-".repeat(75));
+                            for plugin in &plugins {
+                                println!(
+                                    "{:<30} {:<12} {:<15} {}",
+                                    truncate_string(&plugin.id.name, 28),
+                                    format!("{}", plugin.id.format),
+                                    format!("{:?}", plugin.category),
+                                    plugin.vendor
+                                );
+                            }
+                            println!("\nTotal: {} plugins", plugins.len());
+                        }
+                    }
+                }
+
+                PluginAction::Search { query } => {
+                    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+                    if let Err(_) = registry.load_cache(&cache_path) {
+                        println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
+                        return Ok(());
+                    }
+
+                    let results = registry.search(&query);
+
+                    if results.is_empty() {
+                        println!("No plugins matching '{}'", query);
+                    } else {
+                        println!("Found {} plugins matching '{}':\n", results.len(), query);
+                        for plugin in results {
+                            println!(
+                                "  {} ({:?}) - {}",
+                                plugin.id.name, plugin.id.format, plugin.vendor
+                            );
+                        }
+                    }
+                }
+
+                PluginAction::Info { name } => {
+                    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+                    if let Err(_) = registry.load_cache(&cache_path) {
+                        println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
+                        return Ok(());
+                    }
+
+                    match registry.find(&name) {
+                        Some(plugin) => {
+                            println!("\n🔌 Plugin: {}", plugin.id.name);
+                            println!("{}", "=".repeat(40));
+                            println!("Format:     {}", plugin.id.format);
+                            println!("Vendor:     {}", plugin.vendor);
+                            println!("Version:    {}", plugin.version);
+                            println!("Category:   {:?}", plugin.category);
+                            println!("Inputs:     {}", plugin.num_inputs);
+                            println!("Outputs:    {}", plugin.num_outputs);
+                            println!("Parameters: {}", plugin.parameters.len());
+                            println!("Has GUI:    {}", plugin.has_gui);
+                            println!("Path:       {}", plugin.path);
+
+                            if !plugin.factory_presets.is_empty() {
+                                println!("\nFactory Presets ({}):", plugin.factory_presets.len());
+                                for preset in plugin.factory_presets.iter().take(10) {
+                                    println!("  - {}", preset);
+                                }
+                                if plugin.factory_presets.len() > 10 {
+                                    println!("  ... and {} more", plugin.factory_presets.len() - 10);
+                                }
+                            }
+                        }
+                        None => {
+                            println!("Plugin '{}' not found", name);
+                            println!("Try 'phonon plugins search {}' to find matches", name);
+                        }
+                    }
+                }
+
+                PluginAction::Params { name } => {
+                    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+                    if let Err(_) = registry.load_cache(&cache_path) {
+                        println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
+                        return Ok(());
+                    }
+
+                    match registry.find(&name) {
+                        Some(plugin) => {
+                            if plugin.parameters.is_empty() {
+                                println!("Plugin '{}' has no parameters", plugin.id.name);
+                            } else {
+                                println!(
+                                    "\n🎛️  Parameters for {} ({} total):",
+                                    plugin.id.name,
+                                    plugin.parameters.len()
+                                );
+                                println!("{}", "=".repeat(60));
+                                println!(
+                                    "{:<5} {:<25} {:<10} {:<8} {}",
+                                    "ID", "Name", "Default", "Range", "Unit"
+                                );
+                                println!("{}", "-".repeat(60));
+
+                                for param in &plugin.parameters {
+                                    println!(
+                                        "{:<5} {:<25} {:<10.3} {:.1}-{:.1}  {}",
+                                        param.index,
+                                        truncate_string(&param.name, 23),
+                                        param.default_value,
+                                        param.min_value,
+                                        param.max_value,
+                                        param.unit
+                                    );
+                                }
+
+                                println!("\nUsage in Phonon:");
+                                println!(
+                                    "  ~synth $ vst \"{}\" # {} 0.5",
+                                    plugin.id.name,
+                                    plugin
+                                        .parameters
+                                        .first()
+                                        .map(|p| p.name.to_lowercase().replace(" ", "_"))
+                                        .unwrap_or_else(|| "param".to_string())
+                                );
+                            }
+                        }
+                        None => {
+                            println!("Plugin '{}' not found", name);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+/// Truncate string to max length with ellipsis
+fn truncate_string(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
 }
