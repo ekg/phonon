@@ -34,6 +34,8 @@ pub enum CompletionContext {
     AfterTransform,
     /// After : on bus assignment (~name: or out:) - show Generators/Oscillators/Synths
     AfterBusAssignment,
+    /// After vst/au/clap/lv2/plugin - complete plugin names
+    Plugin,
 }
 
 /// Extract the token at the cursor position
@@ -110,6 +112,21 @@ pub fn get_completion_context(line: &str, cursor_pos: usize) -> CompletionContex
                 return CompletionContext::Bus;
             }
         }
+
+        // Check if we're in a string after vst/au/clap/lv2/plugin command
+        // e.g., `vst "Os<cursor>` should complete plugin names
+        let before_quote = line_before_cursor.rfind('"').map(|i| &line_before_cursor[..i]);
+        if let Some(before) = before_quote {
+            let trimmed = before.trim_end();
+            let last_word = trimmed.split_whitespace().last().unwrap_or("");
+            if matches!(
+                last_word.to_lowercase().as_str(),
+                "vst" | "vst3" | "au" | "clap" | "lv2" | "plugin"
+            ) {
+                return CompletionContext::Plugin;
+            }
+        }
+
         // Inside string but not explicitly a bus reference
         return CompletionContext::Sample;
     }
@@ -441,6 +458,48 @@ mod tests {
         // Should work when typing after space: "gain : a<TAB>"
         let context = get_completion_context("gain : am", 9);
         assert_eq!(context, CompletionContext::Keyword("gain"));
+    }
+
+    #[test]
+    fn test_plugin_context_vst() {
+        // After vst " should complete plugin names
+        let context = get_completion_context("vst \"Os", 7);
+        assert_eq!(context, CompletionContext::Plugin);
+    }
+
+    #[test]
+    fn test_plugin_context_au() {
+        // After au " should complete plugin names
+        let context = get_completion_context("au \"Alc", 7);
+        assert_eq!(context, CompletionContext::Plugin);
+    }
+
+    #[test]
+    fn test_plugin_context_clap() {
+        // After clap " should complete plugin names
+        let context = get_completion_context("clap \"Sur", 9);
+        assert_eq!(context, CompletionContext::Plugin);
+    }
+
+    #[test]
+    fn test_plugin_context_plugin() {
+        // After plugin " should complete plugin names
+        let context = get_completion_context("plugin \"Vi", 10);
+        assert_eq!(context, CompletionContext::Plugin);
+    }
+
+    #[test]
+    fn test_plugin_context_in_bus() {
+        // Plugin in bus assignment
+        let context = get_completion_context("~synth $ vst \"Osi", 17);
+        assert_eq!(context, CompletionContext::Plugin);
+    }
+
+    #[test]
+    fn test_sample_not_plugin() {
+        // s " should be sample, not plugin
+        let context = get_completion_context("s \"bd", 5);
+        assert_eq!(context, CompletionContext::Sample);
     }
 
     #[test]

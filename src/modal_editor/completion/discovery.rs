@@ -1,6 +1,6 @@
-//! Sample and bus discovery
+//! Sample, bus, and plugin discovery
 //!
-//! Discovers available sample names and bus definitions
+//! Discovers available sample names, bus definitions, and installed plugins
 
 use std::fs;
 use std::path::PathBuf;
@@ -91,6 +91,33 @@ pub fn extract_bus_names(content: &str) -> Vec<String> {
     buses.sort();
     buses.dedup();
     buses
+}
+
+/// Discover plugin names from the plugin registry cache
+///
+/// Loads plugin names from the cached registry at ~/.cache/phonon/plugin_cache.json
+/// Returns a sorted list of plugin names
+pub fn discover_plugins() -> Vec<String> {
+    use crate::plugin_host::PluginRegistry;
+
+    // Get cache path
+    let cache_path = dirs::cache_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("phonon")
+        .join("plugin_cache.json");
+
+    let mut registry = PluginRegistry::with_cache(cache_path.clone());
+
+    // Try to load from cache
+    if registry.load_cache(&cache_path).is_err() {
+        return Vec::new();
+    }
+
+    // Get all plugin names
+    let mut names: Vec<String> = registry.list().iter().map(|p| p.id.name.clone()).collect();
+
+    names.sort();
+    names
 }
 
 #[cfg(test)]

@@ -14,6 +14,7 @@ pub enum CompletionType {
     Sample,
     Bus,
     Keyword,
+    Plugin,
 }
 
 impl CompletionType {
@@ -24,6 +25,7 @@ impl CompletionType {
             CompletionType::Sample => "[sample]",
             CompletionType::Bus => "[bus]",
             CompletionType::Keyword => "[param]",
+            CompletionType::Plugin => "[plugin]",
         }
     }
 }
@@ -422,9 +424,10 @@ fn fuzzy_score(input: &str, candidate: &str) -> Option<FuzzyScore> {
 ///
 /// # Arguments
 /// * `partial` - The partial text being completed
-/// * `context` - The completion context (Function/Sample/Bus)
+/// * `context` - The completion context (Function/Sample/Bus/Plugin)
 /// * `sample_names` - Available sample names from ~/dirt-samples/
 /// * `bus_names` - Available bus names from current editor content
+/// * `plugin_names` - Available plugin names from registry (optional)
 ///
 /// # Returns
 /// A sorted list of matching completions with match indices for highlighting
@@ -433,6 +436,17 @@ pub fn filter_completions(
     context: &CompletionContext,
     sample_names: &[String],
     bus_names: &[String],
+) -> Vec<Completion> {
+    filter_completions_with_plugins(partial, context, sample_names, bus_names, &[])
+}
+
+/// Filter completions with optional plugin names
+pub fn filter_completions_with_plugins(
+    partial: &str,
+    context: &CompletionContext,
+    sample_names: &[String],
+    bus_names: &[String],
+    plugin_names: &[String],
 ) -> Vec<Completion> {
     let mut completions: Vec<(Completion, i32)> = Vec::new();
 
@@ -716,6 +730,23 @@ pub fn filter_completions(
             }
         }
 
+        CompletionContext::Plugin => {
+            // Show available plugins from registry
+            for plugin_name in plugin_names {
+                if let Some(fzf) = fzf_match(partial, plugin_name) {
+                    completions.push((
+                        Completion::with_match(
+                            plugin_name.clone(),
+                            CompletionType::Plugin,
+                            Some(format!("VST/AU Plugin: {}", plugin_name)),
+                            fzf.matched_indices,
+                        ),
+                        fzf.score,
+                    ));
+                }
+            }
+        }
+
         CompletionContext::None => {
             // No completions
         }
@@ -728,12 +759,13 @@ pub fn filter_completions(
         // First: sort by score (higher is better)
         match b_score.cmp(a_score) {
             Ordering::Equal => {
-                // Then: sort by type priority (Function > Sample > Bus > Keyword)
+                // Then: sort by type priority (Function > Plugin > Sample > Bus > Keyword)
                 let type_order = |t: CompletionType| match t {
                     CompletionType::Function => 0,
-                    CompletionType::Sample => 1,
-                    CompletionType::Bus => 2,
-                    CompletionType::Keyword => 3,
+                    CompletionType::Plugin => 1,
+                    CompletionType::Sample => 2,
+                    CompletionType::Bus => 3,
+                    CompletionType::Keyword => 4,
                 };
 
                 match type_order(a_completion.completion_type)

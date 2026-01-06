@@ -15,12 +15,12 @@ mod parameter;
 mod state;
 
 pub use context::{get_completion_context, get_token_at_cursor, CompletionContext};
-pub use discovery::{discover_samples, extract_bus_names};
+pub use discovery::{discover_plugins, discover_samples, extract_bus_names};
 pub use docs::{DocLine, DocLineStyle, FunctionDocs, ParamDoc};
 pub use function_metadata::{
     functions_by_category, search_functions, FunctionMetadata, FUNCTION_METADATA,
 };
-pub use matching::filter_completions;
+pub use matching::{filter_completions, filter_completions_with_plugins};
 pub use parameter::generate_kwargs_template;
 pub use state::CompletionState;
 
