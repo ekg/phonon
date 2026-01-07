@@ -9347,14 +9347,59 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
                 }
             };
 
-            // Check if input is an Oscillator - if so, create a SynthPattern
-            let is_oscillator = if let Some(Some(node)) = ctx.graph.nodes.get(input_node_id.0) {
-                matches!(&**node, SignalNode::Oscillator { .. })
+            // Check what type of node the input is
+            let node_type = if let Some(Some(node)) = ctx.graph.nodes.get(input_node_id.0) {
+                if matches!(&**node, SignalNode::Oscillator { .. }) {
+                    "oscillator"
+                } else if matches!(&**node, SignalNode::PluginInstance { .. }) {
+                    "plugin"
+                } else {
+                    "other"
+                }
             } else {
-                false
+                "other"
             };
 
-            if is_oscillator {
+            if node_type == "plugin" {
+                // VST/AU Plugin: Create new PluginInstance with note pattern
+                let note_pattern_str_val = match &args[1] {
+                    Expr::String(s) => s.clone(),
+                    _ => return Err("note pattern must be a string".to_string()),
+                };
+
+                // Parse note pattern and convert to MIDI numbers
+                use crate::pattern_tonal::note_to_midi;
+                let str_pattern: Pattern<String> = parse_mini_notation(&note_pattern_str_val);
+                let midi_pattern = str_pattern.fmap(|note_str| {
+                    note_to_midi(&note_str).unwrap_or(60) as f64
+                });
+
+                // Get the existing plugin node and create a new one with note pattern
+                let plugin_node = ctx.graph.get_node(input_node_id)
+                    .ok_or_else(|| "Invalid plugin node reference".to_string())?;
+
+                if let SignalNode::PluginInstance {
+                    plugin_id,
+                    audio_inputs,
+                    params,
+                    instance,
+                    ..
+                } = plugin_node {
+                    // Create new PluginInstance with the note pattern
+                    let new_node = SignalNode::PluginInstance {
+                        plugin_id: plugin_id.clone(),
+                        audio_inputs: audio_inputs.clone(),
+                        params: params.clone(),
+                        note_pattern: Some(midi_pattern),
+                        note_pattern_str: Some(note_pattern_str_val),
+                        last_note_cycle: std::cell::Cell::new(-1),
+                        instance: std::cell::RefCell::new(instance.borrow().clone()),
+                    };
+                    Ok(ctx.graph.add_node(new_node))
+                } else {
+                    Err("Expected PluginInstance node".to_string())
+                }
+            } else if node_type == "oscillator" {
                 // UNIFIED SYNTHESIS ARCHITECTURE:
                 // Instead of creating a SynthPattern (which uses synth_voice_manager with ADSR),
                 // we internally create a bus and use the Sample path (which uses voice_manager with AR).

@@ -8,7 +8,7 @@
 --   Instruments: Surge XT, Osirus, Vavra, Xenia, JE8086, NodalRed2x, OsTIrus
 --
 -- Syntax:
---   Instrument: vst "PluginName" :note "c4 e4 g4"
+--   Instrument: vst "PluginName" # note "c4 e4 g4"
 --   Effect: audio_source # vst "PluginName"
 
 cps: 1.0
@@ -18,7 +18,7 @@ cps: 1.0
 -- ============================================
 
 -- Surge XT synth playing a simple arpeggio
-~synth $ vst "Surge XT" :note "c4 e4 g4 c5"
+~synth $ vst "Surge XT" # note "c4 e4 g4 c5"
 
 -- ============================================
 -- EXAMPLE 2: Effect chain

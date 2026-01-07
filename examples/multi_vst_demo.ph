@@ -2,24 +2,24 @@
 -- =============================================
 --
 -- This demo uses Surge XT for instruments and effects
--- Syntax: vst "PluginName" :note "c4 e4 g4"
+-- Syntax: vst "PluginName" # note "c4 e4 g4"
 
 cps: 0.5
 
 -- ============================================
 -- BASS: Surge XT playing low notes
 -- ============================================
-~bass $ vst "Surge XT" :note "c2 ~ c2 eb2"
+~bass $ vst "Surge XT" # note "c2 ~ c2 eb2"
 
 -- ============================================
 -- PAD: Surge XT with chord pattern
 -- ============================================
-~pad $ vst "Surge XT" :note "c4 eb4 g4 bb4"
+~pad $ vst "Surge XT" # note "c4 eb4 g4 bb4"
 
 -- ============================================
 -- LEAD: Surge XT with melody
 -- ============================================
-~lead $ vst "Surge XT" :note "c5 eb5 g5 c6"
+~lead $ vst "Surge XT" # note "c5 eb5 g5 c6"
 
 -- ============================================
 -- DRUMS: Sample-based rhythm
