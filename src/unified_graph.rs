@@ -395,6 +395,7 @@
 use crate::midi_input::{ArpPattern, Arpeggiator, Scale, scale_lock};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
+use crate::plugin_host::{MockPluginInstance, PluginInstanceManager};
 use crate::sample_loader::SampleBank;
 use crate::synth_voice_manager::SynthVoiceManager;
 use crate::voice_manager::{VoiceBuffers, VoiceManager};
@@ -4697,6 +4698,15 @@ pub struct UnifiedSignalGraph {
     /// Default: 0.95 (slightly below 0dB for safety margin)
     /// Set to 1.0 or above to disable
     pub master_limiter_ceiling: f32,
+
+    /// Plugin instance manager for external VST3/CLAP/AU plugins
+    /// Shared between graph and editor via Arc<Mutex<>>
+    /// None = plugins not available (headless mode, testing)
+    pub plugin_manager: Option<std::sync::Arc<std::sync::Mutex<PluginInstanceManager>>>,
+
+    /// Mock plugin instances for testing (keyed by instance name)
+    /// Used when plugin_manager is None or for deterministic testing
+    mock_plugins: RefCell<HashMap<String, MockPluginInstance>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4763,6 +4773,10 @@ impl Clone for UnifiedSignalGraph {
             shared_state: self.shared_state.clone(),
             bypass_sequential_effects: self.bypass_sequential_effects,
             master_limiter_ceiling: self.master_limiter_ceiling,
+            // Plugin manager is shared via Arc
+            plugin_manager: self.plugin_manager.clone(),
+            // Mock plugins need fresh instances (they have internal state)
+            mock_plugins: RefCell::new(HashMap::new()),
         }
     }
 }
@@ -4822,6 +4836,8 @@ impl UnifiedSignalGraph {
             shared_state: None, // Disabled by default
             bypass_sequential_effects: false, // Normal mode by default
             master_limiter_ceiling: 0.95, // Default: -0.4dB headroom for safety
+            plugin_manager: None, // No plugins by default
+            mock_plugins: RefCell::new(HashMap::new()),
         }
     }
 
@@ -11480,13 +11496,91 @@ impl UnifiedSignalGraph {
                 plugin_id,
                 audio_inputs,
                 params,
-                note_events: _,
+                note_events,
                 instance,
             } => {
                 // External plugin processing (single-sample evaluation)
                 // Note: For efficiency, prefer buffer-based evaluation in eval_buffer
 
-                // Get or initialize plugin instance
+                // Check if this is a MockPluginInstance (for testing)
+                let use_mock = plugin_id.starts_with("mock:") || plugin_id == "MockSynth";
+
+                if use_mock {
+                    // Pre-evaluate all values BEFORE borrowing mock_plugins
+                    let param_values: Vec<(String, f32)> = params
+                        .iter()
+                        .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
+                        .collect();
+
+                    // Pre-evaluate audio input if present
+                    let audio_input_value = if !audio_inputs.is_empty() {
+                        Some(self.eval_signal(&audio_inputs[0]))
+                    } else {
+                        None
+                    };
+
+                    // Now borrow mock_plugins
+                    let mut mock_plugins = self.mock_plugins.borrow_mut();
+
+                    // Get or create the mock plugin instance
+                    if !mock_plugins.contains_key(plugin_id) {
+                        let mut mock = MockPluginInstance::new();
+                        let _ = mock.initialize(self.sample_rate, 512);
+                        mock_plugins.insert(plugin_id.clone(), mock);
+                    }
+
+                    let mock = mock_plugins.get_mut(plugin_id).unwrap();
+
+                    // Apply parameter automation
+                    for (name, value) in &param_values {
+                        let index = match name.to_lowercase().as_str() {
+                            "volume" | "vol" => Some(0),
+                            "pitch_bend" | "bend" => Some(1),
+                            _ => None,
+                        };
+                        if let Some(idx) = index {
+                            let _ = mock.set_parameter(idx, *value);
+                        }
+                    }
+
+                    // For instrument mode, convert note_events to MIDI and process 1 sample
+                    // IMPORTANT: Only send MIDI events that should occur at this sample index
+                    if audio_input_value.is_none() {
+                        let current_sample = self.current_sample_idx;
+
+                        // Filter MIDI events to only those that should occur at this sample
+                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                            .iter()
+                            .flat_map(|ne| {
+                                let (on, off) = ne.to_midi_events();
+                                let mut events = Vec::new();
+                                // Note-on at start_sample
+                                if on.sample_offset == current_sample {
+                                    events.push(on);
+                                }
+                                // Note-off at start_sample + duration_samples
+                                if off.sample_offset == current_sample {
+                                    events.push(off);
+                                }
+                                events
+                            })
+                            .collect();
+
+                        // Process 1 sample through mock plugin
+                        let mut left = [0.0f32; 1];
+                        let mut right = [0.0f32; 1];
+                        {
+                            let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
+                            let _ = mock.process_with_midi(&midi_events, &mut outputs, 1);
+                        }
+                        return left[0];
+                    } else {
+                        // Effect mode: pass through input
+                        return audio_input_value.unwrap();
+                    }
+                }
+
+                // Fall back to real plugin instance
                 let mut inst_ref = instance.borrow_mut();
                 if inst_ref.is_none() {
                     // Plugin would be loaded lazily here from registry
@@ -18312,20 +18406,132 @@ impl UnifiedSignalGraph {
             } => {
                 // Buffer-based plugin processing
 
-                // Get or initialize plugin instance
+                // Pre-evaluate all parameter values BEFORE borrowing mock_plugins or plugin_manager
+                // This avoids borrow checker conflicts with eval_signal
+                let param_values: Vec<(String, f32)> = params
+                    .iter()
+                    .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
+                    .collect();
+
+                // Pre-evaluate audio input if present
+                let input_buf: Option<Vec<f32>> = if !audio_inputs.is_empty() {
+                    let input_signal = audio_inputs[0].clone();
+                    let mut buf = vec![0.0f32; buffer_size];
+                    for i in 0..buffer_size {
+                        buf[i] = self.eval_signal(&input_signal);
+                    }
+                    Some(buf)
+                } else {
+                    None
+                };
+
+                // First, try to use a MockPluginInstance for testing
+                // MockPluginInstance is identified by plugin_id starting with "mock:" or matching "MockSynth"
+                let use_mock = plugin_id.starts_with("mock:") || plugin_id == "MockSynth";
+
+                if use_mock {
+                    // Use MockPluginInstance for deterministic testing
+                    let mut mock_plugins = self.mock_plugins.borrow_mut();
+
+                    // Get or create the mock plugin instance
+                    if !mock_plugins.contains_key(plugin_id) {
+                        let mut mock = MockPluginInstance::new();
+                        let _ = mock.initialize(self.sample_rate, buffer_size);
+                        mock_plugins.insert(plugin_id.clone(), mock);
+                    }
+
+                    let mock = mock_plugins.get_mut(plugin_id).unwrap();
+
+                    // Apply parameter automation (by index for mock plugin)
+                    for (name, value) in &param_values {
+                        // Map parameter name to index
+                        let index = match name.to_lowercase().as_str() {
+                            "volume" | "vol" => Some(0),
+                            "pitch_bend" | "bend" => Some(1),
+                            _ => None,
+                        };
+                        if let Some(idx) = index {
+                            let _ = mock.set_parameter(idx, *value);
+                        }
+                    }
+
+                    // Process audio
+                    if input_buf.is_none() {
+                        // Instrument mode: generate audio from MIDI/note events
+                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                            .iter()
+                            .flat_map(|ne| {
+                                let (on, off) = ne.to_midi_events();
+                                vec![on, off]
+                            })
+                            .collect();
+
+                        // Process through mock plugin (stereo output)
+                        let mut right = vec![0.0f32; buffer_size];
+                        {
+                            let output_slice: &mut [f32] = output;
+                            let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
+                            let _ = mock.process_with_midi(&midi_events, &mut outputs, buffer_size);
+                        }
+                    } else {
+                        // Effect mode: MockPluginInstance is an instrument, so just pass through
+                        let buf = input_buf.as_ref().unwrap();
+                        output[..buffer_size].copy_from_slice(&buf[..buffer_size]);
+                    }
+                    return;
+                }
+
+                // Fall back to real plugin instance
                 let mut inst_ref = instance.borrow_mut();
                 if inst_ref.is_none() {
-                    // Plugin would be loaded lazily here from registry
-                    // For now, log and fill with silence or pass through
+                    // Try to get instance from plugin manager
+                    let manager_clone = self.plugin_manager.clone();
+                    if let Some(manager) = manager_clone {
+                        if let Ok(mgr) = manager.lock() {
+                            if let Some(instance_arc) = mgr.get_instance(plugin_id) {
+                                if let Ok(mut inst) = instance_arc.lock() {
+                                    // Initialize if needed
+                                    if !inst.is_initialized() {
+                                        let _ = inst.initialize(self.sample_rate, buffer_size);
+                                    }
+
+                                    // Apply parameter automation
+                                    for (name, value) in &param_values {
+                                        let _ = inst.set_parameter_by_name(name, *value);
+                                    }
+
+                                    // Process audio
+                                    if input_buf.is_none() {
+                                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                                            .iter()
+                                            .flat_map(|ne| {
+                                                let (on, off) = ne.to_midi_events();
+                                                vec![on, off]
+                                            })
+                                            .collect();
+
+                                        let output_slice: &mut [f32] = output;
+                                        let mut output_bufs: [&mut [f32]; 1] = [output_slice];
+                                        let _ = inst.process_with_midi(&midi_events, &mut output_bufs, buffer_size);
+                                    } else {
+                                        let buf = input_buf.as_ref().unwrap();
+                                        let input_refs: [&[f32]; 1] = [buf];
+                                        let output_slice: &mut [f32] = output;
+                                        let mut output_refs: [&mut [f32]; 1] = [output_slice];
+                                        let _ = inst.process(&input_refs, &mut output_refs, buffer_size);
+                                    }
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    // Plugin not found - log and fill with silence or pass through
                     tracing::debug!("Plugin {} not loaded in buffer mode", plugin_id);
 
                     // If there's an audio input, pass it through; otherwise silence
-                    if !audio_inputs.is_empty() {
-                        // Evaluate first input into output buffer (sample-by-sample)
-                        let input_signal = audio_inputs[0].clone();
-                        for i in 0..buffer_size {
-                            output[i] = self.eval_signal(&input_signal);
-                        }
+                    if let Some(ref buf) = input_buf {
+                        output[..buffer_size].copy_from_slice(&buf[..buffer_size]);
                     } else {
                         output.fill(0.0);
                     }
@@ -18339,14 +18545,13 @@ impl UnifiedSignalGraph {
                     let _ = inst.initialize(self.sample_rate, buffer_size);
                 }
 
-                // Apply parameter automation (evaluated at buffer start)
-                for (name, signal) in params {
-                    let value = self.eval_signal(signal);
-                    let _ = inst.set_parameter_by_name(name, value);
+                // Apply parameter automation (using pre-evaluated values)
+                for (name, value) in &param_values {
+                    let _ = inst.set_parameter_by_name(name, *value);
                 }
 
                 // Prepare audio buffers
-                if audio_inputs.is_empty() {
+                if input_buf.is_none() {
                     // Instrument mode: generate audio from MIDI events
                     // Convert note events to MIDI buffer
                     let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
@@ -18365,22 +18570,12 @@ impl UnifiedSignalGraph {
                         let _ = inst.process_with_midi(&midi_events, &mut output_bufs, buffer_size);
                     }
                 } else {
-                    // Effect mode: process audio input
-                    // Evaluate input into a temporary buffer (sample-by-sample for now)
-                    let input_signal = audio_inputs[0].clone();
-                    let mut input_buf = vec![0.0f32; buffer_size];
-                    for i in 0..buffer_size {
-                        input_buf[i] = self.eval_signal(&input_signal);
-                    }
-
-                    // Process through plugin
-                    // Use reborrowing to avoid moving output
-                    {
-                        let input_refs: [&[f32]; 1] = [&input_buf];
-                        let output_slice: &mut [f32] = output;
-                        let mut output_refs: [&mut [f32]; 1] = [output_slice];
-                        let _ = inst.process(&input_refs, &mut output_refs, buffer_size);
-                    }
+                    // Effect mode: use pre-evaluated input buffer
+                    let buf = input_buf.as_ref().unwrap();
+                    let input_refs: [&[f32]; 1] = [buf];
+                    let output_slice: &mut [f32] = output;
+                    let mut output_refs: [&mut [f32]; 1] = [output_slice];
+                    let _ = inst.process(&input_refs, &mut output_refs, buffer_size);
                 }
             }
 

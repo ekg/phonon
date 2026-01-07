@@ -329,3 +329,112 @@ fn test_manager_with_real_plugins() {
         assert!(manager.get_instance(&instance_name).is_some());
     }
 }
+
+/// Test MockPluginInstance integration with audio engine
+/// Verifies that PluginInstance nodes with "MockSynth" actually generate audio
+#[test]
+fn test_audio_engine_mock_plugin_integration() {
+    use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
+    use phonon::plugin_host::midi::NoteEvent;
+    use std::collections::HashMap;
+    use std::cell::RefCell;
+
+    // Create a signal graph
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+
+    // Create a PluginInstance node with MockSynth
+    let plugin_node = SignalNode::PluginInstance {
+        plugin_id: "MockSynth".to_string(),
+        audio_inputs: vec![],
+        params: HashMap::new(),
+        // Note: we need to provide note_events for the plugin to generate sound
+        // For instrument mode, note events trigger the synth
+        note_events: vec![
+            NoteEvent::new(0, 512, 69, 100), // A4, velocity 100, full buffer duration
+        ],
+        instance: RefCell::new(None),
+    };
+
+    // Add node to graph and get ID
+    let node_id = graph.add_node(plugin_node);
+
+    // Set output to the plugin node
+    graph.set_output(node_id);
+
+    // Render audio using buffer-based DAG processing
+    let buffer_size = 512;
+    let mut output = vec![0.0f32; buffer_size];
+    let cycle_start = 0.0;
+    let sample_increment = 1.0 / 44100.0;
+
+    graph.process_buffer_dag(&mut output, cycle_start, sample_increment);
+
+    // Verify audio was generated (not silence)
+    let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / buffer_size as f32).sqrt();
+    assert!(
+        rms > 0.01,
+        "Expected audio output from MockSynth, got RMS={}",
+        rms
+    );
+}
+
+/// Test MockPluginInstance generates different pitches for different notes
+#[test]
+fn test_audio_engine_mock_plugin_pitch() {
+    use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
+    use phonon::plugin_host::midi::NoteEvent;
+    use std::collections::HashMap;
+    use std::cell::RefCell;
+
+    let buffer_size = 1024;
+
+    // Helper function to render audio for a given note
+    let render_note = |note: u8| -> Vec<f32> {
+        let mut graph = UnifiedSignalGraph::new(44100.0);
+
+        let plugin_node = SignalNode::PluginInstance {
+            plugin_id: "MockSynth".to_string(),
+            audio_inputs: vec![],
+            params: HashMap::new(),
+            note_events: vec![NoteEvent::new(0, buffer_size, note, 100)],
+            instance: RefCell::new(None),
+        };
+
+        let node_id = graph.add_node(plugin_node);
+        graph.set_output(node_id);
+
+        let mut output = vec![0.0f32; buffer_size];
+        graph.process_buffer_dag(&mut output, 0.0, 1.0 / 44100.0);
+        output
+    };
+
+    // Count zero crossings to estimate frequency
+    let count_zero_crossings = |samples: &[f32]| -> usize {
+        let mut count = 0;
+        for i in 1..samples.len() {
+            if (samples[i - 1] < 0.0 && samples[i] >= 0.0)
+                || (samples[i - 1] >= 0.0 && samples[i] < 0.0)
+            {
+                count += 1;
+            }
+        }
+        count
+    };
+
+    // Render A4 (69) and A5 (81) - octave apart
+    let a4_output = render_note(69);
+    let a5_output = render_note(81);
+
+    let a4_crossings = count_zero_crossings(&a4_output);
+    let a5_crossings = count_zero_crossings(&a5_output);
+
+    // A5 should have ~twice as many zero crossings as A4 (octave = 2x frequency)
+    let ratio = a5_crossings as f32 / a4_crossings as f32;
+    assert!(
+        ratio > 1.8 && ratio < 2.2,
+        "Expected ~2x frequency ratio for octave, got {} (A4={}, A5={})",
+        ratio,
+        a4_crossings,
+        a5_crossings
+    );
+}
