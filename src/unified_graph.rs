@@ -11680,9 +11680,30 @@ impl UnifiedSignalGraph {
                             0.0
                         };
 
+                        // Pre-evaluate all parameter values
+                        let param_values: Vec<(String, f32)> = params
+                            .iter()
+                            .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
+                            .collect();
+
                         // Re-borrow for processing
                         let mut real_plugins = self.real_plugins.borrow_mut();
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
+                            // Apply parameter automation to real VST3 plugin
+                            for (name, value) in &param_values {
+                                // Try to find parameter by name and set it
+                                let param_count = plugin.parameter_count();
+                                for idx in 0..param_count {
+                                    if let Ok(info) = plugin.parameter_info(idx) {
+                                        if info.name.to_lowercase().contains(&name.to_lowercase()) {
+                                            // Normalize value to 0-1 range for VST3
+                                            let normalized = value.clamp(0.0, 1.0);
+                                            let _ = plugin.set_parameter(idx, normalized);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                             // Instrument mode: send a note and process
                             if audio_inputs.is_empty() {
                                 // Convert note_events to MIDI
@@ -18710,11 +18731,20 @@ impl UnifiedSignalGraph {
 
                         // Try to process through real plugin
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
-                            // Apply parameter automation by index (VST3 uses numeric indices)
+                            // Apply parameter automation by name matching
                             for (name, value) in &param_values {
-                                // Try to find parameter by name - for now just log
-                                // TODO: implement name-to-index mapping
-                                let _ = (name, value);
+                                // Search for matching parameter by name
+                                let param_count = plugin.parameter_count();
+                                for idx in 0..param_count {
+                                    if let Ok(info) = plugin.parameter_info(idx) {
+                                        if info.name.to_lowercase().contains(&name.to_lowercase()) {
+                                            // Normalize value to 0-1 range for VST3
+                                            let normalized = value.clamp(0.0, 1.0);
+                                            let _ = plugin.set_parameter(idx, normalized);
+                                            break;
+                                        }
+                                    }
+                                }
                             }
 
                             // Process audio

@@ -2930,6 +2930,58 @@ fn compile_function_call(
         "vst" | "vst3" | "au" | "clap" | "lv2" | "plugin" => compile_vst(ctx, args),
 
         _ => {
+            // Check if this is a VST parameter modifier (chained onto a PluginInstance)
+            // Syntax: vst "Plugin" # param_name value
+            if let Some(Expr::ChainInput(node_id)) = args.first() {
+                // Clone plugin data before mutable borrow
+                let plugin_data = if let Some(node) = ctx.graph.get_node(*node_id) {
+                    if let SignalNode::PluginInstance {
+                        plugin_id,
+                        audio_inputs,
+                        params,
+                        note_pattern,
+                        note_pattern_str,
+                        instance,
+                        ..
+                    } = node {
+                        Some((
+                            plugin_id.clone(),
+                            audio_inputs.clone(),
+                            params.clone(),
+                            note_pattern.clone(),
+                            note_pattern_str.clone(),
+                            instance.borrow().clone(),
+                        ))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some((plugin_id, audio_inputs, params, note_pattern, note_pattern_str, inst)) = plugin_data {
+                    // This is a parameter modifier for a VST plugin
+                    if args.len() >= 2 {
+                        let param_value = compile_expr(ctx, args[1].clone())?;
+
+                        // Create a new PluginInstance with the additional parameter
+                        let mut new_params = params;
+                        new_params.insert(name.to_string(), Signal::Node(param_value));
+
+                        let new_node = SignalNode::PluginInstance {
+                            plugin_id,
+                            audio_inputs,
+                            params: new_params,
+                            note_pattern,
+                            note_pattern_str,
+                            last_note_cycle: std::cell::Cell::new(-1),
+                            instance: std::cell::RefCell::new(inst),
+                        };
+                        return Ok(ctx.graph.add_node(new_node));
+                    }
+                }
+            }
+
             // Check if this is a common parameter modifier being used with $ instead of #
             let parameter_modifiers = [
                 "speed",
