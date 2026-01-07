@@ -395,7 +395,9 @@
 use crate::midi_input::{ArpPattern, Arpeggiator, Scale, scale_lock};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
-use crate::plugin_host::{MockPluginInstance, PluginInstanceManager};
+use crate::plugin_host::{MockPluginInstance, PluginInstanceManager, RealPluginInstance};
+#[cfg(feature = "vst3")]
+use crate::plugin_host::create_real_plugin_by_name;
 use crate::sample_loader::SampleBank;
 use crate::synth_voice_manager::SynthVoiceManager;
 use crate::voice_manager::{VoiceBuffers, VoiceManager};
@@ -1120,7 +1122,7 @@ pub enum SignalNode {
     // === External Plugins ===
     /// External plugin instance (VST3, AU, CLAP, LV2)
     /// Hosts external synthesizers and effects with pattern-controlled parameters
-    /// Usage: ~synth $ vst "Osirus" # cutoff 0.5 # note "c4 e4 g4"
+    /// Usage: ~synth $ vst "Osirus" # note "c4 e4 g4" # cutoff 0.5
     PluginInstance {
         /// Plugin identifier (name or path)
         plugin_id: String,
@@ -1128,8 +1130,13 @@ pub enum SignalNode {
         audio_inputs: Vec<Signal>,
         /// Parameter automation signals (param_name -> signal)
         params: std::collections::HashMap<String, Signal>,
-        /// MIDI note events (from note patterns)
-        note_events: Vec<crate::plugin_host::midi::NoteEvent>,
+        /// Note pattern for instruments (MIDI note numbers as f64)
+        /// Queried at eval time to generate MIDI events
+        note_pattern: Option<Pattern<f64>>,
+        /// Pattern string for display/debugging
+        note_pattern_str: Option<String>,
+        /// Last cycle processed (to avoid re-triggering)
+        last_note_cycle: std::cell::Cell<i32>,
         /// Plugin instance handle (initialized lazily)
         #[allow(dead_code)]
         instance: std::cell::RefCell<Option<crate::plugin_host::PluginInstanceHandle>>,
@@ -4707,6 +4714,11 @@ pub struct UnifiedSignalGraph {
     /// Mock plugin instances for testing (keyed by instance name)
     /// Used when plugin_manager is None or for deterministic testing
     mock_plugins: RefCell<HashMap<String, MockPluginInstance>>,
+
+    /// Real VST3 plugin instances (keyed by plugin name)
+    /// Lazily loaded when vst "PluginName" is used in DSL
+    #[cfg(feature = "vst3")]
+    real_plugins: RefCell<HashMap<String, RealPluginInstance>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4777,6 +4789,22 @@ impl Clone for UnifiedSignalGraph {
             plugin_manager: self.plugin_manager.clone(),
             // Mock plugins need fresh instances (they have internal state)
             mock_plugins: RefCell::new(HashMap::new()),
+            // Real VST3 plugins: create fresh cache, plugins will be loaded lazily
+            #[cfg(feature = "vst3")]
+            real_plugins: RefCell::new(HashMap::new()),
+        }
+    }
+}
+
+// Implement Drop to leak VST3 plugins and prevent cleanup crash
+#[cfg(feature = "vst3")]
+impl Drop for UnifiedSignalGraph {
+    fn drop(&mut self) {
+        // Leak all real VST3 plugins to prevent double-free bugs in VST3 SDK
+        let mut real_plugins = self.real_plugins.borrow_mut();
+        for (_name, plugin) in real_plugins.drain() {
+            // Use leak() to intentionally forget the plugin
+            plugin.leak();
         }
     }
 }
@@ -4838,6 +4866,8 @@ impl UnifiedSignalGraph {
             master_limiter_ceiling: 0.95, // Default: -0.4dB headroom for safety
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
+            #[cfg(feature = "vst3")]
+            real_plugins: RefCell::new(HashMap::new()),
         }
     }
 
@@ -11496,14 +11526,54 @@ impl UnifiedSignalGraph {
                 plugin_id,
                 audio_inputs,
                 params,
-                note_events,
+                note_pattern,
+                last_note_cycle,
                 instance,
+                ..
             } => {
                 // External plugin processing (single-sample evaluation)
                 // Note: For efficiency, prefer buffer-based evaluation in eval_buffer
 
                 // Check if this is a MockPluginInstance (for testing)
                 let use_mock = plugin_id.starts_with("mock:") || plugin_id == "MockSynth";
+
+                // Query note pattern for current events
+                let note_events = if let Some(ref pattern) = note_pattern {
+                    let current_cycle = self.get_cycle_position().floor() as i32;
+                    let last_cycle = last_note_cycle.get();
+
+                    // Only generate events at cycle boundaries
+                    if current_cycle != last_cycle {
+                        last_note_cycle.set(current_cycle);
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(current_cycle as f64),
+                                Fraction::from_float((current_cycle + 1) as f64),
+                            ),
+                            controls: std::collections::HashMap::new(),
+                        };
+                        let events = pattern.query(&state);
+
+                        // Convert pattern events to NoteEvents with timing
+                        let samples_per_cycle = (self.sample_rate / self.cps) as usize;
+                        events.into_iter().map(|hap| {
+                            let start_frac = (hap.part.begin.to_float() - current_cycle as f64).max(0.0);
+                            let end_frac = (hap.part.end.to_float() - current_cycle as f64).min(1.0);
+                            let start_sample = (start_frac * samples_per_cycle as f64) as usize;
+                            let duration = ((end_frac - start_frac) * samples_per_cycle as f64) as usize;
+                            crate::plugin_host::midi::NoteEvent::new(
+                                start_sample,
+                                duration.max(100), // Minimum 100 samples
+                                hap.value as u8,
+                                100, // velocity
+                            )
+                        }).collect::<Vec<_>>()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
 
                 if use_mock {
                     // Pre-evaluate all values BEFORE borrowing mock_plugins
@@ -11544,21 +11614,18 @@ impl UnifiedSignalGraph {
                     }
 
                     // For instrument mode, convert note_events to MIDI and process 1 sample
-                    // IMPORTANT: Only send MIDI events that should occur at this sample index
                     if audio_input_value.is_none() {
                         let current_sample = self.current_sample_idx;
 
                         // Filter MIDI events to only those that should occur at this sample
                         let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
                             .iter()
-                            .flat_map(|ne| {
+                            .flat_map(|ne: &crate::plugin_host::midi::NoteEvent| {
                                 let (on, off) = ne.to_midi_events();
                                 let mut events = Vec::new();
-                                // Note-on at start_sample
                                 if on.sample_offset == current_sample {
                                     events.push(on);
                                 }
-                                // Note-off at start_sample + duration_samples
                                 if off.sample_offset == current_sample {
                                     events.push(off);
                                 }
@@ -11580,11 +11647,76 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                // Fall back to real plugin instance
+                // Try loading real VST3 plugin (single-sample mode - inefficient but functional)
+                #[cfg(feature = "vst3")]
+                {
+                    let mut real_plugins = self.real_plugins.borrow_mut();
+                    if !real_plugins.contains_key(plugin_id) {
+                        // Try to load the VST3 plugin by name
+                        match create_real_plugin_by_name(plugin_id) {
+                            Ok(mut plugin) => {
+                                tracing::info!("Loaded VST3 plugin: {}", plugin_id);
+                                // Initialize with 512 sample buffer
+                                if let Err(e) = plugin.initialize(self.sample_rate, 512) {
+                                    tracing::error!("VST3 init failed: {}", e);
+                                }
+                                real_plugins.insert(plugin_id.clone(), plugin);
+                            }
+                            Err(e) => {
+                                tracing::warn!("VST3 load failed {}: {}", plugin_id, e);
+                            }
+                        }
+                    }
+
+                    // Check if plugin is loaded
+                    let has_plugin = real_plugins.contains_key(plugin_id);
+                    drop(real_plugins); // Release borrow before calling eval_signal
+
+                    if has_plugin {
+                        // Pre-evaluate audio input if needed
+                        let input_val = if !audio_inputs.is_empty() {
+                            self.eval_signal(&audio_inputs[0])
+                        } else {
+                            0.0
+                        };
+
+                        // Re-borrow for processing
+                        let mut real_plugins = self.real_plugins.borrow_mut();
+                        if let Some(plugin) = real_plugins.get_mut(plugin_id) {
+                            // Instrument mode: send a note and process
+                            if audio_inputs.is_empty() {
+                                // Convert note_events to MIDI
+                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                                    .iter()
+                                    .flat_map(|ne| {
+                                        let (on, off) = ne.to_midi_events();
+                                        vec![on, off]
+                                    })
+                                    .collect();
+
+                                // Process 1 sample
+                                let mut left = [0.0f32; 1];
+                                let mut right = [0.0f32; 1];
+                                let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
+                                let _ = plugin.process_with_midi(&midi_events, &mut outputs, 1);
+                                return left[0];
+                            } else {
+                                // Effect mode
+                                let input_buf = [input_val];
+                                let inputs: Vec<&[f32]> = vec![&input_buf, &input_buf];
+                                let mut left = [0.0f32; 1];
+                                let mut right = [0.0f32; 1];
+                                let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
+                                let _ = plugin.process(&inputs, &mut outputs, 1);
+                                return left[0];
+                            }
+                        }
+                    }
+                }
+
+                // Fall back to stub plugin instance or silence
                 let mut inst_ref = instance.borrow_mut();
                 if inst_ref.is_none() {
-                    // Plugin would be loaded lazily here from registry
-                    // For now, log and return silence
                     tracing::debug!("Plugin {} not loaded, returning silence", plugin_id);
                     return 0.0;
                 }
@@ -11597,23 +11729,11 @@ impl UnifiedSignalGraph {
                     let _ = inst.set_parameter_by_name(name, value);
                 }
 
-                // Process single sample (inefficient but works for eval_node)
-                // Effects: process input audio
-                // Instruments: generate from MIDI
+                // Process single sample
                 if audio_inputs.is_empty() {
-                    // Instrument: generate audio (would use MIDI events)
-                    // Single-sample mode just returns 0 - use buffer eval
                     0.0
                 } else {
-                    // Effect: process input
-                    let input = if !audio_inputs.is_empty() {
-                        self.eval_signal(&audio_inputs[0])
-                    } else {
-                        0.0
-                    };
-
-                    // Pass through for now (actual processing in buffer mode)
-                    input
+                    self.eval_signal(&audio_inputs[0])
                 }
             }
 
@@ -18401,8 +18521,10 @@ impl UnifiedSignalGraph {
                 plugin_id,
                 audio_inputs,
                 params,
-                note_events,
+                note_pattern,
+                last_note_cycle,
                 instance,
+                ..
             } => {
                 // Buffer-based plugin processing
 
@@ -18423,6 +18545,44 @@ impl UnifiedSignalGraph {
                     Some(buf)
                 } else {
                     None
+                };
+
+                // Query note pattern for current events
+                let note_events: Vec<crate::plugin_host::midi::NoteEvent> = if let Some(ref pattern) = note_pattern {
+                    let current_cycle = self.get_cycle_position().floor() as i32;
+                    let last_cycle = last_note_cycle.get();
+
+                    // Only generate events at cycle boundaries
+                    if current_cycle != last_cycle {
+                        last_note_cycle.set(current_cycle);
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(current_cycle as f64),
+                                Fraction::from_float((current_cycle + 1) as f64),
+                            ),
+                            controls: std::collections::HashMap::new(),
+                        };
+                        let events = pattern.query(&state);
+
+                        // Convert pattern events to NoteEvents with timing
+                        let samples_per_cycle = (self.sample_rate / self.cps) as usize;
+                        events.into_iter().map(|hap| {
+                            let start_frac = (hap.part.begin.to_float() - current_cycle as f64).max(0.0);
+                            let end_frac = (hap.part.end.to_float() - current_cycle as f64).min(1.0);
+                            let start_sample = (start_frac * samples_per_cycle as f64) as usize;
+                            let duration = ((end_frac - start_frac) * samples_per_cycle as f64) as usize;
+                            crate::plugin_host::midi::NoteEvent::new(
+                                start_sample,
+                                duration.max(100), // Minimum 100 samples
+                                hap.value as u8,
+                                100, // velocity
+                            )
+                        }).collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
                 };
 
                 // First, try to use a MockPluginInstance for testing
@@ -18523,6 +18683,74 @@ impl UnifiedSignalGraph {
                                     return;
                                 }
                             }
+                        }
+                    }
+
+                    // Try loading real VST3 plugin
+                    #[cfg(feature = "vst3")]
+                    {
+                        // Check if already loaded in real_plugins cache
+                        let mut real_plugins = self.real_plugins.borrow_mut();
+                        if !real_plugins.contains_key(plugin_id) {
+                            // Try to load the VST3 plugin by name
+                            match create_real_plugin_by_name(plugin_id) {
+                                Ok(mut plugin) => {
+                                    tracing::info!("Loaded VST3 plugin: {}", plugin_id);
+                                    // Initialize with current sample rate and buffer size
+                                    if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
+                                        tracing::error!("Failed to initialize VST3 plugin {}: {}", plugin_id, e);
+                                    }
+                                    real_plugins.insert(plugin_id.clone(), plugin);
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Failed to load VST3 plugin {}: {}", plugin_id, e);
+                                }
+                            }
+                        }
+
+                        // Try to process through real plugin
+                        if let Some(plugin) = real_plugins.get_mut(plugin_id) {
+                            // Apply parameter automation by index (VST3 uses numeric indices)
+                            for (name, value) in &param_values {
+                                // Try to find parameter by name - for now just log
+                                // TODO: implement name-to-index mapping
+                                let _ = (name, value);
+                            }
+
+                            // Process audio
+                            if input_buf.is_none() {
+                                // Instrument mode: generate audio from MIDI events
+                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                                    .iter()
+                                    .flat_map(|ne| {
+                                        let (on, off) = ne.to_midi_events();
+                                        vec![on, off]
+                                    })
+                                    .collect();
+
+                                // Process through VST3 plugin (stereo output)
+                                let mut right = vec![0.0f32; buffer_size];
+                                {
+                                    let output_slice: &mut [f32] = output;
+                                    let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
+                                    if let Err(e) = plugin.process_with_midi(&midi_events, &mut outputs, buffer_size) {
+                                        tracing::error!("VST3 process error: {}", e);
+                                    }
+                                }
+                            } else {
+                                // Effect mode: process input audio
+                                let buf = input_buf.as_ref().unwrap();
+                                let inputs: Vec<&[f32]> = vec![buf.as_slice(), buf.as_slice()];
+                                let mut right = vec![0.0f32; buffer_size];
+                                {
+                                    let output_slice: &mut [f32] = output;
+                                    let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
+                                    if let Err(e) = plugin.process(&inputs, &mut outputs, buffer_size) {
+                                        tracing::error!("VST3 process error: {}", e);
+                                    }
+                                }
+                            }
+                            return;
                         }
                     }
 

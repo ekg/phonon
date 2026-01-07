@@ -5,6 +5,10 @@ edition = "2021"
 authors = ["Erik Garrison <erik.garrison@gmail.com>"]
 description = "Phonon: A Rust-based live coding language combining TidalCycles patterns with modular synthesis"
 
+[features]
+default = ["vst3"]
+vst3 = []  # Enable VST3 plugin support (requires VST3 SDK)
+
 [dependencies]
 libc = "0.2"
 # Audio synthesis
@@ -107,6 +111,14 @@ path = "src/bin/wav_analyze.rs"
 [[bin]]
 name = "test_live_vs_offline"
 path = "src/bin/test_live_vs_offline.rs"
+
+[[bin]]
+name = "list_vst3_plugins"
+path = "src/bin/list_vst3_plugins.rs"
+
+[[bin]]
+name = "test_vst3_audio"
+path = "src/bin/test_vst3_audio.rs"
 
 [[bench]]
 name = "voice_simd_bench"

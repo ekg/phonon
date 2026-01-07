@@ -7,6 +7,9 @@ use super::types::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "vst3")]
+use super::real_plugin::{convert_plugin_info, RealPluginScanner};
+
 /// Plugin registry - scans, caches, and provides lookup for installed plugins
 pub struct PluginRegistry {
     /// Plugins indexed by lowercase name
@@ -46,7 +49,7 @@ impl PluginRegistry {
         }
     }
 
-    /// Scan system paths for plugins
+    /// Scan system paths for plugins (basic filesystem scan)
     pub fn scan(&mut self) -> PluginResult<usize> {
         // Get platform-specific scan paths
         let paths = Self::get_scan_paths();
@@ -64,6 +67,46 @@ impl PluginRegistry {
         // Save cache if configured
         if let Some(cache_path) = &self.cache_path {
             let _ = self.save_cache(cache_path);
+        }
+
+        Ok(count)
+    }
+
+    /// Scan system paths for VST3 plugins using rack crate
+    /// This provides full plugin metadata including parameters and presets
+    #[cfg(feature = "vst3")]
+    pub fn scan_with_rack(&mut self) -> PluginResult<usize> {
+        let scanner = RealPluginScanner::new()?;
+        let plugins = scanner.scan()?;
+
+        let mut count = 0;
+        for rack_info in &plugins {
+            let info = convert_plugin_info(rack_info);
+            self.add_plugin(info);
+            count += 1;
+        }
+
+        self.scanned = true;
+
+        // Save cache if configured
+        if let Some(cache_path) = &self.cache_path {
+            let _ = self.save_cache(cache_path);
+        }
+
+        Ok(count)
+    }
+
+    /// Scan a specific path for VST3 plugins using rack crate
+    #[cfg(feature = "vst3")]
+    pub fn scan_path_with_rack(&mut self, path: &Path) -> PluginResult<usize> {
+        let scanner = RealPluginScanner::new()?;
+        let plugins = scanner.scan_path(path)?;
+
+        let mut count = 0;
+        for rack_info in &plugins {
+            let info = convert_plugin_info(rack_info);
+            self.add_plugin(info);
+            count += 1;
         }
 
         Ok(count)

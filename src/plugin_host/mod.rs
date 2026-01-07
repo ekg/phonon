@@ -40,6 +40,7 @@ pub mod preset;
 pub mod midi;
 pub mod manager;
 pub mod mock_plugin;
+pub mod real_plugin;
 
 // Re-exports for convenience
 pub use types::*;
@@ -50,3 +51,7 @@ pub use preset::PhononPreset;
 pub use midi::MidiEventBuffer;
 pub use manager::{PluginInstanceManager, PluginSettings, NamedPluginInstance};
 pub use mock_plugin::MockPluginInstance;
+pub use real_plugin::{RealPluginInstance, RealPluginScanner};
+
+#[cfg(feature = "vst3")]
+pub use real_plugin::{convert_plugin_info, create_real_plugin_by_name, create_real_plugin_from_path};

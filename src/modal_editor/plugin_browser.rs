@@ -313,6 +313,7 @@ impl PluginBrowser {
                     PluginCategory::Instrument => "Synth",
                     PluginCategory::Effect => "FX",
                     PluginCategory::MidiEffect => "MIDI",
+                    PluginCategory::Analyzer => "Analyzer",
                     PluginCategory::Unknown => "?",
                 };
 

@@ -58,6 +58,8 @@ pub enum PluginCategory {
     Effect,
     /// MIDI effect (processes MIDI)
     MidiEffect,
+    /// Audio analyzer (metering, spectrum, etc.)
+    Analyzer,
     /// Unknown/uncategorized
     Unknown,
 }
@@ -197,8 +199,12 @@ pub enum PluginError {
     NotFound(String),
     /// Failed to load plugin
     LoadFailed(String),
+    /// Failed to load plugin (alternate)
+    LoadError(String),
     /// Plugin initialization failed
     InitFailed(String),
+    /// Plugin initialization failed (alternate)
+    InitError(String),
     /// Processing error
     ProcessError(String),
     /// Parameter error
@@ -211,6 +217,10 @@ pub enum PluginError {
     SerdeError(String),
     /// Plugin format not supported on this platform
     UnsupportedFormat(PluginFormat),
+    /// Feature not supported (e.g., VST3 SDK not available)
+    NotSupported(String),
+    /// Plugin scanning error
+    ScanError(String),
 }
 
 impl fmt::Display for PluginError {
@@ -218,7 +228,9 @@ impl fmt::Display for PluginError {
         match self {
             PluginError::NotFound(name) => write!(f, "Plugin not found: {}", name),
             PluginError::LoadFailed(msg) => write!(f, "Failed to load plugin: {}", msg),
+            PluginError::LoadError(msg) => write!(f, "Failed to load plugin: {}", msg),
             PluginError::InitFailed(msg) => write!(f, "Plugin initialization failed: {}", msg),
+            PluginError::InitError(msg) => write!(f, "Plugin initialization failed: {}", msg),
             PluginError::ProcessError(msg) => write!(f, "Processing error: {}", msg),
             PluginError::ParameterError(msg) => write!(f, "Parameter error: {}", msg),
             PluginError::PresetError(msg) => write!(f, "Preset error: {}", msg),
@@ -227,6 +239,8 @@ impl fmt::Display for PluginError {
             PluginError::UnsupportedFormat(fmt) => {
                 write!(f, "Plugin format {} not supported on this platform", fmt)
             }
+            PluginError::NotSupported(msg) => write!(f, "Not supported: {}", msg),
+            PluginError::ScanError(msg) => write!(f, "Plugin scan error: {}", msg),
         }
     }
 }

@@ -10312,23 +10312,46 @@ fn compile_vst(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     };
 
     // Parse parameter kwargs into HashMap<String, Signal>
+    // Special handling for "note" kwarg - converts to note_pattern
     let mut params: std::collections::HashMap<String, Signal> = std::collections::HashMap::new();
+    let mut note_pattern: Option<Pattern<f64>> = None;
+    let mut note_pattern_str: Option<String> = None;
+
     for kwarg in kwargs {
         if let Expr::Kwarg { name, value } = kwarg {
-            let value_node = compile_expr(ctx, *value)?;
-            params.insert(name, Signal::Node(value_node));
+            if name == "note" || name == "n" {
+                // Parse note pattern and convert note names to MIDI numbers
+                match *value {
+                    Expr::String(ref s) => {
+                        use crate::pattern_tonal::note_to_midi;
+                        note_pattern_str = Some(s.clone());
+                        // Parse as string pattern first, then map to MIDI note numbers
+                        let str_pattern: Pattern<String> = parse_mini_notation(s);
+                        // Convert note names to MIDI numbers using the pattern's fmap
+                        note_pattern = Some(str_pattern.fmap(|note_str| {
+                            note_to_midi(&note_str).unwrap_or(60) as f64
+                        }));
+                    }
+                    _ => {
+                        // If it's not a string, compile as expression for single note
+                        let value_node = compile_expr(ctx, *value)?;
+                        params.insert(name, Signal::Node(value_node));
+                    }
+                }
+            } else {
+                let value_node = compile_expr(ctx, *value)?;
+                params.insert(name, Signal::Node(value_node));
+            }
         }
     }
-
-    // Note events will be populated by pattern evaluation at runtime
-    // For now, create empty vec - the note pattern will be added via # note "..." modifier
-    let note_events = Vec::new();
 
     let node = SignalNode::PluginInstance {
         plugin_id: plugin_name,
         audio_inputs,
         params,
-        note_events,
+        note_pattern,
+        note_pattern_str,
+        last_note_cycle: std::cell::Cell::new(-1),
         instance: std::cell::RefCell::new(None),
     };
 
