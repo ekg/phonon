@@ -1145,6 +1145,9 @@ pub enum SignalNode {
         note_pattern_str: Option<String>,
         /// Last cycle processed (to avoid re-triggering)
         last_note_cycle: std::cell::Cell<i32>,
+        /// Notes currently triggered (for catch-up note-ons in parallel mode)
+        /// When a thread starts mid-note, we need to send note-on immediately
+        triggered_notes: std::cell::RefCell<std::collections::HashSet<u8>>,
         /// Plugin instance handle (initialized lazily)
         #[allow(dead_code)]
         instance: std::cell::RefCell<Option<crate::plugin_host::PluginInstanceHandle>>,
@@ -11537,6 +11540,7 @@ impl UnifiedSignalGraph {
                 params,
                 note_pattern,
                 last_note_cycle,
+                triggered_notes,
                 instance,
                 ..
             } => {
@@ -11632,21 +11636,42 @@ impl UnifiedSignalGraph {
                         let cycle_frac = cycle_pos - cycle_pos.floor();
                         let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
 
-                        // Filter MIDI events to only those that should occur at this sample
+                        // Filter MIDI events: send if exact match OR if note is active (catch-up for parallel)
+                        let mut triggered = triggered_notes.borrow_mut();
                         let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
                             .iter()
                             .flat_map(|ne: &crate::plugin_host::midi::NoteEvent| {
                                 let (on, off) = ne.to_midi_events();
+                                let note_num = ne.note;
                                 let mut events = Vec::new();
+
+                                // Note is active if: start <= current < end
+                                let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                    && off.sample_offset > current_sample_in_cycle;
+
+                                // Send note-on if:
+                                // 1. Exact match (normal case), OR
+                                // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
                                 if on.sample_offset == current_sample_in_cycle {
+                                    triggered.insert(note_num);
                                     events.push(on);
+                                } else if note_is_active && !triggered.contains(&note_num) {
+                                    // Catch-up: note should be playing but we haven't triggered it
+                                    triggered.insert(note_num);
+                                    let mut catch_up_on = on.clone();
+                                    catch_up_on.sample_offset = 0; // Trigger immediately
+                                    events.push(catch_up_on);
                                 }
+
+                                // Send note-off if exact match
                                 if off.sample_offset == current_sample_in_cycle {
+                                    triggered.remove(&note_num);
                                     events.push(off);
                                 }
                                 events
                             })
                             .collect();
+                        drop(triggered);
 
                         // Process 1 sample through mock plugin
                         let mut left = [0.0f32; 1];
@@ -11736,21 +11761,42 @@ impl UnifiedSignalGraph {
                                 let cycle_frac = cycle_pos - cycle_pos.floor();
                                 let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
 
-                                // Filter MIDI events to only those that should trigger at this sample
+                                // Filter MIDI events: send if exact match OR if note is active (catch-up for parallel)
+                                let mut triggered = triggered_notes.borrow_mut();
                                 let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
                                     .iter()
                                     .flat_map(|ne| {
                                         let (on, off) = ne.to_midi_events();
+                                        let note_num = ne.note;
                                         let mut events = Vec::new();
+
+                                        // Note is active if: start <= current < end
+                                        let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                            && off.sample_offset > current_sample_in_cycle;
+
+                                        // Send note-on if:
+                                        // 1. Exact match (normal case), OR
+                                        // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
                                         if on.sample_offset == current_sample_in_cycle {
+                                            triggered.insert(note_num);
                                             events.push(on);
+                                        } else if note_is_active && !triggered.contains(&note_num) {
+                                            // Catch-up: note should be playing but we haven't triggered it
+                                            triggered.insert(note_num);
+                                            let mut catch_up_on = on.clone();
+                                            catch_up_on.sample_offset = 0; // Trigger immediately
+                                            events.push(catch_up_on);
                                         }
+
+                                        // Send note-off if exact match
                                         if off.sample_offset == current_sample_in_cycle {
+                                            triggered.remove(&note_num);
                                             events.push(off);
                                         }
                                         events
                                     })
                                     .collect();
+                                drop(triggered);
 
                                 // Process 1 sample
                                 let mut left = [0.0f32; 1];

@@ -2975,6 +2975,7 @@ fn compile_function_call(
                             note_pattern,
                             note_pattern_str,
                             last_note_cycle: std::cell::Cell::new(-1),
+                            triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
                             instance: std::cell::RefCell::new(inst),
                         };
                         return Ok(ctx.graph.add_node(new_node));
@@ -9445,6 +9446,7 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
                         note_pattern: Some(midi_pattern),
                         note_pattern_str: Some(note_pattern_str_val),
                         last_note_cycle: std::cell::Cell::new(-1),
+                        triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
                         instance: std::cell::RefCell::new(instance.borrow().clone()),
                     };
                     Ok(ctx.graph.add_node(new_node))
@@ -10449,6 +10451,7 @@ fn compile_vst(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         note_pattern,
         note_pattern_str,
         last_note_cycle: std::cell::Cell::new(-1),
+        triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
         instance: std::cell::RefCell::new(None),
     };
 
