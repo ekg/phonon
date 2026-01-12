@@ -408,6 +408,14 @@ use std::f32::consts::PI;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+// Global mutex for VST3 plugin loading - serializes plugin loading across threads
+// Each thread still gets its own plugin instance, but loading happens one at a time
+// to avoid race conditions in the VST3 SDK's plugin scanning/loading code
+#[cfg(feature = "vst3")]
+lazy_static::lazy_static! {
+    static ref VST3_LOAD_MUTEX: Mutex<()> = Mutex::new(());
+}
+
 /// Unique identifier for nodes in the graph
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct NodeId(pub usize);
@@ -11657,27 +11665,35 @@ impl UnifiedSignalGraph {
                 // Try loading real VST3 plugin (single-sample mode - inefficient but functional)
                 #[cfg(feature = "vst3")]
                 {
-                    let mut real_plugins = self.real_plugins.borrow_mut();
-                    if !real_plugins.contains_key(plugin_id) {
-                        // Try to load the VST3 plugin by name
-                        match create_real_plugin_by_name(plugin_id) {
-                            Ok(mut plugin) => {
-                                tracing::info!("Loaded VST3 plugin: {}", plugin_id);
-                                // Initialize with 512 sample buffer
-                                if let Err(e) = plugin.initialize(self.sample_rate, 512) {
-                                    tracing::error!("VST3 init failed: {}", e);
+                    // Check if we need to load the plugin
+                    let needs_load = !self.real_plugins.borrow().contains_key(plugin_id);
+
+                    if needs_load {
+                        // Acquire global mutex for plugin loading to prevent race conditions
+                        // Each thread gets its own plugin instance, but loading is serialized
+                        let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
+
+                        // Double-check after acquiring lock (another thread may have loaded it)
+                        if !self.real_plugins.borrow().contains_key(plugin_id) {
+                            // Try to load the VST3 plugin by name
+                            match create_real_plugin_by_name(plugin_id) {
+                                Ok(mut plugin) => {
+                                    tracing::info!("Loaded VST3 plugin: {}", plugin_id);
+                                    // Initialize with 512 sample buffer
+                                    if let Err(e) = plugin.initialize(self.sample_rate, 512) {
+                                        tracing::error!("VST3 init failed: {}", e);
+                                    }
+                                    self.real_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
                                 }
-                                real_plugins.insert(plugin_id.clone(), plugin);
-                            }
-                            Err(e) => {
-                                tracing::warn!("VST3 load failed {}: {}", plugin_id, e);
+                                Err(e) => {
+                                    tracing::warn!("VST3 load failed {}: {}", plugin_id, e);
+                                }
                             }
                         }
                     }
 
                     // Check if plugin is loaded
-                    let has_plugin = real_plugins.contains_key(plugin_id);
-                    drop(real_plugins); // Release borrow before calling eval_signal
+                    let has_plugin = self.real_plugins.borrow().contains_key(plugin_id);
 
                     if has_plugin {
                         // Pre-evaluate audio input if needed
@@ -18763,26 +18779,35 @@ impl UnifiedSignalGraph {
                     // Try loading real VST3 plugin
                     #[cfg(feature = "vst3")]
                     {
-                        // Check if already loaded in real_plugins cache
-                        let mut real_plugins = self.real_plugins.borrow_mut();
-                        if !real_plugins.contains_key(plugin_id) {
-                            // Try to load the VST3 plugin by name
-                            match create_real_plugin_by_name(plugin_id) {
-                                Ok(mut plugin) => {
-                                    tracing::info!("Loaded VST3 plugin: {}", plugin_id);
-                                    // Initialize with current sample rate and buffer size
-                                    if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
-                                        tracing::error!("Failed to initialize VST3 plugin {}: {}", plugin_id, e);
+                        // Check if we need to load the plugin
+                        let needs_load = !self.real_plugins.borrow().contains_key(plugin_id);
+
+                        if needs_load {
+                            // Acquire global mutex for plugin loading to prevent race conditions
+                            // Each thread gets its own plugin instance, but loading is serialized
+                            let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
+
+                            // Double-check after acquiring lock (another thread may have loaded it)
+                            if !self.real_plugins.borrow().contains_key(plugin_id) {
+                                // Try to load the VST3 plugin by name
+                                match create_real_plugin_by_name(plugin_id) {
+                                    Ok(mut plugin) => {
+                                        tracing::info!("Loaded VST3 plugin: {}", plugin_id);
+                                        // Initialize with current sample rate and buffer size
+                                        if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
+                                            tracing::error!("Failed to initialize VST3 plugin {}: {}", plugin_id, e);
+                                        }
+                                        self.real_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
                                     }
-                                    real_plugins.insert(plugin_id.clone(), plugin);
-                                }
-                                Err(e) => {
-                                    tracing::warn!("Failed to load VST3 plugin {}: {}", plugin_id, e);
+                                    Err(e) => {
+                                        tracing::warn!("Failed to load VST3 plugin {}: {}", plugin_id, e);
+                                    }
                                 }
                             }
                         }
 
                         // Try to process through real plugin
+                        let mut real_plugins = self.real_plugins.borrow_mut();
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation by name matching
                             for (name, value) in &param_values {
