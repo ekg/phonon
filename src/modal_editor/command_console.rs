@@ -251,6 +251,12 @@ impl CommandConsole {
         self.output.push("".to_string());
         self.output.push("Tip: Smart paste (Alt+Shift+I) auto-generates ~rec1, ~rec2, etc. with dynamics & legato".to_string());
         self.output.push("".to_string());
+        self.output.push("VST3 Plugins (Linux):".to_string());
+        self.output
+            .push("  Alt+P  - Open plugin browser".to_string());
+        self.output
+            .push("  Alt+G  - Open GUI for all loaded plugins".to_string());
+        self.output.push("".to_string());
         self.output.push("Press Esc or Alt+/ to close".to_string());
     }
 

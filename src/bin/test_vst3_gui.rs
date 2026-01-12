@@ -1,0 +1,185 @@
+//! Test VST3 GUI Support
+//!
+//! This tests the VST3 GUI functionality from the forked rack crate.
+//! Works in both headless and display modes.
+//!
+//! Usage:
+//!   cargo run --bin test_vst3_gui --features vst3
+//!
+//! In headless mode (no DISPLAY): validates plugin loading and parameters
+//! With display: opens the actual GUI window
+
+use rack::prelude::*;
+use std::time::Duration;
+
+fn has_display() -> bool {
+    std::env::var("DISPLAY").map(|d| !d.is_empty()).unwrap_or(false)
+}
+
+fn main() -> Result<()> {
+    let headless = !has_display();
+
+    #[cfg(target_os = "linux")]
+    println!("VST3 Plugin GUI Test (Linux/X11)");
+    #[cfg(target_os = "windows")]
+    println!("VST3 Plugin GUI Test (Windows)");
+    println!("================================");
+    if headless {
+        println!("Mode: HEADLESS (no DISPLAY set)");
+    } else {
+        println!("Mode: GUI (DISPLAY={})", std::env::var("DISPLAY").unwrap_or_default());
+    }
+    println!();
+
+    // Create scanner
+    println!("Creating VST3 scanner...");
+    let scanner = Scanner::new()?;
+
+    // Scan for plugins
+    println!("Scanning for VST3 plugins...");
+    let plugins = scanner.scan()?;
+
+    if plugins.is_empty() {
+        println!("No VST3 plugins found!");
+        println!("\nTo install a test plugin, download Surge XT from:");
+        println!("  https://surge-synthesizer.github.io/");
+        return Ok(());
+    }
+
+    println!("Found {} plugin(s)\n", plugins.len());
+
+    // List available plugins
+    println!("Available plugins:");
+    for (i, p) in plugins.iter().enumerate().take(10) {
+        println!("  [{}] {} by {} ({:?})", i, p.name, p.manufacturer, p.plugin_type);
+    }
+    if plugins.len() > 10 {
+        println!("  ... and {} more", plugins.len() - 10);
+    }
+    println!();
+
+    // Try to find Surge XT synth first (not effects), then other instruments
+    let plugin_info = plugins
+        .iter()
+        .find(|p| p.name == "Surge XT")  // Exact match for synth
+        .or_else(|| plugins.iter().find(|p| p.name.contains("Surge") && p.plugin_type == PluginType::Instrument))
+        .or_else(|| plugins.iter().find(|p| p.plugin_type == PluginType::Instrument))
+        .or_else(|| plugins.iter().find(|p| p.plugin_type == PluginType::Effect))
+        .or_else(|| plugins.first());
+
+    let Some(info) = plugin_info else {
+        println!("No suitable plugin found");
+        return Ok(());
+    };
+
+    println!("Selected plugin:");
+    println!("  Name: {}", info.name);
+    println!("  Manufacturer: {}", info.manufacturer);
+    println!("  Type: {:?}", info.plugin_type);
+    println!("  Path: {}", info.path.display());
+    println!();
+
+    // Create and initialize plugin
+    println!("Creating plugin instance...");
+    let mut plugin = scanner.load(info)?;
+    println!("  Plugin instance created");
+
+    println!("Initializing plugin (48kHz, 512 samples)...");
+    plugin.initialize(48000.0, 512)?;
+    println!("  Plugin initialized successfully!\n");
+
+    // List some parameters
+    let param_count = plugin.parameter_count();
+    println!("Plugin has {} parameters", param_count);
+    if param_count > 0 {
+        println!("First 10 parameters:");
+        for i in 0..param_count.min(10) {
+            if let Ok(pinfo) = plugin.parameter_info(i) {
+                println!("  [{}] {}: {:.3}", i, pinfo.name, plugin.get_parameter(i).unwrap_or(0.0));
+            }
+        }
+    }
+    println!();
+
+    // In headless mode, skip GUI creation
+    if headless {
+        println!("✓ Headless test passed!");
+        println!("  - Plugin scanning: OK");
+        println!("  - Plugin loading: OK");
+        println!("  - Plugin initialization: OK");
+        println!("  - Parameter access: OK");
+        println!("\nTo test GUI, run with DISPLAY set (e.g., from a desktop terminal)");
+        return Ok(());
+    }
+
+    // Create GUI (only with display)
+    println!("Creating plugin GUI...");
+    let mut gui = match Vst3Gui::create(&mut plugin) {
+        Ok(gui) => {
+            println!("  GUI created successfully!");
+            gui
+        }
+        Err(e) => {
+            println!("  Failed to create GUI: {}", e);
+            #[cfg(target_os = "linux")]
+            {
+                println!("\nNote: Some plugins don't support GUI on Linux, or");
+                println!("they may require specific X11 libraries. Ensure you have:");
+                println!("  libx11-xcb-dev libxcb-util-dev libxcb-cursor-dev");
+                println!("  libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev");
+            }
+            return Err(e);
+        }
+    };
+
+    // Get and display GUI size
+    if let Ok((width, height)) = gui.get_size() {
+        println!("  GUI size: {}x{} pixels", width, height);
+    }
+
+    // Get native window ID
+    let window_id = gui.get_window_id();
+    if window_id != 0 {
+        #[cfg(target_os = "linux")]
+        println!("  X11 window ID: 0x{:x}", window_id);
+        #[cfg(target_os = "windows")]
+        println!("  HWND: 0x{:x}", window_id);
+    }
+
+    // Show the window
+    println!("\nShowing plugin window...");
+    gui.show(Some(&info.name))?;
+    println!("  Window is now visible!");
+
+    println!("\n========================================");
+    println!("The plugin GUI window should now be visible.");
+    println!("Close the window or press Ctrl+C to exit.");
+    println!("========================================\n");
+
+    // Event loop - process GUI events
+    println!("Running event loop...");
+    loop {
+        // Process pending GUI events
+        let events = gui.pump_events();
+        if events < 0 {
+            println!("Error processing events: {}", events);
+            break;
+        }
+
+        // Check if window was closed
+        if !gui.is_visible() {
+            println!("\nWindow was closed.");
+            break;
+        }
+
+        // Small sleep to avoid busy-waiting (~60 FPS)
+        std::thread::sleep(Duration::from_millis(16));
+    }
+
+    println!("\nCleaning up...");
+    // GUI will be dropped here, cleaning up native window resources
+
+    println!("Test complete!");
+
+    Ok(())
+}

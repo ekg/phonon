@@ -38,6 +38,7 @@ use ratatui::{
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::HeapRb;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -45,6 +46,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration as StdDuration;
+
+// VST3 GUI support (Linux only, with vst3 feature)
+#[cfg(all(target_os = "linux", feature = "vst3"))]
+use rack::Vst3Gui;
 
 // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
 // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
@@ -136,6 +141,9 @@ pub struct ModalEditor {
     plugin_browser: PluginBrowser,
     /// Plugin instance manager
     plugin_manager: PluginInstanceManager,
+    /// Active VST3 GUI windows (plugin_name -> GUI handle)
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    vst3_guis: HashMap<String, Vst3Gui>,
 }
 
 impl ModalEditor {
@@ -520,6 +528,8 @@ impl ModalEditor {
             viewport_height: 20,
             plugin_browser: PluginBrowser::new(),
             plugin_manager: PluginInstanceManager::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            vst3_guis: HashMap::new(),
         };
 
         // Initialize plugin manager
@@ -587,6 +597,8 @@ impl ModalEditor {
             viewport_height: 20,
             plugin_browser: PluginBrowser::new(),
             plugin_manager: PluginInstanceManager::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            vst3_guis: HashMap::new(),
         })
     }
 
@@ -771,6 +783,12 @@ impl ModalEditor {
             // Process any pending MIDI input events
             self.process_midi_events();
 
+            // Pump VST3 GUI events (Linux only, with vst3 feature)
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            for gui in self.vst3_guis.values_mut() {
+                gui.pump_events();
+            }
+
             // Update recording status with cycle position
             if self.midi_recording {
                 self.update_recording_status();
@@ -849,6 +867,13 @@ impl ModalEditor {
             // Alt+P: Toggle plugin browser
             KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.plugin_browser.toggle();
+                KeyResult::Continue
+            }
+
+            // Alt+G: Open VST3 plugin GUIs
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.open_plugin_guis();
                 KeyResult::Continue
             }
 
@@ -3190,6 +3215,13 @@ impl ModalEditor {
                     KeyResult::Continue
                 }
 
+                // Alt+G: Open GUI for loaded plugins
+                #[cfg(all(target_os = "linux", feature = "vst3"))]
+                KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::ALT) => {
+                    self.open_plugin_guis();
+                    KeyResult::Continue
+                }
+
                 // Navigation
                 KeyCode::Up => {
                     self.plugin_browser.select_prev();
@@ -3244,6 +3276,74 @@ impl ModalEditor {
 
                 _ => KeyResult::Continue,
             }
+        }
+    }
+
+    /// Open VST3 GUIs for all loaded plugins
+    /// Only available on Linux with vst3 feature
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    fn open_plugin_guis(&mut self) {
+        // Get the current graph
+        let graph_guard = self.graph.load();
+        let graph_opt = graph_guard.as_ref();
+
+        if let Some(graph_cell) = graph_opt {
+            // Borrow the graph
+            let graph = graph_cell.0.borrow();
+
+            // Get the real_plugins from the graph
+            let mut real_plugins = graph.real_plugins.borrow_mut();
+
+            if real_plugins.is_empty() {
+                let msg = "No VST3 plugins loaded. Use 'vst \"plugin_name\"' in your code.";
+                self.status_message = msg.to_string();
+                self.plugin_browser.set_status(msg);
+                return;
+            }
+
+            let mut opened_count = 0;
+            let mut errors = Vec::new();
+
+            // Iterate through loaded plugins
+            for (name, plugin) in real_plugins.iter_mut() {
+                // Skip if we already have a GUI for this plugin
+                if self.vst3_guis.contains_key(name) {
+                    continue;
+                }
+
+                // Try to create GUI
+                match plugin.create_gui() {
+                    Ok(mut gui) => {
+                        // Show the GUI window
+                        if let Err(e) = gui.show(Some(name)) {
+                            errors.push(format!("{}: show failed - {}", name, e));
+                            continue;
+                        }
+
+                        // Store the GUI handle
+                        self.vst3_guis.insert(name.clone(), gui);
+                        opened_count += 1;
+                    }
+                    Err(e) => {
+                        errors.push(format!("{}: {}", name, e));
+                    }
+                }
+            }
+
+            // Set status message (both main status and plugin browser)
+            let msg = if opened_count > 0 {
+                format!("🎛️ Opened {} plugin GUI(s)", opened_count)
+            } else if !errors.is_empty() {
+                format!("GUI errors: {}", errors.join(", "))
+            } else {
+                "All plugin GUIs already open".to_string()
+            };
+            self.status_message = msg.clone();
+            self.plugin_browser.set_status(&msg);
+        } else {
+            let msg = "No audio graph loaded. Press C-x to evaluate code first.";
+            self.status_message = msg.to_string();
+            self.plugin_browser.set_status(msg);
         }
     }
 

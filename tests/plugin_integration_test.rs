@@ -335,7 +335,6 @@ fn test_manager_with_real_plugins() {
 #[test]
 fn test_audio_engine_mock_plugin_integration() {
     use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
-    use phonon::plugin_host::midi::NoteEvent;
     use std::collections::HashMap;
     use std::cell::RefCell;
 
@@ -343,15 +342,15 @@ fn test_audio_engine_mock_plugin_integration() {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
     // Create a PluginInstance node with MockSynth
+    // Using note_pattern with A4 (MIDI note 69)
+    let note_pattern = phonon::pattern::Pattern::pure(69.0);
     let plugin_node = SignalNode::PluginInstance {
         plugin_id: "MockSynth".to_string(),
         audio_inputs: vec![],
         params: HashMap::new(),
-        // Note: we need to provide note_events for the plugin to generate sound
-        // For instrument mode, note events trigger the synth
-        note_events: vec![
-            NoteEvent::new(0, 512, 69, 100), // A4, velocity 100, full buffer duration
-        ],
+        note_pattern: Some(note_pattern),
+        note_pattern_str: Some("69".to_string()),
+        last_note_cycle: std::cell::Cell::new(-1),
         instance: RefCell::new(None),
     };
 
@@ -382,7 +381,6 @@ fn test_audio_engine_mock_plugin_integration() {
 #[test]
 fn test_audio_engine_mock_plugin_pitch() {
     use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
-    use phonon::plugin_host::midi::NoteEvent;
     use std::collections::HashMap;
     use std::cell::RefCell;
 
@@ -392,11 +390,14 @@ fn test_audio_engine_mock_plugin_pitch() {
     let render_note = |note: u8| -> Vec<f32> {
         let mut graph = UnifiedSignalGraph::new(44100.0);
 
+        let note_pattern = phonon::pattern::Pattern::pure(note as f64);
         let plugin_node = SignalNode::PluginInstance {
             plugin_id: "MockSynth".to_string(),
             audio_inputs: vec![],
             params: HashMap::new(),
-            note_events: vec![NoteEvent::new(0, buffer_size, note, 100)],
+            note_pattern: Some(note_pattern),
+            note_pattern_str: Some(format!("{}", note)),
+            last_note_cycle: std::cell::Cell::new(-1),
             instance: RefCell::new(None),
         };
 

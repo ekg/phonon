@@ -82,3 +82,74 @@ jobs:
 
     - name: Build
       run: cargo build --release
+
+  vst3-gui-test:
+    name: VST3 GUI Test (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Free Disk Space
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: false
+
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libasound2-dev \
+          xvfb \
+          imagemagick \
+          libx11-dev \
+          libx11-xcb-dev \
+          libxcb-util-dev \
+          libxcb-cursor-dev \
+          libxcb-xkb-dev \
+          libxkbcommon-dev \
+          libxkbcommon-x11-dev \
+          libcairo2-dev
+
+    - name: Install Surge XT VST3
+      run: |
+        # Download Surge XT Linux package (plugins only - smaller download)
+        wget -q https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-1.3.4-pluginsonly.tar.gz
+        tar xzf surge-xt-linux-1.3.4-pluginsonly.tar.gz
+        mkdir -p ~/.vst3
+        # Find and copy VST3 plugins
+        find . -name "*.vst3" -type d -exec cp -r {} ~/.vst3/ \;
+        ls -la ~/.vst3/
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-vst3-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build VST3 GUI test
+      run: cargo build --bin test_vst3_gui_headless --features vst3 --release
+
+    - name: Run VST3 GUI headless test
+      run: |
+        xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+          cargo run --bin test_vst3_gui_headless --features vst3 --release
+
+    - name: Upload GUI screenshot
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: vst3-gui-screenshot
+        path: /tmp/vst3_gui_test.png
+        if-no-files-found: ignore

@@ -218,6 +218,18 @@ impl RealPluginInstance {
             .load_preset(preset_number)
             .map_err(|e| PluginError::PresetError(e.to_string()))
     }
+
+    /// Create a GUI window for this plugin
+    #[cfg(target_os = "linux")]
+    pub fn create_gui(&mut self) -> PluginResult<rack::Vst3Gui> {
+        rack::Vst3Gui::create(self.plugin_mut())
+            .map_err(|e| PluginError::ProcessError(format!("GUI error: {}", e)))
+    }
+
+    /// Get plugin name
+    pub fn name(&self) -> &str {
+        &self.info.id.name
+    }
 }
 
 /// Convert rack PluginInfo to Phonon PluginInfo

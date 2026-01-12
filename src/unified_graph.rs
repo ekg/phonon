@@ -4717,8 +4717,9 @@ pub struct UnifiedSignalGraph {
 
     /// Real VST3 plugin instances (keyed by plugin name)
     /// Lazily loaded when vst "PluginName" is used in DSL
+    /// Public for GUI access from modal editor
     #[cfg(feature = "vst3")]
-    real_plugins: RefCell<HashMap<String, RealPluginInstance>>,
+    pub real_plugins: RefCell<HashMap<String, RealPluginInstance>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
