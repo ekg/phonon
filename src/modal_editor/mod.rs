@@ -155,9 +155,10 @@ impl ModalEditor {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Buffer size from CLI arg, clamped to valid range (default 512)
         let synthesis_buffer_size = buffer_size.unwrap_or(512).clamp(64, 16384);
-        // Suppress ALSA error messages that would break the TUI
-        // ALSA lib prints directly to stderr from C code, which we can't intercept in Rust
-        // Redirect stderr to log file to prevent TUI corruption
+
+        // Suppress ALL console output that would break the TUI
+        // This includes: ALSA errors, X11 authorization messages, VST3 plugin output
+        // Both stdout and stderr must be redirected since different libraries use different streams
         #[cfg(unix)]
         {
             use std::os::unix::io::AsRawFd;
@@ -166,9 +167,14 @@ impl ModalEditor {
                 .append(true)
                 .open("/tmp/phonon_audio_errors.log")
             {
+                let fd = log_file.as_raw_fd();
                 unsafe {
-                    libc::dup2(log_file.as_raw_fd(), libc::STDERR_FILENO);
+                    // Redirect both stdout and stderr to prevent TUI corruption
+                    libc::dup2(fd, libc::STDERR_FILENO);
+                    libc::dup2(fd, libc::STDOUT_FILENO);
                 }
+                // Keep log_file open by leaking it (intentional - we need the fd to stay valid)
+                std::mem::forget(log_file);
             }
         }
 
@@ -189,8 +195,9 @@ impl ModalEditor {
         // Use default buffer size (ring buffer handles buffering)
         let config: cpal::StreamConfig = default_config.into();
 
-        eprintln!("🎵 Audio: {} Hz, {} channels, buffer: {} samples", sample_rate as u32, channels, synthesis_buffer_size);
-        eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
+        // Note: These messages go to log file now, not visible in TUI
+        // eprintln!("🎵 Audio: {} Hz, {} channels, buffer: {} samples", sample_rate as u32, channels, synthesis_buffer_size);
+        // eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
         // Graph for background synthesis thread (lock-free swap)
         let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));

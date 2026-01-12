@@ -11616,7 +11616,13 @@ impl UnifiedSignalGraph {
 
                     // For instrument mode, convert note_events to MIDI and process 1 sample
                     if audio_input_value.is_none() {
-                        let current_sample = self.current_sample_idx;
+                        // Calculate current sample position within the cycle
+                        // Note events have offsets relative to cycle start (0 to samples_per_cycle)
+                        // We need to convert our current position to the same coordinate system
+                        let samples_per_cycle = (self.sample_rate / self.cps) as usize;
+                        let cycle_pos = self.get_cycle_position();
+                        let cycle_frac = cycle_pos - cycle_pos.floor();
+                        let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
 
                         // Filter MIDI events to only those that should occur at this sample
                         let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
@@ -11624,10 +11630,10 @@ impl UnifiedSignalGraph {
                             .flat_map(|ne: &crate::plugin_host::midi::NoteEvent| {
                                 let (on, off) = ne.to_midi_events();
                                 let mut events = Vec::new();
-                                if on.sample_offset == current_sample {
+                                if on.sample_offset == current_sample_in_cycle {
                                     events.push(on);
                                 }
-                                if off.sample_offset == current_sample {
+                                if off.sample_offset == current_sample_in_cycle {
                                     events.push(off);
                                 }
                                 events
@@ -11707,12 +11713,26 @@ impl UnifiedSignalGraph {
                             }
                             // Instrument mode: send a note and process
                             if audio_inputs.is_empty() {
-                                // Convert note_events to MIDI
+                                // Calculate current sample position within the cycle
+                                // Note events have offsets relative to cycle start (0 to samples_per_cycle)
+                                let samples_per_cycle = (self.sample_rate / self.cps) as usize;
+                                let cycle_pos = self.get_cycle_position();
+                                let cycle_frac = cycle_pos - cycle_pos.floor();
+                                let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
+
+                                // Filter MIDI events to only those that should trigger at this sample
                                 let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
                                     .iter()
                                     .flat_map(|ne| {
                                         let (on, off) = ne.to_midi_events();
-                                        vec![on, off]
+                                        let mut events = Vec::new();
+                                        if on.sample_offset == current_sample_in_cycle {
+                                            events.push(on);
+                                        }
+                                        if off.sample_offset == current_sample_in_cycle {
+                                            events.push(off);
+                                        }
+                                        events
                                     })
                                     .collect();
 
@@ -18569,43 +18589,75 @@ impl UnifiedSignalGraph {
                     None
                 };
 
-                // Query note pattern for current events
+                // Query note pattern for current buffer
+                // Unlike the old approach that only generated events at cycle boundaries,
+                // we now calculate which events should fire within THIS buffer's time range
                 let note_events: Vec<crate::plugin_host::midi::NoteEvent> = if let Some(ref pattern) = note_pattern {
-                    let current_cycle = self.get_cycle_position().floor() as i32;
-                    let last_cycle = last_note_cycle.get();
+                    let samples_per_cycle = (self.sample_rate / self.cps) as usize;
 
-                    // Only generate events at cycle boundaries
-                    if current_cycle != last_cycle {
-                        last_note_cycle.set(current_cycle);
-                        let state = State {
-                            span: TimeSpan::new(
-                                Fraction::from_float(current_cycle as f64),
-                                Fraction::from_float((current_cycle + 1) as f64),
-                            ),
-                            controls: std::collections::HashMap::new(),
-                        };
-                        let events = pattern.query(&state);
+                    // Calculate the current buffer's position in absolute samples
+                    let buffer_start_sample = self.current_sample_idx;
+                    let buffer_end_sample = buffer_start_sample + buffer_size;
 
-                        // Convert pattern events to NoteEvents with timing
-                        let samples_per_cycle = (self.sample_rate / self.cps) as usize;
-                        events.into_iter().map(|hap| {
-                            let start_frac = (hap.part.begin.to_float() - current_cycle as f64).max(0.0);
-                            let end_frac = (hap.part.end.to_float() - current_cycle as f64).min(1.0);
-                            let start_sample = (start_frac * samples_per_cycle as f64) as usize;
-                            let duration = ((end_frac - start_frac) * samples_per_cycle as f64) as usize;
-                            crate::plugin_host::midi::NoteEvent::new(
-                                start_sample,
-                                duration.max(100), // Minimum 100 samples
+                    // Convert to cycle position (fractional)
+                    let buffer_start_cycle = buffer_start_sample as f64 / samples_per_cycle as f64;
+                    let buffer_end_cycle = buffer_end_sample as f64 / samples_per_cycle as f64;
+
+                    // Query the pattern for events that overlap with this buffer's time span
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(buffer_start_cycle),
+                            Fraction::from_float(buffer_end_cycle),
+                        ),
+                        controls: std::collections::HashMap::new(),
+                    };
+                    let events = pattern.query(&state);
+
+                    // Debug: log pattern query results (first few buffers only)
+                    if buffer_start_sample < 2000 {
+                        eprintln!("DEBUG: Pattern query for buffer {}-{} (cycle {:.4}-{:.4}): {} events, samples_per_cycle={}",
+                            buffer_start_sample, buffer_end_sample,
+                            buffer_start_cycle, buffer_end_cycle,
+                            events.len(), samples_per_cycle);
+                        for hap in &events {
+                            eprintln!("  Event: note={}, cycle {:.4}-{:.4}",
+                                hap.value, hap.part.begin.to_float(), hap.part.end.to_float());
+                        }
+                    }
+
+                    // Convert pattern events to NoteEvents with buffer-relative timing
+                    events.into_iter().filter_map(|hap| {
+                        // Calculate absolute sample positions for this event
+                        let event_start_cycle = hap.part.begin.to_float();
+                        let event_end_cycle = hap.part.end.to_float();
+                        let event_start_sample = (event_start_cycle * samples_per_cycle as f64) as usize;
+                        let event_end_sample = (event_end_cycle * samples_per_cycle as f64) as usize;
+
+                        // Only include note-on events that start within this buffer
+                        if event_start_sample >= buffer_start_sample && event_start_sample < buffer_end_sample {
+                            // Offset relative to buffer start
+                            let buffer_offset = event_start_sample - buffer_start_sample;
+                            let duration = (event_end_sample - event_start_sample).max(100);
+
+                            Some(crate::plugin_host::midi::NoteEvent::new(
+                                buffer_offset,
+                                duration,
                                 hap.value as u8,
                                 100, // velocity
-                            )
-                        }).collect()
-                    } else {
-                        Vec::new()
-                    }
+                            ))
+                        } else {
+                            None
+                        }
+                    }).collect()
                 } else {
                     Vec::new()
                 };
+
+                // Update last_note_cycle for compatibility (though not strictly needed with new approach)
+                if let Some(_) = note_pattern {
+                    let current_cycle = self.get_cycle_position().floor() as i32;
+                    last_note_cycle.set(current_cycle);
+                }
 
                 // First, try to use a MockPluginInstance for testing
                 // MockPluginInstance is identified by plugin_id starting with "mock:" or matching "MockSynth"
@@ -18758,6 +18810,15 @@ impl UnifiedSignalGraph {
                                         vec![on, off]
                                     })
                                     .collect();
+
+                                // Debug: log MIDI events being sent
+                                if !midi_events.is_empty() {
+                                    tracing::info!("Sending {} MIDI events to VST3 plugin", midi_events.len());
+                                    for ev in &midi_events {
+                                        tracing::info!("  MIDI: status=0x{:02x} data1={} data2={} offset={}",
+                                            ev.status, ev.data1, ev.data2, ev.sample_offset);
+                                    }
+                                }
 
                                 // Process through VST3 plugin (stereo output)
                                 let mut right = vec![0.0f32; buffer_size];
