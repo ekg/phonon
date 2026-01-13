@@ -3286,10 +3286,36 @@ impl ModalEditor {
         }
     }
 
-    /// Open VST3 GUIs for all loaded plugins
+    /// Find VST plugin name under cursor (looks for `vst "PluginName"` on current line)
+    fn get_vst_under_cursor(&self) -> Option<String> {
+        // Find current line
+        let mut current_pos = 0;
+        for line in self.content.lines() {
+            let line_end = current_pos + line.len();
+            if current_pos <= self.cursor_pos && self.cursor_pos <= line_end {
+                // Found the line containing cursor
+                // Look for vst "PluginName" pattern
+                if let Some(vst_idx) = line.find("vst \"") {
+                    let start = vst_idx + 5; // after 'vst "'
+                    if let Some(end_quote) = line[start..].find('"') {
+                        let plugin_name = &line[start..start + end_quote];
+                        return Some(plugin_name.to_string());
+                    }
+                }
+                return None;
+            }
+            current_pos = line_end + 1; // +1 for newline
+        }
+        None
+    }
+
+    /// Open VST3 GUIs - if cursor is on a vst line, open just that one
     /// Only available on Linux with vst3 feature
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     fn open_plugin_guis(&mut self) {
+        // Check if cursor is on a VST line
+        let target_plugin = self.get_vst_under_cursor();
+
         // Get the current graph
         let graph_guard = self.graph.load();
         let graph_opt = graph_guard.as_ref();
@@ -3308,13 +3334,37 @@ impl ModalEditor {
                 return;
             }
 
+            // If we have a target plugin from cursor, check if it's loaded
+            if let Some(ref target) = target_plugin {
+                if !real_plugins.contains_key(target) {
+                    let msg = format!("Plugin '{}' not loaded. Press C-x to evaluate first.", target);
+                    self.status_message = msg.clone();
+                    self.plugin_browser.set_status(&msg);
+                    return;
+                }
+            }
+
             let mut opened_count = 0;
             let mut errors = Vec::new();
 
             // Iterate through loaded plugins
             for (name, plugin) in real_plugins.iter_mut() {
+                // If we have a target, skip non-matching plugins
+                if let Some(ref target) = target_plugin {
+                    if name != target {
+                        continue;
+                    }
+                }
+
                 // Skip if we already have a GUI for this plugin
                 if self.vst3_guis.contains_key(name) {
+                    // If targeting specific plugin, report it's already open
+                    if target_plugin.is_some() {
+                        let msg = format!("🎛️ {} GUI already open", name);
+                        self.status_message = msg.clone();
+                        self.plugin_browser.set_status(&msg);
+                        return;
+                    }
                     continue;
                 }
 
@@ -3339,7 +3389,11 @@ impl ModalEditor {
 
             // Set status message (both main status and plugin browser)
             let msg = if opened_count > 0 {
-                format!("🎛️ Opened {} plugin GUI(s)", opened_count)
+                if let Some(ref target) = target_plugin {
+                    format!("🎛️ Opened {} GUI", target)
+                } else {
+                    format!("🎛️ Opened {} plugin GUI(s)", opened_count)
+                }
             } else if !errors.is_empty() {
                 format!("GUI errors: {}", errors.join(", "))
             } else {

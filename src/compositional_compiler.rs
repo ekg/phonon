@@ -2929,6 +2929,10 @@ fn compile_function_call(
         // ========== Plugin Hosting (VST/AU/CLAP/LV2) ==========
         "vst" | "vst3" | "au" | "clap" | "lv2" | "plugin" => compile_vst(ctx, args),
 
+        // VST parameter modifier with explicit string name
+        // Syntax: vst "Plugin" # param "Filter Cutoff" 0.5
+        "param" => compile_vst_param(ctx, args),
+
         _ => {
             // Check if this is a VST parameter modifier (chained onto a PluginInstance)
             // Syntax: vst "Plugin" # param_name value
@@ -10456,6 +10460,76 @@ fn compile_vst(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     };
 
     Ok(ctx.graph.add_node(node))
+}
+
+/// Compile VST parameter modifier with explicit string name
+/// Syntax: vst "Plugin" # param "Filter Cutoff" 0.5
+/// This allows setting parameters by their exact VST name
+fn compile_vst_param(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Expect: ChainInput(node_id), String(param_name), value_expr
+    if args.len() < 3 {
+        return Err("param requires: input # param \"ParamName\" value".to_string());
+    }
+
+    // First arg must be chain input from a PluginInstance
+    let node_id = match &args[0] {
+        Expr::ChainInput(id) => *id,
+        _ => return Err("param must be chained from a VST plugin".to_string()),
+    };
+
+    // Second arg must be parameter name string
+    let param_name = match &args[1] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("param requires a string parameter name".to_string()),
+    };
+
+    // Third arg is the value
+    let param_value = compile_expr(ctx, args[2].clone())?;
+
+    // Get the source PluginInstance
+    let plugin_data = if let Some(node) = ctx.graph.get_node(node_id) {
+        if let SignalNode::PluginInstance {
+            plugin_id,
+            audio_inputs,
+            params,
+            note_pattern,
+            note_pattern_str,
+            instance,
+            ..
+        } = node {
+            Some((
+                plugin_id.clone(),
+                audio_inputs.clone(),
+                params.clone(),
+                note_pattern.clone(),
+                note_pattern_str.clone(),
+                instance.borrow().clone(),
+            ))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some((plugin_id, audio_inputs, mut params, note_pattern, note_pattern_str, inst)) = plugin_data {
+        // Add the new parameter
+        params.insert(param_name, Signal::Node(param_value));
+
+        let new_node = SignalNode::PluginInstance {
+            plugin_id,
+            audio_inputs,
+            params,
+            note_pattern,
+            note_pattern_str,
+            last_note_cycle: std::cell::Cell::new(-1),
+            triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
+            instance: std::cell::RefCell::new(inst),
+        };
+        Ok(ctx.graph.add_node(new_node))
+    } else {
+        Err("param must be chained from a VST plugin (PluginInstance)".to_string())
+    }
 }
 
 #[cfg(test)]
