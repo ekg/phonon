@@ -11583,6 +11583,9 @@ impl UnifiedSignalGraph {
 
                 // Query note pattern for current events - cache at cycle boundary
                 // CRITICAL: Events must persist throughout the cycle for per-sample MIDI timing
+                // Track if we need to send note-offs for cycle boundary cleanup
+                let mut cycle_boundary_note_offs: Vec<u8> = Vec::new();
+
                 if let Some(ref pattern) = note_pattern {
                     let current_cycle = self.get_cycle_position().floor() as i32;
                     let last_cycle = last_note_cycle.get();
@@ -11590,6 +11593,11 @@ impl UnifiedSignalGraph {
                     // Only regenerate events at cycle boundaries
                     if current_cycle != last_cycle {
                         last_note_cycle.set(current_cycle);
+
+                        // CRITICAL: Collect notes that need note-off at cycle boundary
+                        // These are notes that were playing but won't continue in the new cycle
+                        cycle_boundary_note_offs = triggered_notes.borrow().iter().cloned().collect();
+
                         let state = State {
                             span: TimeSpan::new(
                                 Fraction::from_float(current_cycle as f64),
@@ -11675,39 +11683,47 @@ impl UnifiedSignalGraph {
 
                         // Filter MIDI events: send if exact match OR if note is active (catch-up for parallel)
                         let mut triggered = triggered_notes.borrow_mut();
-                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                            .iter()
-                            .flat_map(|ne: &crate::plugin_host::midi::NoteEvent| {
-                                let (on, off) = ne.to_midi_events();
-                                let note_num = ne.note;
-                                let mut events = Vec::new();
+                        let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
 
-                                // Note is active if: start <= current < end
-                                let note_is_active = on.sample_offset <= current_sample_in_cycle
-                                    && off.sample_offset > current_sample_in_cycle;
+                        // CRITICAL: Send note-offs for notes from previous cycle at cycle boundary
+                        for note_num in &cycle_boundary_note_offs {
+                            midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                sample_offset: 0,
+                                status: 0x80, // Note-off on channel 0
+                                data1: *note_num,
+                                data2: 0, // velocity
+                            });
+                        }
 
-                                // Send note-on if:
-                                // 1. Exact match (normal case), OR
-                                // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
-                                if on.sample_offset == current_sample_in_cycle {
-                                    triggered.insert(note_num);
-                                    events.push(on);
-                                } else if note_is_active && !triggered.contains(&note_num) {
-                                    // Catch-up: note should be playing but we haven't triggered it
-                                    triggered.insert(note_num);
-                                    let mut catch_up_on = on.clone();
-                                    catch_up_on.sample_offset = 0; // Trigger immediately
-                                    events.push(catch_up_on);
-                                }
+                        // Process current cycle's note events
+                        for ne in note_events.iter() {
+                            let (on, off) = ne.to_midi_events();
+                            let note_num = ne.note;
 
-                                // Send note-off if exact match
-                                if off.sample_offset == current_sample_in_cycle {
-                                    triggered.remove(&note_num);
-                                    events.push(off);
-                                }
-                                events
-                            })
-                            .collect();
+                            // Note is active if: start <= current < end
+                            let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                && off.sample_offset > current_sample_in_cycle;
+
+                            // Send note-on if:
+                            // 1. Exact match (normal case), OR
+                            // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
+                            if on.sample_offset == current_sample_in_cycle {
+                                triggered.insert(note_num);
+                                midi_events.push(on);
+                            } else if note_is_active && !triggered.contains(&note_num) {
+                                // Catch-up: note should be playing but we haven't triggered it
+                                triggered.insert(note_num);
+                                let mut catch_up_on = on.clone();
+                                catch_up_on.sample_offset = 0; // Trigger immediately
+                                midi_events.push(catch_up_on);
+                            }
+
+                            // Send note-off if exact match
+                            if off.sample_offset == current_sample_in_cycle {
+                                triggered.remove(&note_num);
+                                midi_events.push(off);
+                            }
+                        }
                         drop(triggered);
 
                         // Process 1 sample through mock plugin
@@ -11800,39 +11816,47 @@ impl UnifiedSignalGraph {
 
                                 // Filter MIDI events: send if exact match OR if note is active (catch-up for parallel)
                                 let mut triggered = triggered_notes.borrow_mut();
-                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                                    .iter()
-                                    .flat_map(|ne| {
-                                        let (on, off) = ne.to_midi_events();
-                                        let note_num = ne.note;
-                                        let mut events = Vec::new();
+                                let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
 
-                                        // Note is active if: start <= current < end
-                                        let note_is_active = on.sample_offset <= current_sample_in_cycle
-                                            && off.sample_offset > current_sample_in_cycle;
+                                // CRITICAL: Send note-offs for notes from previous cycle at cycle boundary
+                                for note_num in &cycle_boundary_note_offs {
+                                    midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                        sample_offset: 0,
+                                        status: 0x80, // Note-off on channel 0
+                                        data1: *note_num,
+                                        data2: 0, // velocity
+                                    });
+                                }
 
-                                        // Send note-on if:
-                                        // 1. Exact match (normal case), OR
-                                        // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
-                                        if on.sample_offset == current_sample_in_cycle {
-                                            triggered.insert(note_num);
-                                            events.push(on);
-                                        } else if note_is_active && !triggered.contains(&note_num) {
-                                            // Catch-up: note should be playing but we haven't triggered it
-                                            triggered.insert(note_num);
-                                            let mut catch_up_on = on.clone();
-                                            catch_up_on.sample_offset = 0; // Trigger immediately
-                                            events.push(catch_up_on);
-                                        }
+                                // Process current cycle's note events
+                                for ne in note_events.iter() {
+                                    let (on, off) = ne.to_midi_events();
+                                    let note_num = ne.note;
 
-                                        // Send note-off if exact match
-                                        if off.sample_offset == current_sample_in_cycle {
-                                            triggered.remove(&note_num);
-                                            events.push(off);
-                                        }
-                                        events
-                                    })
-                                    .collect();
+                                    // Note is active if: start <= current < end
+                                    let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                        && off.sample_offset > current_sample_in_cycle;
+
+                                    // Send note-on if:
+                                    // 1. Exact match (normal case), OR
+                                    // 2. Note is active but we haven't triggered it yet (catch-up for parallel)
+                                    if on.sample_offset == current_sample_in_cycle {
+                                        triggered.insert(note_num);
+                                        midi_events.push(on);
+                                    } else if note_is_active && !triggered.contains(&note_num) {
+                                        // Catch-up: note should be playing but we haven't triggered it
+                                        triggered.insert(note_num);
+                                        let mut catch_up_on = on.clone();
+                                        catch_up_on.sample_offset = 0; // Trigger immediately
+                                        midi_events.push(catch_up_on);
+                                    }
+
+                                    // Send note-off if exact match
+                                    if off.sample_offset == current_sample_in_cycle {
+                                        triggered.remove(&note_num);
+                                        midi_events.push(off);
+                                    }
+                                }
                                 drop(triggered);
 
                                 // Process 1 sample
