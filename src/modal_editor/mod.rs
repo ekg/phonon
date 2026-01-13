@@ -144,6 +144,9 @@ pub struct ModalEditor {
     /// Active VST3 GUI windows (plugin_name -> GUI handle)
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     vst3_guis: HashMap<String, Vst3Gui>,
+    /// Last time parameter changes were polled (for throttling)
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    last_param_poll: std::time::Instant,
 }
 
 impl ModalEditor {
@@ -538,6 +541,8 @@ impl ModalEditor {
             plugin_manager: PluginInstanceManager::new(),
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             vst3_guis: HashMap::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            last_param_poll: std::time::Instant::now(),
         };
 
         // Initialize plugin manager
@@ -607,6 +612,8 @@ impl ModalEditor {
             plugin_manager: PluginInstanceManager::new(),
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             vst3_guis: HashMap::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            last_param_poll: std::time::Instant::now(),
         })
     }
 
@@ -2658,8 +2665,15 @@ impl ModalEditor {
     }
 
     /// Poll for VST3 parameter changes from plugin GUIs (called from main loop)
+    /// Throttled to max 10Hz to prevent TUI flickering from rapid parameter updates
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     fn poll_vst3_param_changes(&mut self) {
+        // Throttle: only poll every 100ms to prevent TUI flickering
+        if self.last_param_poll.elapsed().as_millis() < 100 {
+            return;
+        }
+        self.last_param_poll = std::time::Instant::now();
+
         // Get names of open GUIs
         let gui_names: Vec<String> = self.vst3_guis.keys().cloned().collect();
         if gui_names.is_empty() {
@@ -3446,6 +3460,14 @@ impl ModalEditor {
     /// Only available on Linux with vst3 feature
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     fn open_plugin_guis(&mut self) {
+        // Check if X11 display is available
+        if std::env::var("DISPLAY").is_err() {
+            let msg = "No DISPLAY set - cannot open GUI. Run in a graphical terminal.";
+            self.status_message = msg.to_string();
+            self.plugin_browser.set_status(msg);
+            return;
+        }
+
         // Check if cursor is on a VST line
         let target_plugin = self.get_vst_under_cursor();
 
@@ -3515,7 +3537,13 @@ impl ModalEditor {
                         opened_count += 1;
                     }
                     Err(e) => {
-                        errors.push(format!("{}: {}", name, e));
+                        // Provide helpful hint about X11 authorization issues
+                        let err_str = e.to_string();
+                        if err_str.contains("display") || err_str.contains("unavailable") {
+                            errors.push(format!("{}: X11 error (try: xhost +local:)", name));
+                        } else {
+                            errors.push(format!("{}: {}", name, e));
+                        }
                     }
                 }
             }
