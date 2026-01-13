@@ -5550,6 +5550,18 @@ impl UnifiedSignalGraph {
                     } => {
                         *last_trigger_time = old_cycle_pos as f32;
                     }
+                    SignalNode::PluginInstance {
+                        last_note_cycle,
+                        triggered_notes,
+                        ..
+                    } => {
+                        // Initialize last_note_cycle to current cycle to prevent re-triggering
+                        // This ensures the plugin won't replay notes from earlier in the cycle
+                        last_note_cycle.set(current_cycle);
+                        // Clear triggered notes - they will be re-triggered via catch-up logic
+                        // if they should still be playing
+                        triggered_notes.borrow_mut().clear();
+                    }
                     _ => {}
                 }
             }
@@ -18774,7 +18786,9 @@ impl UnifiedSignalGraph {
                     let samples_per_cycle = (self.sample_rate / self.cps) as usize;
 
                     // Calculate the current buffer's position in absolute samples
-                    let buffer_start_sample = self.current_sample_idx;
+                    // CRITICAL: Use sample_count (total samples processed) not current_sample_idx (per-sample loop index)
+                    // sample_count represents the absolute position at the START of this buffer
+                    let buffer_start_sample = self.sample_count;
                     let buffer_end_sample = buffer_start_sample + buffer_size;
 
                     // Convert to cycle position (fractional)
@@ -18791,17 +18805,6 @@ impl UnifiedSignalGraph {
                     };
                     let events = pattern.query(&state);
 
-                    // Debug: log pattern query results (first few buffers only)
-                    if buffer_start_sample < 2000 {
-                        eprintln!("DEBUG: Pattern query for buffer {}-{} (cycle {:.4}-{:.4}): {} events, samples_per_cycle={}",
-                            buffer_start_sample, buffer_end_sample,
-                            buffer_start_cycle, buffer_end_cycle,
-                            events.len(), samples_per_cycle);
-                        for hap in &events {
-                            eprintln!("  Event: note={}, cycle {:.4}-{:.4}",
-                                hap.value, hap.part.begin.to_float(), hap.part.end.to_float());
-                        }
-                    }
 
                     // Convert pattern events to NoteEvents with buffer-relative timing
                     events.into_iter().filter_map(|hap| {
