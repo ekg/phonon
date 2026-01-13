@@ -1,0 +1,70 @@
+warning: unreachable statement
+     --> src/unified_graph.rs:17417:9
+      |
+17413 |         return self.process_buffer_dag(buffer, buffer_start_cycle, sample_increment);
+      |         ---------------------------------------------------------------------------- any code following this expression is unreachable
+...
+17417 |         let count = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unreachable statement
+      |
+      = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `phonon` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running `target/debug/test_vst3_gui`
+VST3 Plugin GUI Test (Linux/X11)
+================================
+
+Creating VST3 scanner...
+Scanning for VST3 plugins...
+Found 16 plugin(s)
+
+Available plugins:
+  [0] CHOWTapeModel by chowdsp (Effect)
+  [1] Dexed by Digital Suburban (Instrument)
+  [2] Dragonfly Early Reflections by Michael Willis (Effect)
+  [3] Dragonfly Hall Reverb by Michael Willis and Rob vd Berg (Effect)
+  [4] Dragonfly Plate Reverb by Michael Willis (Effect)
+  [5] Dragonfly Room Reverb by Michael Willis (Effect)
+  [6] JE8086 by The Usual Suspects (Instrument)
+  [7] NodalRed2x by The Usual Suspects (Instrument)
+  [8] OB-Xd Legacy by discoDSP (Instrument)
+  [9] Odin2 by TheWaveWarden (Instrument)
+  ... and 6 more
+
+Selected plugin:
+  Name: Surge XT Effects
+  Manufacturer: Surge Synth Team
+  Type: Effect
+  Path: /home/erik/.vst3/Surge XT Effects.vst3
+
+Creating plugin instance...
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+  Plugin instance created
+Initializing plugin (48kHz, 512 samples)...
+  Plugin initialized successfully!
+
+Plugin has 14 parameters
+First 10 parameters:
+  [0] Input Channel: 0.000
+  [1] Delay Time Left: 0.000
+  [2] Delay Time Right: 0.000
+  [3] Feedback/EQ Feedback: 0.000
+  [4] Feedback/EQ Crossfeed: 0.000
+  [5] Feedback/EQ Low Cut: 0.000
+  [6] Feedback/EQ High Cut: 0.000
+  [7] Modulation Rate: 0.000
+  [8] Modulation Depth: 0.000
+  [9] Output Width: 0.000
+
+Creating plugin GUI...
+  Failed to create GUI: Failed to create GUI: plugin may not support GUI or display unavailable
+
+Note: Some plugins don't support GUI on Linux, or
+they may require specific X11 libraries. Ensure you have:
+  libx11-xcb-dev libxcb-util-dev libxcb-cursor-dev
+  libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev
+Error: Other("Failed to create GUI: plugin may not support GUI or display unavailable")

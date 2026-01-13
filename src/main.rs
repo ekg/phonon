@@ -207,10 +207,22 @@ enum PluginAction {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt::init();
-
     let cli = Cli::parse();
+
+    // Initialize logging - redirect to file for Edit mode to prevent TUI corruption
+    let is_edit_mode = matches!(cli.command, Commands::Edit { .. });
+    if is_edit_mode {
+        // Redirect tracing to a log file to prevent TUI corruption
+        use tracing_subscriber::fmt::writer::MakeWriterExt;
+        let log_file = std::fs::File::create("/tmp/phonon_audio_errors.log")
+            .unwrap_or_else(|_| std::fs::File::create("/dev/null").unwrap());
+        tracing_subscriber::fmt()
+            .with_writer(std::sync::Mutex::new(log_file))
+            .with_ansi(false)
+            .init();
+    } else {
+        tracing_subscriber::fmt::init();
+    }
 
     // Configure rayon thread pool with user-specified thread count
     // Default is 4 threads to prevent excessive CPU usage during rendering

@@ -1153,6 +1153,9 @@ pub enum SignalNode {
         /// Plugin instance handle (initialized lazily)
         #[allow(dead_code)]
         instance: std::cell::RefCell<Option<crate::plugin_host::PluginInstanceHandle>>,
+        /// Cached note events for current cycle (regenerated at cycle boundaries)
+        /// This persists events throughout the cycle for per-sample MIDI timing checks
+        cached_note_events: std::cell::RefCell<Vec<crate::plugin_host::midi::NoteEvent>>,
     },
 
     // === Conditional Effects ===
@@ -5553,6 +5556,7 @@ impl UnifiedSignalGraph {
                     SignalNode::PluginInstance {
                         last_note_cycle,
                         triggered_notes,
+                        cached_note_events,
                         ..
                     } => {
                         // Initialize last_note_cycle to current cycle to prevent re-triggering
@@ -5561,6 +5565,8 @@ impl UnifiedSignalGraph {
                         // Clear triggered notes - they will be re-triggered via catch-up logic
                         // if they should still be playing
                         triggered_notes.borrow_mut().clear();
+                        // Clear cached events - they'll be regenerated when cycle changes
+                        cached_note_events.borrow_mut().clear();
                     }
                     _ => {}
                 }
@@ -11566,6 +11572,7 @@ impl UnifiedSignalGraph {
                 last_note_cycle,
                 triggered_notes,
                 instance,
+                cached_note_events,
                 ..
             } => {
                 // External plugin processing (single-sample evaluation)
@@ -11574,12 +11581,13 @@ impl UnifiedSignalGraph {
                 // Check if this is a MockPluginInstance (for testing)
                 let use_mock = plugin_id.starts_with("mock:") || plugin_id == "MockSynth";
 
-                // Query note pattern for current events
-                let note_events = if let Some(ref pattern) = note_pattern {
+                // Query note pattern for current events - cache at cycle boundary
+                // CRITICAL: Events must persist throughout the cycle for per-sample MIDI timing
+                if let Some(ref pattern) = note_pattern {
                     let current_cycle = self.get_cycle_position().floor() as i32;
                     let last_cycle = last_note_cycle.get();
 
-                    // Only generate events at cycle boundaries
+                    // Only regenerate events at cycle boundaries
                     if current_cycle != last_cycle {
                         last_note_cycle.set(current_cycle);
                         let state = State {
@@ -11593,7 +11601,7 @@ impl UnifiedSignalGraph {
 
                         // Convert pattern events to NoteEvents with timing
                         let samples_per_cycle = (self.sample_rate / self.cps) as usize;
-                        events.into_iter().map(|hap| {
+                        let note_events: Vec<_> = events.into_iter().map(|hap| {
                             let start_frac = (hap.part.begin.to_float() - current_cycle as f64).max(0.0);
                             let end_frac = (hap.part.end.to_float() - current_cycle as f64).min(1.0);
                             let start_sample = (start_frac * samples_per_cycle as f64) as usize;
@@ -11604,13 +11612,18 @@ impl UnifiedSignalGraph {
                                 hap.value as u8,
                                 100, // velocity
                             )
-                        }).collect::<Vec<_>>()
-                    } else {
-                        Vec::new()
+                        }).collect();
+
+                        // Cache the events for use throughout this cycle
+                        *cached_note_events.borrow_mut() = note_events;
+
+                        // Clear triggered notes for new cycle
+                        triggered_notes.borrow_mut().clear();
                     }
-                } else {
-                    Vec::new()
-                };
+                }
+
+                // Use cached events for MIDI processing
+                let note_events = cached_note_events.borrow();
 
                 if use_mock {
                     // Pre-evaluate all values BEFORE borrowing mock_plugins

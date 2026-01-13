@@ -1,0 +1,16 @@
+[package]
+name = "phonon-vst3-gui-sys"
+version = "0.1.0"
+edition = "2021"
+description = "VST3 GUI support for Linux (X11)"
+license = "MIT OR Apache-2.0"
+build = "build.rs"
+
+[features]
+default = []
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0"
+pkg-config = "0.3"
