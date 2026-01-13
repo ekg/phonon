@@ -8,6 +8,7 @@ description = "Phonon: A Rust-based live coding language combining TidalCycles p
 [features]
 default = ["vst3"]
 vst3 = []  # Enable VST3 plugin support (requires VST3 SDK)
+vst2 = ["vst"]  # Enable VST2 plugin support
 
 [dependencies]
 libc = "0.2"
@@ -96,6 +97,9 @@ fastrand = "2.3.0"
 
 # Plugin hosting (VST3, AU, CLAP) - using fork with GUI support
 rack = { git = "https://github.com/ekg/rack", branch = "main", features = ["vst3"] }
+
+# VST2 plugin hosting (optional - VST2 is deprecated but many plugins still use it)
+vst = { version = "0.3", optional = true }
 
 # Base64 encoding for preset state
 base64 = "0.22"

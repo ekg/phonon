@@ -304,6 +304,7 @@ impl PluginBrowser {
             .enumerate()
             .map(|(i, plugin)| {
                 let format_str = match plugin.id.format {
+                    PluginFormat::Vst2 => "VST2",
                     PluginFormat::Vst3 => "VST3",
                     PluginFormat::AudioUnit => "AU",
                     PluginFormat::Clap => "CLAP",

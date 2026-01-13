@@ -11,6 +11,8 @@ use std::fmt;
 /// Supported plugin formats
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PluginFormat {
+    /// Legacy Steinberg VST2 format (deprecated but widely used)
+    Vst2,
     /// Steinberg VST3 format
     Vst3,
     /// Apple Audio Unit (macOS/iOS)
@@ -24,6 +26,7 @@ pub enum PluginFormat {
 impl fmt::Display for PluginFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            PluginFormat::Vst2 => write!(f, "VST2"),
             PluginFormat::Vst3 => write!(f, "VST3"),
             PluginFormat::AudioUnit => write!(f, "AU"),
             PluginFormat::Clap => write!(f, "CLAP"),

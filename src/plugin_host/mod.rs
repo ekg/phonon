@@ -42,6 +42,9 @@ pub mod manager;
 pub mod mock_plugin;
 pub mod real_plugin;
 
+#[cfg(feature = "vst2")]
+pub mod vst2_plugin;
+
 // Re-exports for convenience
 pub use types::*;
 pub use registry::PluginRegistry;
@@ -55,3 +58,6 @@ pub use real_plugin::{RealPluginInstance, RealPluginScanner};
 
 #[cfg(feature = "vst3")]
 pub use real_plugin::{convert_plugin_info, create_real_plugin_by_name, create_real_plugin_from_path};
+
+#[cfg(feature = "vst2")]
+pub use vst2_plugin::{Vst2PluginInstance, scan_vst2_directory, create_vst2_plugin_by_name};
