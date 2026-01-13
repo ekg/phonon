@@ -483,7 +483,7 @@ impl ModalEditor {
             }
         } else {
             // Default starter template
-            String::from("-- Phonon Live Coding\n-- C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n-- Example: Simple drum pattern\ntempo: 0.5\n~drums $ s \"bd sn bd sn\"\nout $ ~drums * 0.8\n")
+            String::from("-- Phonon Live Coding\n-- C-x: Eval block | C-l: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n-- Example: Simple drum pattern\ntempo: 0.5\n~drums $ s \"bd sn bd sn\"\nout $ ~drums * 0.8\n")
         };
 
         // Start cursor at beginning of file (not end)
@@ -496,7 +496,7 @@ impl ModalEditor {
             content,
             file_path,
             status_message:
-                "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete | Alt-/: help"
+                "🎵 Ready - C-x: eval block | C-l: reload all | C-u: undo | C-r: redo | Alt-/: help"
                     .to_string(),
             is_playing: false,
             error_message: None,
@@ -901,6 +901,12 @@ impl ModalEditor {
             // Ctrl+X: Evaluate current block (chunk)
             KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.eval_chunk();
+                KeyResult::Continue
+            }
+
+            // Ctrl+L: Reload all (evaluate entire buffer)
+            KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.eval_all();
                 KeyResult::Continue
             }
 
@@ -1553,7 +1559,7 @@ impl ModalEditor {
             )
         };
 
-        let help_text = "C-x: Eval | C-u: Undo | C-r: Redo | C-k: Kill | C-y: Yank | C-h: Hush | C-s: Save | Alt-q: Quit";
+        let help_text = "C-x: Eval block | C-l: Reload all | C-u: Undo | C-r: Redo | C-h: Hush | C-s: Save | Alt-q: Quit";
 
         let status_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -2105,12 +2111,9 @@ impl ModalEditor {
             false
         };
 
-        // Clone content to avoid borrow checker issues
-        let content = self.content.clone();
-
-        // IMPORTANT: Send the full session content, not just the chunk!
-        // This ensures all buses, tempo, and output assignments are preserved.
-        let result = self.load_code(&content);
+        // Evaluate ONLY the current chunk (Tidal-style block evaluation)
+        // Use C-r to reload the entire buffer if needed
+        let result = self.load_code(&chunk);
 
         // Now we can mutate self safely - add all console messages
         self.add_console_message(&format!("📝 Evaluating: {} chars", chunk.len()));
