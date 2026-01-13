@@ -398,6 +398,8 @@ use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::plugin_host::{MockPluginInstance, PluginInstanceManager, RealPluginInstance};
 #[cfg(feature = "vst3")]
 use crate::plugin_host::create_real_plugin_by_name;
+#[cfg(feature = "vst2")]
+use crate::plugin_host::{Vst2PluginInstance, create_vst2_plugin_by_name};
 use crate::sample_loader::SampleBank;
 use crate::synth_voice_manager::SynthVoiceManager;
 use crate::voice_manager::{VoiceBuffers, VoiceManager};
@@ -4731,6 +4733,11 @@ pub struct UnifiedSignalGraph {
     /// Public for GUI access from modal editor
     #[cfg(feature = "vst3")]
     pub real_plugins: RefCell<HashMap<String, RealPluginInstance>>,
+
+    /// VST2 plugin instances (keyed by plugin name)
+    /// Lazily loaded when vst2 "PluginName" is used in DSL
+    #[cfg(feature = "vst2")]
+    pub vst2_plugins: RefCell<HashMap<String, Vst2PluginInstance>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4804,6 +4811,9 @@ impl Clone for UnifiedSignalGraph {
             // Real VST3 plugins: create fresh cache, plugins will be loaded lazily
             #[cfg(feature = "vst3")]
             real_plugins: RefCell::new(HashMap::new()),
+            // VST2 plugins: create fresh cache, plugins will be loaded lazily
+            #[cfg(feature = "vst2")]
+            vst2_plugins: RefCell::new(HashMap::new()),
         }
     }
 }
@@ -4880,6 +4890,8 @@ impl UnifiedSignalGraph {
             mock_plugins: RefCell::new(HashMap::new()),
             #[cfg(feature = "vst3")]
             real_plugins: RefCell::new(HashMap::new()),
+            #[cfg(feature = "vst2")]
+            vst2_plugins: RefCell::new(HashMap::new()),
         }
     }
 
@@ -11799,6 +11811,110 @@ impl UnifiedSignalGraph {
                                 drop(triggered);
 
                                 // Process 1 sample
+                                let mut left = [0.0f32; 1];
+                                let mut right = [0.0f32; 1];
+                                let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
+                                let _ = plugin.process_with_midi(&midi_events, &mut outputs, 1);
+                                return left[0];
+                            } else {
+                                // Effect mode
+                                let input_buf = [input_val];
+                                let inputs: Vec<&[f32]> = vec![&input_buf, &input_buf];
+                                let mut left = [0.0f32; 1];
+                                let mut right = [0.0f32; 1];
+                                let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
+                                let _ = plugin.process(&inputs, &mut outputs, 1);
+                                return left[0];
+                            }
+                        }
+                    }
+                }
+
+                // Try loading VST2 plugin as fallback (single-sample mode)
+                #[cfg(feature = "vst2")]
+                {
+                    let needs_load = !self.vst2_plugins.borrow().contains_key(plugin_id);
+
+                    if needs_load {
+                        match create_vst2_plugin_by_name(plugin_id) {
+                            Ok(mut plugin) => {
+                                tracing::info!("Loaded VST2 plugin: {}", plugin_id);
+                                if let Err(e) = plugin.initialize(self.sample_rate, 512) {
+                                    tracing::error!("VST2 init failed: {}", e);
+                                }
+                                self.vst2_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
+                            }
+                            Err(e) => {
+                                tracing::debug!("VST2 not found {}: {}", plugin_id, e);
+                            }
+                        }
+                    }
+
+                    let has_plugin = self.vst2_plugins.borrow().contains_key(plugin_id);
+
+                    if has_plugin {
+                        let input_val = if !audio_inputs.is_empty() {
+                            self.eval_signal(&audio_inputs[0])
+                        } else {
+                            0.0
+                        };
+
+                        let param_values: Vec<(String, f32)> = params
+                            .iter()
+                            .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
+                            .collect();
+
+                        let mut vst2_plugins = self.vst2_plugins.borrow_mut();
+                        if let Some(plugin) = vst2_plugins.get_mut(plugin_id) {
+                            for (name, value) in &param_values {
+                                let param_count = plugin.parameter_count();
+                                for idx in 0..param_count {
+                                    let param_name = plugin.get_parameter_name(idx);
+                                    if param_name.to_lowercase().contains(&name.to_lowercase()) {
+                                        let normalized = value.clamp(0.0, 1.0);
+                                        let _ = plugin.set_parameter(idx, normalized);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if audio_inputs.is_empty() {
+                                // Instrument mode
+                                let samples_per_cycle = (self.sample_rate / self.cps) as usize;
+                                let cycle_pos = self.get_cycle_position();
+                                let cycle_frac = cycle_pos - cycle_pos.floor();
+                                let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
+
+                                let mut triggered = triggered_notes.borrow_mut();
+                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                                    .iter()
+                                    .flat_map(|ne| {
+                                        let (on, off) = ne.to_midi_events();
+                                        let note_num = ne.note;
+                                        let mut events = Vec::new();
+
+                                        let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                            && off.sample_offset > current_sample_in_cycle;
+
+                                        if on.sample_offset == current_sample_in_cycle {
+                                            triggered.insert(note_num);
+                                            events.push(on);
+                                        } else if note_is_active && !triggered.contains(&note_num) {
+                                            triggered.insert(note_num);
+                                            let mut catch_up_on = on.clone();
+                                            catch_up_on.sample_offset = 0;
+                                            events.push(catch_up_on);
+                                        }
+
+                                        if off.sample_offset == current_sample_in_cycle {
+                                            triggered.remove(&note_num);
+                                            events.push(off);
+                                        }
+                                        events
+                                    })
+                                    .collect();
+                                drop(triggered);
+
                                 let mut left = [0.0f32; 1];
                                 let mut right = [0.0f32; 1];
                                 let mut outputs: Vec<&mut [f32]> = vec![&mut left[..], &mut right[..]];
@@ -18910,6 +19026,83 @@ impl UnifiedSignalGraph {
                                     let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
                                     if let Err(e) = plugin.process(&inputs, &mut outputs, buffer_size) {
                                         tracing::error!("VST3 process error: {}", e);
+                                    }
+                                }
+                            }
+                            return;
+                        }
+                    }
+
+                    // Try loading VST2 plugin as fallback
+                    #[cfg(feature = "vst2")]
+                    {
+                        // Check if we need to load the plugin
+                        let needs_load = !self.vst2_plugins.borrow().contains_key(plugin_id);
+
+                        if needs_load {
+                            // Try to load the VST2 plugin by name
+                            match create_vst2_plugin_by_name(plugin_id) {
+                                Ok(mut plugin) => {
+                                    tracing::info!("Loaded VST2 plugin: {}", plugin_id);
+                                    // Initialize with current sample rate and buffer size
+                                    if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
+                                        tracing::error!("Failed to initialize VST2 plugin {}: {}", plugin_id, e);
+                                    }
+                                    self.vst2_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
+                                }
+                                Err(e) => {
+                                    tracing::debug!("VST2 plugin {} not found: {}", plugin_id, e);
+                                }
+                            }
+                        }
+
+                        // Try to process through VST2 plugin
+                        let mut vst2_plugins = self.vst2_plugins.borrow_mut();
+                        if let Some(plugin) = vst2_plugins.get_mut(plugin_id) {
+                            // Apply parameter automation by index (VST2 uses index-based params)
+                            for (name, value) in &param_values {
+                                // Try to find parameter by name
+                                let param_count = plugin.parameter_count();
+                                for idx in 0..param_count {
+                                    let param_name = plugin.get_parameter_name(idx);
+                                    if param_name.to_lowercase().contains(&name.to_lowercase()) {
+                                        let normalized = value.clamp(0.0, 1.0);
+                                        let _ = plugin.set_parameter(idx, normalized);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Process audio
+                            if input_buf.is_none() {
+                                // Instrument mode: generate audio from MIDI events
+                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
+                                    .iter()
+                                    .flat_map(|ne| {
+                                        let (on, off) = ne.to_midi_events();
+                                        vec![on, off]
+                                    })
+                                    .collect();
+
+                                // Process through VST2 plugin (stereo output)
+                                let mut right = vec![0.0f32; buffer_size];
+                                {
+                                    let output_slice: &mut [f32] = output;
+                                    let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
+                                    if let Err(e) = plugin.process_with_midi(&midi_events, &mut outputs, buffer_size) {
+                                        tracing::error!("VST2 process error: {}", e);
+                                    }
+                                }
+                            } else {
+                                // Effect mode: process input audio
+                                let buf = input_buf.as_ref().unwrap();
+                                let inputs: Vec<&[f32]> = vec![buf.as_slice(), buf.as_slice()];
+                                let mut right = vec![0.0f32; buffer_size];
+                                {
+                                    let output_slice: &mut [f32] = output;
+                                    let mut outputs: Vec<&mut [f32]> = vec![output_slice, &mut right];
+                                    if let Err(e) = plugin.process(&inputs, &mut outputs, buffer_size) {
+                                        tracing::error!("VST2 process error: {}", e);
                                     }
                                 }
                             }

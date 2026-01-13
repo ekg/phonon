@@ -205,6 +205,17 @@ impl RealPluginInstance {
             .map_err(|e| PluginError::ProcessError(e.to_string()))
     }
 
+    /// Get parameter changes from plugin GUI since last call
+    ///
+    /// Returns a list of (param_id, value) tuples for parameters that were
+    /// changed by the user in the plugin GUI.
+    #[cfg(target_os = "linux")]
+    pub fn get_param_changes(&mut self) -> PluginResult<Vec<(u32, f64)>> {
+        self.plugin_mut()
+            .get_param_changes()
+            .map_err(|e| PluginError::ParameterError(e.to_string()))
+    }
+
     /// Get number of factory presets
     pub fn preset_count(&self) -> PluginResult<usize> {
         self.plugin()

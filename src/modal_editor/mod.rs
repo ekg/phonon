@@ -156,9 +156,9 @@ impl ModalEditor {
         // Buffer size from CLI arg, clamped to valid range (default 512)
         let synthesis_buffer_size = buffer_size.unwrap_or(512).clamp(64, 16384);
 
-        // Suppress ALL console output that would break the TUI
+        // Suppress stderr output that would break the TUI
         // This includes: ALSA errors, X11 authorization messages, VST3 plugin output
-        // Both stdout and stderr must be redirected since different libraries use different streams
+        // NOTE: We only redirect stderr, NOT stdout - crossterm needs stdout for TUI!
         #[cfg(unix)]
         {
             use std::os::unix::io::AsRawFd;
@@ -169,9 +169,10 @@ impl ModalEditor {
             {
                 let fd = log_file.as_raw_fd();
                 unsafe {
-                    // Redirect both stdout and stderr to prevent TUI corruption
+                    // Only redirect stderr - stdout must remain connected to terminal for crossterm TUI
                     libc::dup2(fd, libc::STDERR_FILENO);
-                    libc::dup2(fd, libc::STDOUT_FILENO);
+                    // DO NOT redirect stdout - it breaks crossterm!
+                    // libc::dup2(fd, libc::STDOUT_FILENO);
                 }
                 // Keep log_file open by leaking it (intentional - we need the fd to stay valid)
                 std::mem::forget(log_file);
@@ -794,6 +795,12 @@ impl ModalEditor {
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             for gui in self.vst3_guis.values_mut() {
                 gui.pump_events();
+            }
+
+            // Poll for parameter changes from VST3 GUIs (Linux only)
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            if !self.vst3_guis.is_empty() {
+                self.poll_vst3_param_changes();
             }
 
             // Update recording status with cycle position
@@ -2646,6 +2653,132 @@ impl ModalEditor {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// Poll for VST3 parameter changes from plugin GUIs (called from main loop)
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    fn poll_vst3_param_changes(&mut self) {
+        // Get names of open GUIs
+        let gui_names: Vec<String> = self.vst3_guis.keys().cloned().collect();
+        if gui_names.is_empty() {
+            return;
+        }
+
+        // Collect all parameter changes first (to avoid borrow issues)
+        let mut all_changes: Vec<(String, String, f64)> = Vec::new();
+
+        // Access the signal graph to get real_plugins
+        let graph_arc = self.graph.load();
+        if let Some(ref graph_cell) = **graph_arc {
+            if let Ok(graph) = graph_cell.0.try_borrow() {
+                if let Ok(mut real_plugins) = graph.real_plugins.try_borrow_mut() {
+                    for name in &gui_names {
+                        if let Some(plugin) = real_plugins.get_mut(name) {
+                            // Poll for parameter changes
+                            if let Ok(changes) = plugin.get_param_changes() {
+                                for (param_id, value) in changes {
+                                    // Get parameter name from plugin info
+                                    let param_name = if let Ok(info) = plugin.parameter_info(param_id as usize) {
+                                        info.name
+                                    } else {
+                                        format!("param_{}", param_id)
+                                    };
+
+                                    all_changes.push((name.clone(), param_name, value));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Now update the phonon source text for each change
+        for (name, param_name, value) in all_changes {
+            // Log the change to console
+            self.console_messages.push(format!(
+                "🎛️ ~{} # {} {:.3}",
+                name, param_name, value
+            ));
+
+            // Update the phonon code
+            self.update_plugin_param_in_content(&name, &param_name, value);
+
+            // Keep console messages limited
+            while self.console_messages.len() > 10 {
+                self.console_messages.remove(0);
+            }
+        }
+    }
+
+    /// Update a plugin parameter value in the phonon source code
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    fn update_plugin_param_in_content(&mut self, instance_name: &str, param_name: &str, value: f64) {
+        // Find the line containing this plugin instance (e.g., "~name $ vst ..." or "~name:")
+        let pattern = format!("~{}", instance_name);
+        let value_str = format!("{:.3}", value);
+
+        let mut new_lines: Vec<String> = Vec::new();
+        let mut found = false;
+
+        for line in self.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(&pattern) && (trimmed.contains('$') || trimmed.contains(':')) {
+                found = true;
+                // This is our target line - update or add the parameter
+                let updated_line = self.update_param_in_line(line, param_name, &value_str);
+                new_lines.push(updated_line);
+            } else {
+                new_lines.push(line.to_string());
+            }
+        }
+
+        if found {
+            self.content = new_lines.join("\n");
+        }
+    }
+
+    /// Update or add a parameter in a single line
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    fn update_param_in_line(&self, line: &str, param_name: &str, value: &str) -> String {
+        // Check if the parameter already exists in the line
+        // Pattern: # param_name followed by a value (number or expression)
+        let param_pattern = format!("# {} ", param_name);
+
+        if let Some(start) = line.find(&param_pattern) {
+            // Parameter exists - find and replace the value
+            let after_param = start + param_pattern.len();
+            let rest = &line[after_param..];
+
+            // Find where the value ends (at next # or end of line)
+            let value_end = if let Some(next_hash) = rest.find(" #") {
+                next_hash
+            } else {
+                rest.len()
+            };
+
+            // Reconstruct the line with the new value
+            format!(
+                "{}{}{}",
+                &line[..after_param],
+                value,
+                &rest[value_end..]
+            )
+        } else {
+            // Parameter doesn't exist - append it before any trailing comment
+            // Or just append to end if no comment
+            if let Some(comment_pos) = line.find("--") {
+                format!(
+                    "{} # {} {} {}",
+                    line[..comment_pos].trim_end(),
+                    param_name,
+                    value,
+                    &line[comment_pos..]
+                )
+            } else {
+                format!("{} # {} {}", line.trim_end(), param_name, value)
             }
         }
     }

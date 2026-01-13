@@ -2927,7 +2927,7 @@ fn compile_function_call(
         "decimator" => compile_decimator(ctx, args),
 
         // ========== Plugin Hosting (VST/AU/CLAP/LV2) ==========
-        "vst" | "vst3" | "au" | "clap" | "lv2" | "plugin" => compile_vst(ctx, args),
+        "vst" | "vst2" | "vst3" | "au" | "clap" | "lv2" | "plugin" => compile_vst(ctx, args),
 
         // VST parameter modifier with explicit string name
         // Syntax: vst "Plugin" # param "Filter Cutoff" 0.5
