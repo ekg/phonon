@@ -18829,15 +18829,13 @@ impl UnifiedSignalGraph {
                 // 1. Note-ons for events that START in this buffer
                 // 2. Note-offs for events that END in this buffer (may have started earlier)
                 let (note_on_events, note_off_events): (Vec<_>, Vec<_>) = if let Some(ref pattern) = note_pattern {
-                    let samples_per_cycle = (self.sample_rate / self.cps) as usize;
-
-                    // Calculate the current buffer's position in absolute samples
-                    let buffer_start_sample = self.sample_count;
-                    let buffer_end_sample = buffer_start_sample + buffer_size;
-
-                    // Convert to cycle position (fractional)
-                    let buffer_start_cycle = buffer_start_sample as f64 / samples_per_cycle as f64;
-                    let buffer_end_cycle = buffer_end_sample as f64 / samples_per_cycle as f64;
+                    // CRITICAL FIX: Use cached_cycle_position for timing consistency
+                    // In wall clock mode, sample_count may drift from actual cycle position.
+                    // cached_cycle_position is set from the authoritative buffer_start_cycle
+                    // at the beginning of process_buffer_dag.
+                    let buffer_start_cycle = self.cached_cycle_position;
+                    let sample_increment = self.cps as f64 / self.sample_rate as f64;
+                    let buffer_end_cycle = buffer_start_cycle + (buffer_size as f64 * sample_increment);
 
                     // Query the pattern for events that overlap with this buffer's time span
                     let state = State {
@@ -18853,22 +18851,25 @@ impl UnifiedSignalGraph {
                     let mut note_offs = Vec::new();
 
                     for hap in events {
-                        // Calculate absolute sample positions for this event
+                        // Work directly in cycle positions for timing accuracy
                         let event_start_cycle = hap.part.begin.to_float();
                         let event_end_cycle = hap.part.end.to_float();
-                        let event_start_sample = (event_start_cycle * samples_per_cycle as f64) as usize;
-                        let event_end_sample = (event_end_cycle * samples_per_cycle as f64) as usize;
                         let note = hap.value as u8;
 
-                        // Note-on: if event starts within this buffer
-                        if event_start_sample >= buffer_start_sample && event_start_sample < buffer_end_sample {
-                            let buffer_offset = event_start_sample - buffer_start_sample;
+                        // Note-on: if event starts within this buffer (cycle-based comparison)
+                        if event_start_cycle >= buffer_start_cycle && event_start_cycle < buffer_end_cycle {
+                            // Calculate buffer offset in samples from cycle position
+                            let offset_cycles = event_start_cycle - buffer_start_cycle;
+                            let buffer_offset = (offset_cycles / sample_increment).round() as usize;
+                            let buffer_offset = buffer_offset.min(buffer_size - 1);
                             note_ons.push((buffer_offset, note, 100u8)); // (offset, note, velocity)
                         }
 
                         // Note-off: if event ends within this buffer
-                        if event_end_sample >= buffer_start_sample && event_end_sample < buffer_end_sample {
-                            let buffer_offset = event_end_sample - buffer_start_sample;
+                        if event_end_cycle >= buffer_start_cycle && event_end_cycle < buffer_end_cycle {
+                            let offset_cycles = event_end_cycle - buffer_start_cycle;
+                            let buffer_offset = (offset_cycles / sample_increment).round() as usize;
+                            let buffer_offset = buffer_offset.min(buffer_size - 1);
                             note_offs.push((buffer_offset, note));
                         }
                     }
