@@ -2744,17 +2744,17 @@ impl ModalEditor {
 
     /// Update a plugin parameter value in the phonon source code
     #[cfg(all(target_os = "linux", feature = "vst3"))]
-    fn update_plugin_param_in_content(&mut self, instance_name: &str, param_name: &str, value: f64) {
-        // Find the line containing this plugin instance (e.g., "~name $ vst ..." or "~name:")
-        let pattern = format!("~{}", instance_name);
+    fn update_plugin_param_in_content(&mut self, plugin_name: &str, param_name: &str, value: f64) {
+        // Find the line containing this plugin (e.g., 'vst "PluginName"')
+        // The plugin_name is the actual VST plugin name like "Odin2" or "Surge XT"
+        let vst_pattern = format!("vst \"{}\"", plugin_name);
         let value_str = format!("{:.3}", value);
 
         let mut new_lines: Vec<String> = Vec::new();
         let mut found = false;
 
         for line in self.content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with(&pattern) && (trimmed.contains('$') || trimmed.contains(':')) {
+            if line.contains(&vst_pattern) {
                 found = true;
                 // This is our target line - update or add the parameter
                 let updated_line = self.update_param_in_line(line, param_name, &value_str);
