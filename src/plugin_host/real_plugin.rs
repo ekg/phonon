@@ -26,6 +26,9 @@ pub struct RealPluginInstance {
     max_block_size: usize,
     /// Whether initialized
     initialized: bool,
+    /// Cached actual input channel count (determined on first process call)
+    /// None = not yet determined, Some(0) = no inputs, Some(2) = stereo inputs
+    actual_input_channels: Option<usize>,
 }
 
 #[cfg(feature = "vst3")]
@@ -47,6 +50,7 @@ impl RealPluginInstance {
             sample_rate: 44100.0,
             max_block_size: 512,
             initialized: false,
+            actual_input_channels: None,
         })
     }
 
@@ -134,15 +138,52 @@ impl RealPluginInstance {
                 .map_err(|e| PluginError::ProcessError(format!("MIDI error: {}", e)))?;
         }
 
-        // VST3 requires input buffers even for instruments (they may be zero-filled)
-        // Create silent stereo input buffers
-        let mut input_left = vec![0.0f32; num_samples];
-        let mut input_right = vec![0.0f32; num_samples];
-        let inputs: Vec<&[f32]> = vec![&input_left, &input_right];
+        // Determine actual input channel count (cached after first successful call)
+        // Some instruments (like Surge XT) want 2 inputs despite being instrument type
+        // Others (like Odin2) want exactly 0 inputs
+        let use_stereo_inputs = match self.actual_input_channels {
+            Some(count) => count > 0,
+            None => {
+                // First call - try stereo first (most plugins accept this)
+                let input_left = vec![0.0f32; num_samples];
+                let input_right = vec![0.0f32; num_samples];
+                let inputs: Vec<&[f32]> = vec![&input_left, &input_right];
+                let result = self.plugin_mut().process(&inputs, outputs, num_samples);
 
-        self.plugin_mut()
-            .process(&inputs, outputs, num_samples)
-            .map_err(|e| PluginError::ProcessError(e.to_string()))
+                match &result {
+                    Ok(()) => {
+                        // Stereo inputs work - cache this
+                        self.actual_input_channels = Some(2);
+                        return Ok(());
+                    }
+                    Err(e) if e.to_string().contains("expects 0") => {
+                        // Plugin wants 0 inputs - cache this and try empty
+                        self.actual_input_channels = Some(0);
+                        false
+                    }
+                    Err(e) => {
+                        // Some other error - propagate it
+                        return Err(PluginError::ProcessError(e.to_string()));
+                    }
+                }
+            }
+        };
+
+        if use_stereo_inputs {
+            // Effect or instrument with inputs: pass stereo silent inputs
+            let input_left = vec![0.0f32; num_samples];
+            let input_right = vec![0.0f32; num_samples];
+            let inputs: Vec<&[f32]> = vec![&input_left, &input_right];
+            self.plugin_mut()
+                .process(&inputs, outputs, num_samples)
+                .map_err(|e| PluginError::ProcessError(e.to_string()))
+        } else {
+            // Pure instrument: pass empty inputs
+            let inputs: Vec<&[f32]> = vec![];
+            self.plugin_mut()
+                .process(&inputs, outputs, num_samples)
+                .map_err(|e| PluginError::ProcessError(e.to_string()))
+        }
     }
 
     /// Get parameter value by index

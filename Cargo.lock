@@ -2197,7 +2197,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "rack"
 version = "0.4.8"
-source = "git+https://github.com/ekg/rack?branch=main#a50974b07bc726a73c7082b237a9e1aa05df2293"
+source = "git+https://github.com/ekg/rack?branch=main#cfa649b94901ec2d654f168b255b9b2329b42a5c"
 dependencies = [
  "cmake",
  "libc",
