@@ -4734,8 +4734,9 @@ pub struct UnifiedSignalGraph {
     /// Real VST3 plugin instances (keyed by plugin name)
     /// Lazily loaded when vst "PluginName" is used in DSL
     /// Public for GUI access from modal editor
+    /// Uses Mutex instead of RefCell to allow GUI thread to wait for audio thread
     #[cfg(feature = "vst3")]
-    pub real_plugins: RefCell<HashMap<String, RealPluginInstance>>,
+    pub real_plugins: Mutex<HashMap<String, RealPluginInstance>>,
 
     /// VST2 plugin instances (keyed by plugin name)
     /// Lazily loaded when vst2 "PluginName" is used in DSL
@@ -4813,7 +4814,7 @@ impl Clone for UnifiedSignalGraph {
             mock_plugins: RefCell::new(HashMap::new()),
             // Real VST3 plugins: create fresh cache, plugins will be loaded lazily
             #[cfg(feature = "vst3")]
-            real_plugins: RefCell::new(HashMap::new()),
+            real_plugins: Mutex::new(HashMap::new()),
             // VST2 plugins: create fresh cache, plugins will be loaded lazily
             #[cfg(feature = "vst2")]
             vst2_plugins: RefCell::new(HashMap::new()),
@@ -4826,7 +4827,8 @@ impl Clone for UnifiedSignalGraph {
 impl Drop for UnifiedSignalGraph {
     fn drop(&mut self) {
         // Leak all real VST3 plugins to prevent double-free bugs in VST3 SDK
-        let mut real_plugins = self.real_plugins.borrow_mut();
+        // Use get_mut() since we have &mut self - no locking needed
+        let real_plugins = self.real_plugins.get_mut().unwrap();
         for (_name, plugin) in real_plugins.drain() {
             // Use leak() to intentionally forget the plugin
             plugin.leak();
@@ -4892,7 +4894,7 @@ impl UnifiedSignalGraph {
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
             #[cfg(feature = "vst3")]
-            real_plugins: RefCell::new(HashMap::new()),
+            real_plugins: Mutex::new(HashMap::new()),
             #[cfg(feature = "vst2")]
             vst2_plugins: RefCell::new(HashMap::new()),
         }
@@ -11718,10 +11720,13 @@ impl UnifiedSignalGraph {
                                 midi_events.push(catch_up_on);
                             }
 
-                            // Send note-off if exact match
-                            if off.sample_offset == current_sample_in_cycle {
+                            // Send note-off when we've reached the end time and note is still playing
+                            // Use >= instead of == to avoid missing the exact sample
+                            if current_sample_in_cycle >= off.sample_offset && triggered.contains(&note_num) {
                                 triggered.remove(&note_num);
-                                midi_events.push(off);
+                                let mut note_off = off.clone();
+                                note_off.sample_offset = 0; // Send immediately
+                                midi_events.push(note_off);
                             }
                         }
                         drop(triggered);
@@ -11744,7 +11749,7 @@ impl UnifiedSignalGraph {
                 #[cfg(feature = "vst3")]
                 {
                     // Check if we need to load the plugin
-                    let needs_load = !self.real_plugins.borrow().contains_key(plugin_id);
+                    let needs_load = !self.real_plugins.lock().unwrap().contains_key(plugin_id);
 
                     if needs_load {
                         // Acquire global mutex for plugin loading to prevent race conditions
@@ -11752,7 +11757,7 @@ impl UnifiedSignalGraph {
                         let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
 
                         // Double-check after acquiring lock (another thread may have loaded it)
-                        if !self.real_plugins.borrow().contains_key(plugin_id) {
+                        if !self.real_plugins.lock().unwrap().contains_key(plugin_id) {
                             // Try to load the VST3 plugin by name
                             match create_real_plugin_by_name(plugin_id) {
                                 Ok(mut plugin) => {
@@ -11761,7 +11766,7 @@ impl UnifiedSignalGraph {
                                     if let Err(e) = plugin.initialize(self.sample_rate, 512) {
                                         tracing::error!("VST3 init failed: {}", e);
                                     }
-                                    self.real_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
+                                    self.real_plugins.lock().unwrap().insert(plugin_id.clone(), plugin);
                                 }
                                 Err(e) => {
                                     tracing::warn!("VST3 load failed {}: {}", plugin_id, e);
@@ -11771,7 +11776,7 @@ impl UnifiedSignalGraph {
                     }
 
                     // Check if plugin is loaded
-                    let has_plugin = self.real_plugins.borrow().contains_key(plugin_id);
+                    let has_plugin = self.real_plugins.lock().unwrap().contains_key(plugin_id);
 
                     if has_plugin {
                         // Pre-evaluate audio input if needed
@@ -11787,8 +11792,8 @@ impl UnifiedSignalGraph {
                             .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
                             .collect();
 
-                        // Re-borrow for processing
-                        let mut real_plugins = self.real_plugins.borrow_mut();
+                        // Lock for processing
+                        let mut real_plugins = self.real_plugins.lock().unwrap();
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation to real VST3 plugin
                             for (name, value) in &param_values {
@@ -11851,10 +11856,13 @@ impl UnifiedSignalGraph {
                                         midi_events.push(catch_up_on);
                                     }
 
-                                    // Send note-off if exact match
-                                    if off.sample_offset == current_sample_in_cycle {
+                                    // Send note-off when we've reached the end time and note is still playing
+                                    // Use >= instead of == to avoid missing the exact sample
+                                    if current_sample_in_cycle >= off.sample_offset && triggered.contains(&note_num) {
                                         triggered.remove(&note_num);
-                                        midi_events.push(off);
+                                        let mut note_off = off.clone();
+                                        note_off.sample_offset = 0; // Send immediately
+                                        midi_events.push(note_off);
                                     }
                                 }
                                 drop(triggered);
@@ -11935,33 +11943,33 @@ impl UnifiedSignalGraph {
                                 let current_sample_in_cycle = (cycle_frac * samples_per_cycle as f64) as usize;
 
                                 let mut triggered = triggered_notes.borrow_mut();
-                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                                    .iter()
-                                    .flat_map(|ne| {
-                                        let (on, off) = ne.to_midi_events();
-                                        let note_num = ne.note;
-                                        let mut events = Vec::new();
+                                let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
 
-                                        let note_is_active = on.sample_offset <= current_sample_in_cycle
-                                            && off.sample_offset > current_sample_in_cycle;
+                                for ne in note_events.iter() {
+                                    let (on, off) = ne.to_midi_events();
+                                    let note_num = ne.note;
 
-                                        if on.sample_offset == current_sample_in_cycle {
-                                            triggered.insert(note_num);
-                                            events.push(on);
-                                        } else if note_is_active && !triggered.contains(&note_num) {
-                                            triggered.insert(note_num);
-                                            let mut catch_up_on = on.clone();
-                                            catch_up_on.sample_offset = 0;
-                                            events.push(catch_up_on);
-                                        }
+                                    let note_is_active = on.sample_offset <= current_sample_in_cycle
+                                        && off.sample_offset > current_sample_in_cycle;
 
-                                        if off.sample_offset == current_sample_in_cycle {
-                                            triggered.remove(&note_num);
-                                            events.push(off);
-                                        }
-                                        events
-                                    })
-                                    .collect();
+                                    if on.sample_offset == current_sample_in_cycle {
+                                        triggered.insert(note_num);
+                                        midi_events.push(on);
+                                    } else if note_is_active && !triggered.contains(&note_num) {
+                                        triggered.insert(note_num);
+                                        let mut catch_up_on = on.clone();
+                                        catch_up_on.sample_offset = 0;
+                                        midi_events.push(catch_up_on);
+                                    }
+
+                                    // Send note-off when we've reached the end time and note is still playing
+                                    if current_sample_in_cycle >= off.sample_offset && triggered.contains(&note_num) {
+                                        triggered.remove(&note_num);
+                                        let mut note_off = off.clone();
+                                        note_off.sample_offset = 0;
+                                        midi_events.push(note_off);
+                                    }
+                                }
                                 drop(triggered);
 
                                 let mut left = [0.0f32; 1];
@@ -18817,14 +18825,13 @@ impl UnifiedSignalGraph {
                 };
 
                 // Query note pattern for current buffer
-                // Unlike the old approach that only generated events at cycle boundaries,
-                // we now calculate which events should fire within THIS buffer's time range
-                let note_events: Vec<crate::plugin_host::midi::NoteEvent> = if let Some(ref pattern) = note_pattern {
+                // We need to handle:
+                // 1. Note-ons for events that START in this buffer
+                // 2. Note-offs for events that END in this buffer (may have started earlier)
+                let (note_on_events, note_off_events): (Vec<_>, Vec<_>) = if let Some(ref pattern) = note_pattern {
                     let samples_per_cycle = (self.sample_rate / self.cps) as usize;
 
                     // Calculate the current buffer's position in absolute samples
-                    // CRITICAL: Use sample_count (total samples processed) not current_sample_idx (per-sample loop index)
-                    // sample_count represents the absolute position at the START of this buffer
                     let buffer_start_sample = self.sample_count;
                     let buffer_end_sample = buffer_start_sample + buffer_size;
 
@@ -18842,33 +18849,33 @@ impl UnifiedSignalGraph {
                     };
                     let events = pattern.query(&state);
 
+                    let mut note_ons = Vec::new();
+                    let mut note_offs = Vec::new();
 
-                    // Convert pattern events to NoteEvents with buffer-relative timing
-                    events.into_iter().filter_map(|hap| {
+                    for hap in events {
                         // Calculate absolute sample positions for this event
                         let event_start_cycle = hap.part.begin.to_float();
                         let event_end_cycle = hap.part.end.to_float();
                         let event_start_sample = (event_start_cycle * samples_per_cycle as f64) as usize;
                         let event_end_sample = (event_end_cycle * samples_per_cycle as f64) as usize;
+                        let note = hap.value as u8;
 
-                        // Only include note-on events that start within this buffer
+                        // Note-on: if event starts within this buffer
                         if event_start_sample >= buffer_start_sample && event_start_sample < buffer_end_sample {
-                            // Offset relative to buffer start
                             let buffer_offset = event_start_sample - buffer_start_sample;
-                            let duration = (event_end_sample - event_start_sample).max(100);
-
-                            Some(crate::plugin_host::midi::NoteEvent::new(
-                                buffer_offset,
-                                duration,
-                                hap.value as u8,
-                                100, // velocity
-                            ))
-                        } else {
-                            None
+                            note_ons.push((buffer_offset, note, 100u8)); // (offset, note, velocity)
                         }
-                    }).collect()
+
+                        // Note-off: if event ends within this buffer
+                        if event_end_sample >= buffer_start_sample && event_end_sample < buffer_end_sample {
+                            let buffer_offset = event_end_sample - buffer_start_sample;
+                            note_offs.push((buffer_offset, note));
+                        }
+                    }
+
+                    (note_ons, note_offs)
                 } else {
-                    Vec::new()
+                    (Vec::new(), Vec::new())
                 };
 
                 // Update last_note_cycle for compatibility (though not strictly needed with new approach)
@@ -18910,13 +18917,18 @@ impl UnifiedSignalGraph {
                     // Process audio
                     if input_buf.is_none() {
                         // Instrument mode: generate audio from MIDI/note events
-                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                            .iter()
-                            .flat_map(|ne| {
-                                let (on, off) = ne.to_midi_events();
-                                vec![on, off]
-                            })
-                            .collect();
+                        let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
+                        for (offset, note, velocity) in &note_on_events {
+                            midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                sample_offset: *offset, status: 0x90, data1: *note, data2: *velocity,
+                            });
+                        }
+                        for (offset, note) in &note_off_events {
+                            midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                sample_offset: *offset, status: 0x80, data1: *note, data2: 0,
+                            });
+                        }
+                        midi_events.sort_by_key(|e| e.sample_offset);
 
                         // Process through mock plugin (stereo output)
                         let mut right = vec![0.0f32; buffer_size];
@@ -18954,13 +18966,18 @@ impl UnifiedSignalGraph {
 
                                     // Process audio
                                     if input_buf.is_none() {
-                                        let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                                            .iter()
-                                            .flat_map(|ne| {
-                                                let (on, off) = ne.to_midi_events();
-                                                vec![on, off]
-                                            })
-                                            .collect();
+                                        let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
+                                        for (offset, note, velocity) in &note_on_events {
+                                            midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                                sample_offset: *offset, status: 0x90, data1: *note, data2: *velocity,
+                                            });
+                                        }
+                                        for (offset, note) in &note_off_events {
+                                            midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                                sample_offset: *offset, status: 0x80, data1: *note, data2: 0,
+                                            });
+                                        }
+                                        midi_events.sort_by_key(|e| e.sample_offset);
 
                                         let output_slice: &mut [f32] = output;
                                         let mut output_bufs: [&mut [f32]; 1] = [output_slice];
@@ -18982,7 +18999,7 @@ impl UnifiedSignalGraph {
                     #[cfg(feature = "vst3")]
                     {
                         // Check if we need to load the plugin
-                        let needs_load = !self.real_plugins.borrow().contains_key(plugin_id);
+                        let needs_load = !self.real_plugins.lock().unwrap().contains_key(plugin_id);
 
                         if needs_load {
                             // Acquire global mutex for plugin loading to prevent race conditions
@@ -18990,7 +19007,7 @@ impl UnifiedSignalGraph {
                             let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
 
                             // Double-check after acquiring lock (another thread may have loaded it)
-                            if !self.real_plugins.borrow().contains_key(plugin_id) {
+                            if !self.real_plugins.lock().unwrap().contains_key(plugin_id) {
                                 // Try to load the VST3 plugin by name
                                 match create_real_plugin_by_name(plugin_id) {
                                     Ok(mut plugin) => {
@@ -18999,7 +19016,7 @@ impl UnifiedSignalGraph {
                                         if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
                                             tracing::error!("Failed to initialize VST3 plugin {}: {}", plugin_id, e);
                                         }
-                                        self.real_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
+                                        self.real_plugins.lock().unwrap().insert(plugin_id.clone(), plugin);
                                     }
                                     Err(e) => {
                                         tracing::warn!("Failed to load VST3 plugin {}: {}", plugin_id, e);
@@ -19009,7 +19026,7 @@ impl UnifiedSignalGraph {
                         }
 
                         // Try to process through real plugin
-                        let mut real_plugins = self.real_plugins.borrow_mut();
+                        let mut real_plugins = self.real_plugins.lock().unwrap();
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation by name matching
                             for (name, value) in &param_values {
@@ -19030,22 +19047,31 @@ impl UnifiedSignalGraph {
                             // Process audio
                             if input_buf.is_none() {
                                 // Instrument mode: generate audio from MIDI events
-                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                                    .iter()
-                                    .flat_map(|ne| {
-                                        let (on, off) = ne.to_midi_events();
-                                        vec![on, off]
-                                    })
-                                    .collect();
+                                // Build MIDI event list from separate note-on and note-off lists
+                                let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
 
-                                // Debug: log MIDI events being sent
-                                if !midi_events.is_empty() {
-                                    tracing::info!("Sending {} MIDI events to VST3 plugin", midi_events.len());
-                                    for ev in &midi_events {
-                                        tracing::info!("  MIDI: status=0x{:02x} data1={} data2={} offset={}",
-                                            ev.status, ev.data1, ev.data2, ev.sample_offset);
-                                    }
+                                // Add note-ons
+                                for (offset, note, velocity) in &note_on_events {
+                                    midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                        sample_offset: *offset,
+                                        status: 0x90, // Note-on, channel 0
+                                        data1: *note,
+                                        data2: *velocity,
+                                    });
                                 }
+
+                                // Add note-offs
+                                for (offset, note) in &note_off_events {
+                                    midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                        sample_offset: *offset,
+                                        status: 0x80, // Note-off, channel 0
+                                        data1: *note,
+                                        data2: 0,
+                                    });
+                                }
+
+                                // Sort by sample offset for proper timing
+                                midi_events.sort_by_key(|e| e.sample_offset);
 
                                 // Process through VST3 plugin (stereo output)
                                 let mut right = vec![0.0f32; buffer_size];
@@ -19116,13 +19142,18 @@ impl UnifiedSignalGraph {
                             // Process audio
                             if input_buf.is_none() {
                                 // Instrument mode: generate audio from MIDI events
-                                let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                                    .iter()
-                                    .flat_map(|ne| {
-                                        let (on, off) = ne.to_midi_events();
-                                        vec![on, off]
-                                    })
-                                    .collect();
+                                let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
+                                for (offset, note, velocity) in &note_on_events {
+                                    midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                        sample_offset: *offset, status: 0x90, data1: *note, data2: *velocity,
+                                    });
+                                }
+                                for (offset, note) in &note_off_events {
+                                    midi_events.push(crate::plugin_host::instance::MidiEvent {
+                                        sample_offset: *offset, status: 0x80, data1: *note, data2: 0,
+                                    });
+                                }
+                                midi_events.sort_by_key(|e| e.sample_offset);
 
                                 // Process through VST2 plugin (stereo output)
                                 let mut right = vec![0.0f32; buffer_size];
@@ -19177,17 +19208,20 @@ impl UnifiedSignalGraph {
                 // Prepare audio buffers
                 if input_buf.is_none() {
                     // Instrument mode: generate audio from MIDI events
-                    // Convert note events to MIDI buffer
-                    let midi_events: Vec<crate::plugin_host::instance::MidiEvent> = note_events
-                        .iter()
-                        .flat_map(|ne| {
-                            let (on, off) = ne.to_midi_events();
-                            vec![on, off]
-                        })
-                        .collect();
+                    let mut midi_events: Vec<crate::plugin_host::instance::MidiEvent> = Vec::new();
+                    for (offset, note, velocity) in &note_on_events {
+                        midi_events.push(crate::plugin_host::instance::MidiEvent {
+                            sample_offset: *offset, status: 0x90, data1: *note, data2: *velocity,
+                        });
+                    }
+                    for (offset, note) in &note_off_events {
+                        midi_events.push(crate::plugin_host::instance::MidiEvent {
+                            sample_offset: *offset, status: 0x80, data1: *note, data2: 0,
+                        });
+                    }
+                    midi_events.sort_by_key(|e| e.sample_offset);
 
                     // Process through plugin
-                    // Create output slice array without moving
                     {
                         let output_slice: &mut [f32] = output;
                         let mut output_bufs: [&mut [f32]; 1] = [output_slice];

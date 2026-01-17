@@ -144,6 +144,9 @@ pub struct ModalEditor {
     /// Active VST3 GUI windows (plugin_name -> GUI handle)
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     vst3_guis: HashMap<String, Vst3Gui>,
+    /// Preview plugins loaded outside audio graph (for GUI browsing)
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    preview_plugins: HashMap<String, crate::plugin_host::real_plugin::RealPluginInstance>,
     /// Last time parameter changes were polled (for throttling)
     #[cfg(all(target_os = "linux", feature = "vst3"))]
     last_param_poll: std::time::Instant,
@@ -542,6 +545,8 @@ impl ModalEditor {
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             vst3_guis: HashMap::new(),
             #[cfg(all(target_os = "linux", feature = "vst3"))]
+            preview_plugins: HashMap::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
             last_param_poll: std::time::Instant::now(),
         };
 
@@ -612,6 +617,8 @@ impl ModalEditor {
             plugin_manager: PluginInstanceManager::new(),
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             vst3_guis: HashMap::new(),
+            #[cfg(all(target_os = "linux", feature = "vst3"))]
+            preview_plugins: HashMap::new(),
             #[cfg(all(target_os = "linux", feature = "vst3"))]
             last_param_poll: std::time::Instant::now(),
         })
@@ -798,10 +805,15 @@ impl ModalEditor {
             // Process any pending MIDI input events
             self.process_midi_events();
 
-            // Pump VST3 GUI events (Linux only, with vst3 feature)
+            // Pump VST3 GUI events and cleanup closed windows (Linux only, with vst3 feature)
             #[cfg(all(target_os = "linux", feature = "vst3"))]
-            for gui in self.vst3_guis.values_mut() {
-                gui.pump_events();
+            {
+                // Pump events for all GUIs
+                for gui in self.vst3_guis.values_mut() {
+                    gui.pump_events();
+                }
+                // Remove closed GUIs so they can be reopened
+                self.vst3_guis.retain(|_name, gui| gui.is_visible());
             }
 
             // Poll for parameter changes from VST3 GUIs (Linux only)
@@ -2690,7 +2702,7 @@ impl ModalEditor {
         let graph_arc = self.graph.load();
         if let Some(ref graph_cell) = **graph_arc {
             if let Ok(graph) = graph_cell.0.try_borrow() {
-                if let Ok(mut real_plugins) = graph.real_plugins.try_borrow_mut() {
+                if let Ok(mut real_plugins) = graph.real_plugins.try_lock() {
                     for name in &gui_names {
                         if let Some(plugin) = real_plugins.get_mut(name) {
                             // Poll for parameter changes
@@ -3331,10 +3343,10 @@ impl ModalEditor {
                             let plugin_name = plugin.id.name.clone();
                             match self.plugin_manager.create_named_instance(&plugin_name, &instance_name) {
                                 Ok(()) => {
-                                    self.plugin_browser.set_status(format!("Created ~{}", instance_name));
                                     // Insert instance reference at cursor
                                     let insert_text = format!("~{}", instance_name);
                                     self.insert_text(&insert_text);
+                                    self.plugin_browser.hide();
                                 }
                                 Err(e) => {
                                     self.plugin_browser.set_status(format!("Error: {}", e));
@@ -3372,10 +3384,17 @@ impl ModalEditor {
                     KeyResult::Continue
                 }
 
-                // Alt+G: Open GUI for loaded plugins
+                // Alt+G: Open GUI for loaded plugins (from audio graph)
                 #[cfg(all(target_os = "linux", feature = "vst3"))]
                 KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::ALT) => {
                     self.open_plugin_guis();
+                    KeyResult::Continue
+                }
+
+                // Ctrl+G: Open GUI preview for selected plugin (loads plugin if needed)
+                #[cfg(all(target_os = "linux", feature = "vst3"))]
+                KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.open_preview_gui();
                     KeyResult::Continue
                 }
 
@@ -3397,14 +3416,15 @@ impl ModalEditor {
                     KeyResult::Continue
                 }
 
-                // Enter: Create instance (available view) or insert reference (instances view)
+                // Enter: Insert vst code (available view) or insert reference (instances view)
                 KeyCode::Enter => {
                     match self.plugin_browser.current_view() {
                         plugin_browser::BrowserView::Available => {
                             if let Some(plugin) = self.plugin_browser.selected_plugin(&self.plugin_manager) {
-                                // Start naming mode with suggested name
-                                let suggested = format!("{}:1", plugin.id.name.to_lowercase().replace(' ', "_"));
-                                self.plugin_browser.start_naming(&suggested);
+                                // Insert vst "PluginName" code directly
+                                let insert_text = format!("vst \"{}\"", plugin.id.name);
+                                self.insert_text(&insert_text);
+                                self.plugin_browser.hide();
                             }
                         }
                         plugin_browser::BrowserView::Instances => {
@@ -3462,31 +3482,107 @@ impl ModalEditor {
     /// Open VST3 GUIs - if cursor is on a vst line, open just that one
     /// Only available on Linux with vst3 feature
     #[cfg(all(target_os = "linux", feature = "vst3"))]
-    fn open_plugin_guis(&mut self) {
-        // Check if X11 display is available
+    /// Auto-configure XWayland environment for GNOME Wayland sessions
+    /// This finds DISPLAY from systemd and the mutter Xauthority file
+    fn setup_xwayland_env() -> Result<(), String> {
+        // If DISPLAY is not set, try to get it from systemd user environment
         if std::env::var("DISPLAY").is_err() {
-            let msg = "No DISPLAY set - cannot open GUI. Run in a graphical terminal.";
-            self.status_message = msg.to_string();
-            self.plugin_browser.set_status(msg);
+            if let Ok(output) = std::process::Command::new("systemctl")
+                .args(["--user", "show-environment"])
+                .output()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    if let Some(display) = line.strip_prefix("DISPLAY=") {
+                        std::env::set_var("DISPLAY", display);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If XAUTHORITY is not set, find mutter's Xwaylandauth file
+        if std::env::var("XAUTHORITY").is_err() {
+            let uid = unsafe { libc::getuid() };
+            let auth_dir = format!("/run/user/{}", uid);
+            if let Ok(entries) = std::fs::read_dir(&auth_dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with(".mutter-Xwaylandauth.") {
+                        std::env::set_var("XAUTHORITY", entry.path());
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Verify we have what we need
+        if std::env::var("DISPLAY").is_err() {
+            return Err("Could not find DISPLAY (not in a graphical session?)".to_string());
+        }
+
+        Ok(())
+    }
+
+    fn open_plugin_guis(&mut self) {
+        // Debug helper - write to file since stderr is redirected
+        fn log_gui(msg: &str) {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_gui_debug.log")
+            {
+                let _ = writeln!(f, "{}", msg);
+            }
+        }
+
+        // Auto-configure XWayland environment (for GNOME Wayland)
+        if let Err(e) = Self::setup_xwayland_env() {
+            log_gui(&format!("XWayland setup failed: {}", e));
+            self.status_message = e.clone();
+            self.plugin_browser.set_status(&e);
             return;
         }
 
+        // Debug: Log DISPLAY value
+        let display = std::env::var("DISPLAY").unwrap_or_else(|_| "NOT SET".to_string());
+        let xauth = std::env::var("XAUTHORITY").unwrap_or_else(|_| "NOT SET".to_string());
+        log_gui(&format!("=== Alt+G pressed, DISPLAY={}, XAUTHORITY={} ===", display, xauth));
+        self.add_console_message(&format!("🔍 GUI: DISPLAY={}", display));
+
         // Check if cursor is on a VST line
         let target_plugin = self.get_vst_under_cursor();
+        log_gui(&format!("Target plugin under cursor: {:?}", target_plugin));
 
         // Get the current graph
         let graph_guard = self.graph.load();
         let graph_opt = graph_guard.as_ref();
 
         if let Some(graph_cell) = graph_opt {
-            // Borrow the graph
-            let graph = graph_cell.0.borrow();
+            log_gui("Graph is loaded");
 
-            // Get the real_plugins from the graph
-            let mut real_plugins = graph.real_plugins.borrow_mut();
+            // Borrow the graph structure (still RefCell)
+            let graph = match graph_cell.0.try_borrow() {
+                Ok(g) => g,
+                Err(_) => {
+                    let msg = "Graph busy - try again";
+                    log_gui(msg);
+                    self.status_message = msg.to_string();
+                    self.plugin_browser.set_status(msg);
+                    return;
+                }
+            };
+
+            // Lock real_plugins (Mutex - will block until available)
+            // This properly waits for the audio thread to release the lock
+            let mut real_plugins = graph.real_plugins.lock().unwrap();
+            log_gui(&format!("Loaded plugins: {:?}", real_plugins.keys().collect::<Vec<_>>()));
 
             if real_plugins.is_empty() {
                 let msg = "No VST3 plugins loaded. Use 'vst \"plugin_name\"' in your code.";
+                log_gui(msg);
                 self.status_message = msg.to_string();
                 self.plugin_browser.set_status(msg);
                 return;
@@ -3527,19 +3623,24 @@ impl ModalEditor {
                 }
 
                 // Try to create GUI
+                log_gui(&format!("Creating GUI for: {}", name));
                 match plugin.create_gui() {
                     Ok(mut gui) => {
+                        log_gui(&format!("GUI created for {}, calling show()...", name));
                         // Show the GUI window
                         if let Err(e) = gui.show(Some(name)) {
+                            log_gui(&format!("show() FAILED for {}: {}", name, e));
                             errors.push(format!("{}: show failed - {}", name, e));
                             continue;
                         }
+                        log_gui(&format!("GUI show() succeeded for {}", name));
 
                         // Store the GUI handle
                         self.vst3_guis.insert(name.clone(), gui);
                         opened_count += 1;
                     }
                     Err(e) => {
+                        log_gui(&format!("create_gui() FAILED for {}: {}", name, e));
                         // Provide helpful hint about X11 authorization issues
                         let err_str = e.to_string();
                         if err_str.contains("display") || err_str.contains("unavailable") {
@@ -3581,6 +3682,74 @@ impl ModalEditor {
         let (before, after) = self.content.split_at(self.cursor_pos);
         self.content = format!("{}{}{}", before, text, after);
         self.cursor_pos += text.len();
+    }
+
+    /// Open GUI preview for selected plugin in browser (loads plugin if needed)
+    #[cfg(all(target_os = "linux", feature = "vst3"))]
+    fn open_preview_gui(&mut self) {
+        use crate::plugin_host::real_plugin::create_real_plugin_by_name;
+
+        // Setup XWayland environment
+        if let Err(e) = Self::setup_xwayland_env() {
+            self.plugin_browser.set_status(&e);
+            return;
+        }
+
+        // Get selected plugin from browser
+        let plugin_info = match self.plugin_browser.selected_plugin(&self.plugin_manager) {
+            Some(p) => p.clone(),
+            None => {
+                self.plugin_browser.set_status("No plugin selected");
+                return;
+            }
+        };
+
+        let plugin_name = plugin_info.id.name.clone();
+
+        // Check if GUI is already open
+        if self.vst3_guis.contains_key(&plugin_name) {
+            self.plugin_browser.set_status(&format!("{} GUI already open", plugin_name));
+            return;
+        }
+
+        // Check if we already have this plugin loaded (preview or audio graph)
+        let has_preview = self.preview_plugins.contains_key(&plugin_name);
+
+        if !has_preview {
+            // Load the plugin for preview
+            self.plugin_browser.set_status(&format!("Loading {}...", plugin_name));
+            match create_real_plugin_by_name(&plugin_name) {
+                Ok(mut plugin) => {
+                    // Initialize plugin
+                    if let Err(e) = plugin.initialize(48000.0, 512) {
+                        self.plugin_browser.set_status(&format!("Init failed: {}", e));
+                        return;
+                    }
+                    self.preview_plugins.insert(plugin_name.clone(), plugin);
+                }
+                Err(e) => {
+                    self.plugin_browser.set_status(&format!("Load failed: {}", e));
+                    return;
+                }
+            }
+        }
+
+        // Now open the GUI
+        if let Some(plugin) = self.preview_plugins.get_mut(&plugin_name) {
+            match plugin.create_gui() {
+                Ok(mut gui) => {
+                    if let Err(e) = gui.show(Some(&plugin_name)) {
+                        self.plugin_browser.set_status(&format!("Show failed: {}", e));
+                        return;
+                    }
+                    self.vst3_guis.insert(plugin_name.clone(), gui);
+                    self.plugin_browser.set_status(&format!("Opened {} GUI", plugin_name));
+                }
+                Err(e) => {
+                    self.plugin_browser.set_status(&format!("GUI failed: {}", e));
+                }
+            }
+        }
     }
 }
 
