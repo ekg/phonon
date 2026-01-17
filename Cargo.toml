@@ -132,6 +132,10 @@ path = "src/bin/test_vst3_gui.rs"
 name = "test_vst3_gui_headless"
 path = "src/bin/test_vst3_gui_headless.rs"
 
+[[bin]]
+name = "test_note_skipping"
+path = "src/bin/test_note_skipping.rs"
+
 [[bench]]
 name = "voice_simd_bench"
 harness = false
