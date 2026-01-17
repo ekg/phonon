@@ -3564,10 +3564,29 @@ impl ModalEditor {
             log_gui("Graph is loaded");
 
             // Borrow the graph structure (still RefCell)
-            let graph = match graph_cell.0.try_borrow() {
-                Ok(g) => g,
-                Err(_) => {
-                    let msg = "Graph busy - try again";
+            // Retry with backoff since audio thread uses it for ~11ms per callback
+            // Audio callback is ~11ms (512 samples at 44100Hz), so 50ms should catch a gap
+            let mut graph_borrow = None;
+            for attempt in 0..100 {
+                match graph_cell.0.try_borrow() {
+                    Ok(g) => {
+                        log_gui(&format!("Got graph borrow on attempt {}", attempt));
+                        graph_borrow = Some(g);
+                        break;
+                    }
+                    Err(_) => {
+                        if attempt < 99 {
+                            // Sleep 500us between attempts (~50ms total max)
+                            std::thread::sleep(std::time::Duration::from_micros(500));
+                        }
+                    }
+                }
+            }
+
+            let graph = match graph_borrow {
+                Some(g) => g,
+                None => {
+                    let msg = "Graph busy - audio processing in progress, try again";
                     log_gui(msg);
                     self.status_message = msg.to_string();
                     self.plugin_browser.set_status(msg);
