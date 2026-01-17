@@ -352,6 +352,7 @@ fn test_audio_engine_mock_plugin_integration() {
         note_pattern_str: Some("69".to_string()),
         last_note_cycle: std::cell::Cell::new(-1),
         triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
+        cached_note_events: std::cell::RefCell::new(Vec::new()),
         instance: RefCell::new(None),
     };
 
@@ -400,6 +401,7 @@ fn test_audio_engine_mock_plugin_pitch() {
             note_pattern_str: Some(format!("{}", note)),
             last_note_cycle: std::cell::Cell::new(-1),
             triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
+            cached_note_events: std::cell::RefCell::new(Vec::new()),
             instance: RefCell::new(None),
         };
 
