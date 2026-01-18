@@ -242,7 +242,7 @@ impl PluginInstanceHandle {
 pub type SharedPluginInstance = Arc<Mutex<PluginInstanceHandle>>;
 
 /// MIDI event for plugin input
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MidiEvent {
     /// Sample offset within the buffer
     pub sample_offset: usize,

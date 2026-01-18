@@ -7,6 +7,19 @@ use super::instance::MidiEvent;
 use super::types::*;
 use std::f32::consts::PI;
 
+/// Recorded MIDI event with timing information (for testing/instrumentation)
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecordedMidiEvent {
+    /// The MIDI event
+    pub event: MidiEvent,
+    /// Absolute sample position when event was received
+    pub absolute_sample: u64,
+    /// Buffer-relative sample offset
+    pub buffer_offset: usize,
+    /// Buffer number (which process call)
+    pub buffer_number: u64,
+}
+
 /// Mock plugin that generates sine waves from MIDI notes
 /// Used for testing without external plugin dependencies
 #[derive(Clone, Debug)]
@@ -27,6 +40,12 @@ pub struct MockPluginInstance {
     initialized: bool,
     /// Total samples processed (for testing)
     samples_processed: u64,
+    /// Number of process() calls (buffer count)
+    buffer_count: u64,
+    /// Recorded MIDI events with timing (for instrumentation/testing)
+    recorded_events: Vec<RecordedMidiEvent>,
+    /// Whether to record events (disabled by default for performance)
+    recording_enabled: bool,
 }
 
 impl Default for MockPluginInstance {
@@ -47,7 +66,42 @@ impl MockPluginInstance {
             pitch_bend: 0.0,
             initialized: false,
             samples_processed: 0,
+            buffer_count: 0,
+            recorded_events: Vec::new(),
+            recording_enabled: false,
         }
+    }
+
+    /// Create a new mock plugin with MIDI event recording enabled
+    pub fn new_with_recording() -> Self {
+        let mut plugin = Self::new();
+        plugin.recording_enabled = true;
+        plugin
+    }
+
+    /// Enable MIDI event recording
+    pub fn enable_recording(&mut self) {
+        self.recording_enabled = true;
+    }
+
+    /// Disable MIDI event recording
+    pub fn disable_recording(&mut self) {
+        self.recording_enabled = false;
+    }
+
+    /// Get recorded MIDI events
+    pub fn recorded_events(&self) -> &[RecordedMidiEvent] {
+        &self.recorded_events
+    }
+
+    /// Clear recorded events
+    pub fn clear_recorded_events(&mut self) {
+        self.recorded_events.clear();
+    }
+
+    /// Get buffer count (number of process() calls)
+    pub fn buffer_count(&self) -> u64 {
+        self.buffer_count
     }
 
     /// Get mock plugin info
@@ -123,6 +177,19 @@ impl MockPluginInstance {
             return Err(PluginError::ProcessError("Not initialized".to_string()));
         }
 
+        // Record MIDI events if enabled (for testing/instrumentation)
+        if self.recording_enabled {
+            for event in midi_events {
+                let offset = event.sample_offset.min(num_samples - 1);
+                self.recorded_events.push(RecordedMidiEvent {
+                    event: event.clone(),
+                    absolute_sample: self.samples_processed + offset as u64,
+                    buffer_offset: offset,
+                    buffer_number: self.buffer_count,
+                });
+            }
+        }
+
         // Process MIDI events (apply at sample offset)
         let mut events_by_sample: Vec<Vec<&MidiEvent>> = vec![Vec::new(); num_samples];
         for event in midi_events {
@@ -172,6 +239,7 @@ impl MockPluginInstance {
             self.samples_processed += 1;
         }
 
+        self.buffer_count += 1;
         Ok(())
     }
 

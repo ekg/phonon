@@ -53,7 +53,7 @@ pub use automation::{ParameterMapper, ParameterAutomation};
 pub use preset::PhononPreset;
 pub use midi::MidiEventBuffer;
 pub use manager::{PluginInstanceManager, PluginSettings, NamedPluginInstance};
-pub use mock_plugin::MockPluginInstance;
+pub use mock_plugin::{MockPluginInstance, RecordedMidiEvent};
 pub use real_plugin::{RealPluginInstance, RealPluginScanner};
 
 #[cfg(feature = "vst3")]
