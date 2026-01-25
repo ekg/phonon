@@ -354,6 +354,7 @@ fn test_audio_engine_mock_plugin_integration() {
         triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
         cached_note_events: std::cell::RefCell::new(Vec::new()),
         instance: RefCell::new(None),
+        last_processed_end: std::cell::Cell::new(-1.0),
     };
 
     // Add node to graph and get ID
@@ -403,6 +404,7 @@ fn test_audio_engine_mock_plugin_pitch() {
             triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
             cached_note_events: std::cell::RefCell::new(Vec::new()),
             instance: RefCell::new(None),
+            last_processed_end: std::cell::Cell::new(-1.0),
         };
 
         let node_id = graph.add_node(plugin_node);

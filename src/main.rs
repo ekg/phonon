@@ -1716,7 +1716,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             gain,
         } => {
             use hound::{SampleFormat, WavSpec, WavWriter};
-            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+            use phonon::compositional_compiler::compile_program;
+            use phonon::compositional_parser::parse_program;
             use std::process::Command;
 
             // Read DSL code
@@ -1747,20 +1748,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Gain:       {gain:.1}");
             println!();
 
-            // Parse using unified_graph_parser (supports new $ and # syntax)
+            // Parse using compositional_parser (supports vst, $ and # syntax)
             let (remaining, statements) =
-                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+                parse_program(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             if !remaining.trim().is_empty() {
-                eprintln!(
-                    "⚠️  Warning: unparsed input remaining: {}",
-                    remaining.trim()
-                );
+                use phonon::error_diagnostics::{
+                    check_for_common_mistakes, diagnose_parse_failure,
+                };
+                let diagnostic = diagnose_parse_failure(&dsl_code, remaining);
+                eprintln!("{}", diagnostic);
+                let warnings = check_for_common_mistakes(&dsl_code);
+                if !warnings.is_empty() {
+                    eprintln!("⚠️  Additional warnings:");
+                    for warning in warnings {
+                        eprintln!("  • {}", warning);
+                    }
+                }
             }
 
-            // Compile to graph using DslCompiler
-            let compiler = DslCompiler::new(sample_rate as f32);
-            let mut graph = compiler.compile(statements);
+            // Compile to graph using compositional compiler
+            let mut graph = compile_program(statements, sample_rate as f32, None)
+                .map_err(|e| format!("Compile error: {}", e))?;
 
             // Calculate samples
             let num_samples = (duration * sample_rate as f32) as usize;

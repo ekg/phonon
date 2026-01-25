@@ -722,6 +722,9 @@ impl ModalEditor {
                         // This prevents the click from voices being cut off mid-sample
                         new_graph.transfer_voice_manager(old_graph.take_voice_manager());
 
+                        // NOTE: VST3 plugins are now shared via Arc<Mutex> across graph clones
+                        // No explicit transfer needed - new_graph already shares real_plugins
+
                         state_transferred = true;
                         break;
                     }
@@ -813,7 +816,29 @@ impl ModalEditor {
                     gui.pump_events();
                 }
                 // Remove closed GUIs so they can be reopened
-                self.vst3_guis.retain(|_name, gui| gui.is_visible());
+                // Log when GUIs are removed to help debug GUI hanging issues
+                // Also explicitly hide the GUI before dropping to ensure proper cleanup
+                let before_count = self.vst3_guis.len();
+                let closed_names: Vec<String> = self.vst3_guis.iter()
+                    .filter(|(_, gui)| !gui.is_visible())
+                    .map(|(name, _)| name.clone())
+                    .collect();
+
+                for name in &closed_names {
+                    if let Some(mut gui) = self.vst3_guis.remove(name) {
+                        // Log to debug file (same as log_gui in open_plugin_guis)
+                        use std::io::Write;
+                        if let Ok(mut f) = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open("/tmp/phonon_gui_debug.log")
+                        {
+                            let _ = writeln!(f, "GUI for {} is no longer visible, explicitly hiding and removing", name);
+                        }
+                        // Explicitly hide the GUI to ensure proper cleanup before dropping
+                        let _ = gui.hide();
+                    }
+                }
             }
 
             // Poll for parameter changes from VST3 GUIs (Linux only)

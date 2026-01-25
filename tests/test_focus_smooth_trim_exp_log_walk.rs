@@ -294,7 +294,7 @@ fn test_exp_different_bases() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfout $ sine 1.0 $ exp 2.0
+~lfo1 $ sine 1.0 $ exp 2.0
 ~lfo2 $ sine 0.5 $ exp 3.0
 out $ saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
 "#,
@@ -337,7 +337,7 @@ fn test_log_different_bases() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfout $ sine 1.0 $ log 2.0
+~lfo1 $ sine 1.0 $ log 2.0
 ~lfo2 $ sine 0.5 $ log 10.0
 out $ saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
 "#,
@@ -442,7 +442,7 @@ fn test_numeric_transforms_together() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfout $ sine 0.5 $ smooth 0.2
+~lfo1 $ sine 0.5 $ smooth 0.2
 ~lfo2 $ sine 1.0 $ exp 2.0
 ~lfo3 $ sine 0.25 $ log 2.0
 ~lfo4 $ sine 0.5 $ walk 0.1

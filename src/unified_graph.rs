@@ -1156,6 +1156,9 @@ pub enum SignalNode {
         /// Cached note events for current cycle (regenerated at cycle boundaries)
         /// This persists events throughout the cycle for per-sample MIDI timing checks
         cached_note_events: std::cell::RefCell<Vec<crate::plugin_host::midi::NoteEvent>>,
+        /// Last processed cycle position (precise f64 for gap detection)
+        /// Used to catch notes that fall in gaps between buffers in wall-clock mode
+        last_processed_end: std::cell::Cell<f64>,
     },
 
     // === Conditional Effects ===
@@ -4734,9 +4737,10 @@ pub struct UnifiedSignalGraph {
     /// Real VST3 plugin instances (keyed by plugin name)
     /// Lazily loaded when vst "PluginName" is used in DSL
     /// Public for GUI access from modal editor
-    /// Uses Mutex instead of RefCell to allow GUI thread to wait for audio thread
+    /// Uses Arc<Mutex> to share plugins across graph clones during hot-reload
+    /// This prevents plugin recreation and underruns when reloading
     #[cfg(feature = "vst3")]
-    pub real_plugins: Mutex<HashMap<String, RealPluginInstance>>,
+    pub real_plugins: Arc<Mutex<HashMap<String, RealPluginInstance>>>,
 
     /// VST2 plugin instances (keyed by plugin name)
     /// Lazily loaded when vst2 "PluginName" is used in DSL
@@ -4812,9 +4816,10 @@ impl Clone for UnifiedSignalGraph {
             plugin_manager: self.plugin_manager.clone(),
             // Mock plugins need fresh instances (they have internal state)
             mock_plugins: RefCell::new(HashMap::new()),
-            // Real VST3 plugins: create fresh cache, plugins will be loaded lazily
+            // Real VST3 plugins: SHARE the cache across clones to preserve state during hot-reload
+            // This prevents underruns from plugin recreation when reloading the graph
             #[cfg(feature = "vst3")]
-            real_plugins: Mutex::new(HashMap::new()),
+            real_plugins: Arc::clone(&self.real_plugins),
             // VST2 plugins: create fresh cache, plugins will be loaded lazily
             #[cfg(feature = "vst2")]
             vst2_plugins: RefCell::new(HashMap::new()),
@@ -4826,13 +4831,18 @@ impl Clone for UnifiedSignalGraph {
 #[cfg(feature = "vst3")]
 impl Drop for UnifiedSignalGraph {
     fn drop(&mut self) {
-        // Leak all real VST3 plugins to prevent double-free bugs in VST3 SDK
-        // Use get_mut() since we have &mut self - no locking needed
-        let real_plugins = self.real_plugins.get_mut().unwrap();
-        for (_name, plugin) in real_plugins.drain() {
-            // Use leak() to intentionally forget the plugin
-            plugin.leak();
+        // Only leak plugins if this is the last graph using them
+        // (Arc strong_count will be 1 since we're about to drop our reference)
+        if Arc::strong_count(&self.real_plugins) == 1 {
+            // Leak all real VST3 plugins to prevent double-free bugs in VST3 SDK
+            if let Ok(mut real_plugins) = self.real_plugins.lock() {
+                for (_name, plugin) in real_plugins.drain() {
+                    // Use leak() to intentionally forget the plugin
+                    plugin.leak();
+                }
+            }
         }
+        // If strong_count > 1, another graph still uses these plugins - don't leak
     }
 }
 
@@ -4894,7 +4904,7 @@ impl UnifiedSignalGraph {
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
             #[cfg(feature = "vst3")]
-            real_plugins: Mutex::new(HashMap::new()),
+            real_plugins: Arc::new(Mutex::new(HashMap::new())),
             #[cfg(feature = "vst2")]
             vst2_plugins: RefCell::new(HashMap::new()),
         }
@@ -5559,6 +5569,7 @@ impl UnifiedSignalGraph {
                         last_note_cycle,
                         triggered_notes,
                         cached_note_events,
+                        last_processed_end,
                         ..
                     } => {
                         // Initialize last_note_cycle to current cycle to prevent re-triggering
@@ -5569,6 +5580,8 @@ impl UnifiedSignalGraph {
                         triggered_notes.borrow_mut().clear();
                         // Clear cached events - they'll be regenerated when cycle changes
                         cached_note_events.borrow_mut().clear();
+                        // Set last_processed_end to current position for gap detection
+                        last_processed_end.set(old_cycle_pos);
                     }
                     _ => {}
                 }
@@ -11797,13 +11810,29 @@ impl UnifiedSignalGraph {
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation to real VST3 plugin
                             for (name, value) in &param_values {
+                                let normalized = value.clamp(0.0, 1.0);
+
+                                // Check if this is a numeric param ID (e.g., "param_164559267")
+                                // Used when the GUI writes back parameters by ID
+                                if name.starts_with("param_") {
+                                    if let Ok(param_id) = name[6..].parse::<u32>() {
+                                        // Try to set by ID (treating ID as index for now)
+                                        // This works for plugins where param_id == index
+                                        let param_count = plugin.parameter_count();
+                                        if (param_id as usize) < param_count {
+                                            let _ = plugin.set_parameter(param_id as usize, normalized);
+                                        }
+                                        // For plugins with hashed IDs (like Surge XT), we'd need
+                                        // a param_id -> index map, but rack doesn't expose this
+                                        continue;
+                                    }
+                                }
+
                                 // Try to find parameter by name and set it
                                 let param_count = plugin.parameter_count();
                                 for idx in 0..param_count {
                                     if let Ok(info) = plugin.parameter_info(idx) {
                                         if info.name.to_lowercase().contains(&name.to_lowercase()) {
-                                            // Normalize value to 0-1 range for VST3
-                                            let normalized = value.clamp(0.0, 1.0);
                                             let _ = plugin.set_parameter(idx, normalized);
                                             break;
                                         }
@@ -18800,6 +18829,7 @@ impl UnifiedSignalGraph {
                 params,
                 note_pattern,
                 last_note_cycle,
+                last_processed_end,
                 instance,
                 ..
             } => {
@@ -18828,6 +18858,7 @@ impl UnifiedSignalGraph {
                 // We need to handle:
                 // 1. Note-ons for events that START in this buffer
                 // 2. Note-offs for events that END in this buffer (may have started earlier)
+                // 3. Note-ons for events that fell in GAPS between buffers (wall-clock mode)
                 let (note_on_events, note_off_events): (Vec<_>, Vec<_>) = if let Some(ref pattern) = note_pattern {
                     // CRITICAL FIX: Use cached_cycle_position for timing consistency
                     // In wall clock mode, sample_count may drift from actual cycle position.
@@ -18837,10 +18868,22 @@ impl UnifiedSignalGraph {
                     let sample_increment = self.cps as f64 / self.sample_rate as f64;
                     let buffer_end_cycle = buffer_start_cycle + (buffer_size as f64 * sample_increment);
 
-                    // Query the pattern for events that overlap with this buffer's time span
+                    // GAP DETECTION: Check if there's a gap between last_processed_end and buffer_start_cycle
+                    // This happens in wall-clock mode when processing overhead causes timing gaps
+                    let prev_end = last_processed_end.get();
+                    let gap_start = if prev_end >= 0.0 && prev_end < buffer_start_cycle {
+                        // There's a gap - we need to catch up notes that started in it
+                        prev_end
+                    } else {
+                        // No gap - normal buffer processing
+                        buffer_start_cycle
+                    };
+
+                    // Query the pattern for events that overlap with the EXTENDED time span
+                    // (includes any gap before this buffer)
                     let state = State {
                         span: TimeSpan::new(
-                            Fraction::from_float(buffer_start_cycle),
+                            Fraction::from_float(gap_start),
                             Fraction::from_float(buffer_end_cycle),
                         ),
                         controls: std::collections::HashMap::new(),
@@ -18856,13 +18899,19 @@ impl UnifiedSignalGraph {
                         let event_end_cycle = hap.part.end.to_float();
                         let note = hap.value as u8;
 
-                        // Note-on: if event starts within this buffer (cycle-based comparison)
-                        if event_start_cycle >= buffer_start_cycle && event_start_cycle < buffer_end_cycle {
+                        // Note-on: if event starts within this buffer OR in the gap before it
+                        if event_start_cycle >= gap_start && event_start_cycle < buffer_end_cycle {
                             // Calculate buffer offset in samples from cycle position
-                            let offset_cycles = event_start_cycle - buffer_start_cycle;
-                            let buffer_offset = (offset_cycles / sample_increment).round() as usize;
-                            let buffer_offset = buffer_offset.min(buffer_size - 1);
-                            note_ons.push((buffer_offset, note, 100u8)); // (offset, note, velocity)
+                            if event_start_cycle < buffer_start_cycle {
+                                // Event was in the gap - trigger at offset 0 (start of buffer)
+                                note_ons.push((0, note, 100u8));
+                            } else {
+                                // Event is in the current buffer - calculate exact offset
+                                let offset_cycles = event_start_cycle - buffer_start_cycle;
+                                let buffer_offset = (offset_cycles / sample_increment).round() as usize;
+                                let buffer_offset = buffer_offset.min(buffer_size - 1);
+                                note_ons.push((buffer_offset, note, 100u8)); // (offset, note, velocity)
+                            }
                         }
 
                         // Note-off: if event ends within this buffer
@@ -18873,6 +18922,9 @@ impl UnifiedSignalGraph {
                             note_offs.push((buffer_offset, note));
                         }
                     }
+
+                    // Update last_processed_end to track where we've processed up to
+                    last_processed_end.set(buffer_end_cycle);
 
                     (note_ons, note_offs)
                 } else {
@@ -19029,15 +19081,26 @@ impl UnifiedSignalGraph {
                         // Try to process through real plugin
                         let mut real_plugins = self.real_plugins.lock().unwrap();
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
-                            // Apply parameter automation by name matching
+                            // Apply parameter automation
                             for (name, value) in &param_values {
+                                let normalized = value.clamp(0.0, 1.0);
+
+                                // Check if this is a numeric param ID (e.g., "param_164559267")
+                                if name.starts_with("param_") {
+                                    if let Ok(param_id) = name[6..].parse::<u32>() {
+                                        let param_count = plugin.parameter_count();
+                                        if (param_id as usize) < param_count {
+                                            let _ = plugin.set_parameter(param_id as usize, normalized);
+                                        }
+                                        continue;
+                                    }
+                                }
+
                                 // Search for matching parameter by name
                                 let param_count = plugin.parameter_count();
                                 for idx in 0..param_count {
                                     if let Ok(info) = plugin.parameter_info(idx) {
                                         if info.name.to_lowercase().contains(&name.to_lowercase()) {
-                                            // Normalize value to 0-1 range for VST3
-                                            let normalized = value.clamp(0.0, 1.0);
                                             let _ = plugin.set_parameter(idx, normalized);
                                             break;
                                         }

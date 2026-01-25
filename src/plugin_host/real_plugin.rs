@@ -205,7 +205,7 @@ impl RealPluginInstance {
         self.plugin().parameter_count()
     }
 
-    /// Get parameter info
+    /// Get parameter info by index
     pub fn parameter_info(&self, index: usize) -> PluginResult<PhononParameterInfo> {
         let rack_param = self
             .plugin()
@@ -223,6 +223,44 @@ impl RealPluginInstance {
             step_count: 0,
             automatable: true,
         })
+    }
+
+    /// Find parameter name by VST3 parameter ID
+    /// VST3 param IDs can be hashed values (like Surge XT uses)
+    /// Returns (index, name) if found
+    pub fn find_parameter_by_id(&self, param_id: u32) -> Option<(usize, String)> {
+        let count = self.parameter_count();
+        for idx in 0..count {
+            if let Ok(info) = self.parameter_info(idx) {
+                // The parameter index in rack corresponds to VST3's param_id for most plugins
+                // But some plugins (Surge XT) use hashed IDs
+                // Check if the index matches the param_id
+                if info.index as u32 == param_id {
+                    return Some((idx, info.name));
+                }
+            }
+        }
+        // If no match by index, the param_id might be a hash
+        // In this case, we can't resolve the name, return None
+        None
+    }
+
+    /// Set parameter by VST3 parameter ID (not index)
+    /// Searches for the parameter index that matches the ID
+    pub fn set_parameter_by_id(&mut self, param_id: u32, value: f32) -> PluginResult<()> {
+        // For most VST3 plugins, param_id == index
+        // Try direct index first
+        let count = self.parameter_count();
+        if (param_id as usize) < count {
+            return self.set_parameter(param_id as usize, value);
+        }
+        // If param_id is larger than count, it might be a hashed ID
+        // We'd need to search through parameters, but rack doesn't expose the ID
+        // Fall back to treating param_id as index (clamped)
+        Err(PluginError::ParameterError(format!(
+            "Parameter ID {} out of range (count: {})",
+            param_id, count
+        )))
     }
 
     /// Get plugin state as bytes

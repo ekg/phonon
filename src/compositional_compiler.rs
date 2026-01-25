@@ -2982,6 +2982,7 @@ fn compile_function_call(
                             triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
                             instance: std::cell::RefCell::new(inst),
                             cached_note_events: std::cell::RefCell::new(Vec::new()),
+                            last_processed_end: std::cell::Cell::new(-1.0),
                         };
                         return Ok(ctx.graph.add_node(new_node));
                     }
@@ -9454,6 +9455,7 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
                         triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
                         instance: std::cell::RefCell::new(instance.borrow().clone()),
                         cached_note_events: std::cell::RefCell::new(Vec::new()),
+                        last_processed_end: std::cell::Cell::new(-1.0),
                     };
                     Ok(ctx.graph.add_node(new_node))
                 } else {
@@ -10460,6 +10462,7 @@ fn compile_vst(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
         instance: std::cell::RefCell::new(None),
         cached_note_events: std::cell::RefCell::new(Vec::new()),
+        last_processed_end: std::cell::Cell::new(-1.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -10529,6 +10532,7 @@ fn compile_vst_param(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
             triggered_notes: std::cell::RefCell::new(std::collections::HashSet::new()),
             instance: std::cell::RefCell::new(inst),
             cached_note_events: std::cell::RefCell::new(Vec::new()),
+            last_processed_end: std::cell::Cell::new(-1.0),
         };
         Ok(ctx.graph.add_node(new_node))
     } else {
