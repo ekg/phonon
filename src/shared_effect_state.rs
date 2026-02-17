@@ -16,7 +16,7 @@ use crate::unified_graph::{
     ADSRState, ADState, ASRState, AllpassState, BitCrushState, BiquadState,
     BrownNoiseState, ChorusState, CompressorState, ConvolutionState, DattorroState,
     EnvState, ExpanderState, FilterState, FlangerState, FormantState, GranularState,
-    ImpulseState, KarplusStrongState, LagState, MoogLadderState, ParametricEQState,
+    ImpulseState, KarplusStrongState, LagState, LimiterState, MoogLadderState, ParametricEQState,
     PinkNoiseState, PitchShifterState, ReverbState, SVFState, SpectralFreezeState,
     TapeDelayState, VocoderState, WaveguideState, WavetableState, XLineState,
     AdditiveState,
@@ -108,6 +108,8 @@ pub enum SharedState {
     Compressor(Arc<RwLock<CompressorState>>),
     /// Expander
     Expander(Arc<RwLock<ExpanderState>>),
+    /// Limiter
+    Limiter(Arc<RwLock<LimiterState>>),
 
     // === Medium priority: Synthesis ===
     /// Granular synthesis

@@ -215,6 +215,11 @@ pub enum Transform {
     Scramble(Box<Expr>),
     /// swing amount: add swing feel
     Swing(Box<Expr>),
+    /// groove preset [amount]: apply groove template (mpc, hiphop, reggae, jazz, drunken)
+    Groove {
+        preset: Box<Expr>,
+        amount: Option<Box<Expr>>,
+    },
     /// legato factor: adjust event duration (longer)
     Legato(Box<Expr>),
     /// staccato factor: make events shorter
@@ -474,7 +479,7 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 /// Parse a complete Phonon program
 ///
 /// Comments use -- (Haskell-style), supporting both full-line and inline:
-/// ```
+/// ```text
 /// -- This is a full-line comment
 /// tempo: 0.5  -- This is an inline comment
 /// ~bass $ saw 110 # lpf 1000 0.8  -- # is the chain operator
@@ -684,6 +689,22 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     loop {
         // Try to match $ (signal bus) first
         if let Ok((after_op, _)) = char::<_, nom::error::Error<&str>>('$')(current_input) {
+            let (input, _) = space0(after_op)?;
+            let (input, expr) = parse_expr(input)?;
+
+            return Ok((
+                input,
+                Statement::BusAssignment {
+                    name: name.to_string(),
+                    params,
+                    expr,
+                    bus_type: BusType::Signal,
+                },
+            ));
+        }
+
+        // Try to match : (legacy signal bus syntax)
+        if let Ok((after_op, _)) = char::<_, nom::error::Error<&str>>(':')(current_input) {
             let (input, _) = space0(after_op)?;
             let (input, expr) = parse_expr(input)?;
 
@@ -1109,6 +1130,16 @@ fn transform_to_call_expr(transform: &Transform) -> Option<Expr> {
             }
             Some(Expr::Call {
                 name: "_compose".to_string(),
+                args,
+            })
+        }
+        Transform::Groove { preset, amount } => {
+            let mut args = vec![(**preset).clone()];
+            if let Some(a) = amount {
+                args.push((**a).clone());
+            }
+            Some(Expr::Call {
+                name: "groove".to_string(),
                 args,
             })
         }
@@ -1894,6 +1925,11 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
 /// Additional transform parsers (split due to nom's 21-alternative limit)
 fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
     alt((
+        // hurry factor (fast + speed combined)
+        map(
+            preceded(terminated(tag("hurry"), space1), parse_primary_expr),
+            |expr| Transform::Hurry(Box::new(expr)),
+        ),
         // dur seconds (absolute duration, like Tidal's sustain)
         map(
             preceded(terminated(tag("dur"), space1), parse_primary_expr),
@@ -1944,6 +1980,26 @@ fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("swing"), space1), parse_primary_expr),
             |expr| Transform::Swing(Box::new(expr)),
+        ),
+        // groove "preset" amount (2-arg form MUST come before 1-arg form)
+        map(
+            tuple((
+                terminated(tag("groove"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, preset, amount)| Transform::Groove {
+                preset: Box::new(preset),
+                amount: Some(Box::new(amount)),
+            },
+        ),
+        // groove "preset" (1-arg form)
+        map(
+            preceded(terminated(tag("groove"), space1), parse_primary_expr),
+            |expr| Transform::Groove {
+                preset: Box::new(expr),
+                amount: None,
+            },
         ),
         // legato factor
         map(

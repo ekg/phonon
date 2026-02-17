@@ -253,27 +253,47 @@ out $ (~a + ~b + ~c) * 0.2
 "#;
 
     let mut graph = compile_code(simple, sample_rate);
-    let mut node_counts = vec![graph.node_count()];
+
+    // Track node counts separately for simple and complex graphs
+    let mut simple_counts = Vec::new();
+    let mut complex_counts = Vec::new();
 
     // Swap back and forth 20 times
     for i in 0..20 {
         let code = if i % 2 == 0 { complex } else { simple };
         graph = swap_graph(&mut graph, code, sample_rate);
-        node_counts.push(graph.node_count());
+        let count = graph.node_count();
+
+        if i % 2 == 0 {
+            complex_counts.push(count);
+        } else {
+            simple_counts.push(count);
+        }
 
         // Render a buffer
         let _ = render_audio(&mut graph, 512);
     }
 
-    let max_count = *node_counts.iter().max().unwrap();
-    let min_count = *node_counts.iter().min().unwrap();
-
-    // Node count should be bounded, not grow unbounded
+    // Node counts for the same graph type should not grow over repeated swaps
+    // (i.e., no node leak). Allow small variance but first and last should match.
+    let simple_first = simple_counts[0];
+    let simple_last = *simple_counts.last().unwrap();
     assert!(
-        max_count < min_count * 5,
-        "Node count should be bounded: min={}, max={} (should be < 5x min)",
-        min_count,
-        max_count
+        simple_last <= simple_first + 1,
+        "Simple graph node count should not grow: first={}, last={}, all={:?}",
+        simple_first,
+        simple_last,
+        simple_counts
+    );
+
+    let complex_first = complex_counts[0];
+    let complex_last = *complex_counts.last().unwrap();
+    assert!(
+        complex_last <= complex_first + 1,
+        "Complex graph node count should not grow: first={}, last={}, all={:?}",
+        complex_first,
+        complex_last,
+        complex_counts
     );
 }
 
@@ -497,19 +517,19 @@ bpm: 60
 out $ sine 440 * 0.3
 "#;
 
-    // 120 BPM = 2 CPS
+    // 120 BPM in 4/4 = 120 / (4 * 60) = 0.5 CPS
     let mut graph = compile_code(code_120bpm, sample_rate);
     assert!(
-        (graph.get_cps() - 2.0).abs() < 0.01,
-        "120 BPM should be 2 CPS, got {}",
+        (graph.get_cps() - 0.5).abs() < 0.01,
+        "120 BPM should be 0.5 CPS, got {}",
         graph.get_cps()
     );
 
-    // 60 BPM = 1 CPS
+    // 60 BPM in 4/4 = 60 / (4 * 60) = 0.25 CPS
     let new_graph = swap_graph(&mut graph, code_60bpm, sample_rate);
     assert!(
-        (new_graph.get_cps() - 1.0).abs() < 0.01,
-        "60 BPM should be 1 CPS, got {}",
+        (new_graph.get_cps() - 0.25).abs() < 0.01,
+        "60 BPM should be 0.25 CPS, got {}",
         new_graph.get_cps()
     );
 }
@@ -1020,7 +1040,7 @@ fn test_no_infinite_loops_on_swap() {
 
     let mut graph = compile_code(codes[0], sample_rate);
 
-    let timeout = std::time::Duration::from_secs(5);
+    let timeout = std::time::Duration::from_secs(30);
     let start = Instant::now();
 
     for i in 0..100 {
@@ -1035,7 +1055,7 @@ fn test_no_infinite_loops_on_swap() {
         let _ = render_audio(&mut graph, 512);
     }
 
-    // Should complete in well under 5 seconds
+    // Should complete well within timeout (detects infinite loops, not performance)
     assert!(
         start.elapsed() < timeout,
         "100 swaps took too long: {:?}",

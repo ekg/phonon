@@ -8,7 +8,7 @@
 /// - Provides process_block() interface for audio callback
 ///
 /// # Architecture
-/// ```
+/// ```text
 /// Audio Callback → DataflowGraph::process_block()
 ///                      ↓
 ///                  Send trigger to source nodes

@@ -68,6 +68,7 @@
 //! let output = reverb.process(1.0, 0.98, 0.2);
 //!
 //! // Process audio samples
+//! let audio_input = vec![0.0f32; 1024];
 //! for sample in audio_input {
 //!     let reverb_output = reverb.process(sample, 0.98, 0.2);
 //! }

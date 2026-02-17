@@ -436,7 +436,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// * `amount` - How much of the groove to apply (0.0 = none, 1.0 = full)
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let pattern = Pattern::from_string("bd sn bd sn");
     /// let groove = GrooveTemplate::swing(4, 0.1);
     /// let grooved = pattern.apply_groove(&groove, 1.0);

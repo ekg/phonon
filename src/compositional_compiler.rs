@@ -77,6 +77,14 @@ fn parse_transform_from_call(name: &str, args: &[Expr]) -> Result<Transform, Str
 
         // Timing feel
         "swing" if args.len() == 1 => Ok(Transform::Swing(Box::new(args[0].clone()))),
+        "groove" if args.len() == 1 => Ok(Transform::Groove {
+            preset: Box::new(args[0].clone()),
+            amount: None,
+        }),
+        "groove" if args.len() == 2 => Ok(Transform::Groove {
+            preset: Box::new(args[0].clone()),
+            amount: Some(Box::new(args[1].clone())),
+        }),
 
         // Zoom/compress (time window)
         "compress" if args.len() == 2 => Ok(Transform::Compress {
@@ -88,8 +96,74 @@ fn parse_transform_from_call(name: &str, args: &[Expr]) -> Result<Transform, Str
             end: Box::new(args[1].clone()),
         }),
 
-        _ => Err(format!("Unknown transform '{}' with {} args", name, args.len())),
+        _ => {
+            let known_transforms = [
+                "fast", "slow", "squeeze", "hurry", "fastGap",
+                "rotL", "rotR", "early", "late",
+                "rev", "palindrome",
+                "degrade", "degradeBy",
+                "stutter", "stut",
+                "shuffle", "scramble",
+                "iter", "loopAt", "ply",
+                "slice", "chop", "striate",
+                "swing", "groove",
+                "compress", "zoom",
+            ];
+            let suggestion = suggest_similar(name, &known_transforms);
+            match suggestion {
+                Some(s) => Err(format!("Unknown transform '{}' with {} args. Did you mean: {}?", name, args.len(), s)),
+                None => Err(format!("Unknown transform '{}' with {} args", name, args.len())),
+            }
+        }
     }
+}
+
+/// Compute Levenshtein edit distance between two strings.
+fn levenshtein_distance(a: &str, b: &str) -> usize {
+    let a_len = a.len();
+    let b_len = b.len();
+    if a_len == 0 { return b_len; }
+    if b_len == 0 { return a_len; }
+
+    let mut prev: Vec<usize> = (0..=b_len).collect();
+    let mut curr = vec![0; b_len + 1];
+
+    for (i, ca) in a.chars().enumerate() {
+        curr[0] = i + 1;
+        for (j, cb) in b.chars().enumerate() {
+            let cost = if ca == cb { 0 } else { 1 };
+            curr[j + 1] = (prev[j] + cost)
+                .min(curr[j] + 1)
+                .min(prev[j + 1] + 1);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b_len]
+}
+
+/// Find the best suggestion from a list of known names.
+/// Returns None if no close match (distance must be <= max(2, len/2)).
+fn suggest_similar(input: &str, known: &[&str]) -> Option<String> {
+    let threshold = (input.len() / 2).max(2).min(3);
+    let mut best: Option<(&str, usize)> = None;
+    for &candidate in known {
+        let dist = levenshtein_distance(input, candidate);
+        if dist <= threshold {
+            if let Some((_, best_dist)) = best {
+                if dist < best_dist {
+                    best = Some((candidate, dist));
+                }
+            } else {
+                best = Some((candidate, dist));
+            }
+        }
+    }
+    best.map(|(s, _)| s.to_string())
+}
+
+/// Like suggest_similar but for dynamically collected string slices.
+fn suggest_similar_owned(input: &str, known: &[&str]) -> Option<String> {
+    suggest_similar(input, known)
 }
 
 /// Use AudioNode architecture (DAW-style block processing)
@@ -459,37 +533,69 @@ pub fn compile_program(
 
     let mut graph = ctx.into_graph();
 
-    // Auto-routing: If no explicit 'out:' was set, mix all buses to output
+    // Auto-routing: determine output when no explicit 'out $ expr' was set
     if !graph.has_output() {
         let bus_names = graph.get_all_bus_names();
         if !bus_names.is_empty() {
-            // Get all bus node IDs
-            let bus_nodes: Vec<_> = bus_names
-                .iter()
-                .filter_map(|name| graph.get_bus(name))
-                .collect();
+            // Priority 1: If ~master bus exists, use it as output
+            if let Some(master_node) = graph.get_bus("master") {
+                graph.set_output(master_node);
+            }
+            // Priority 2: If ~out bus exists (plain, no number), use it
+            else if let Some(out_node) = graph.get_bus("out") {
+                graph.set_output(out_node);
+            } else {
+                // Priority 3: Auto-route d1..dN and out1..outN buses (TidalCycles style)
+                let auto_route_nodes: Vec<_> = bus_names
+                    .iter()
+                    .filter(|name| is_auto_route_bus(name))
+                    .filter_map(|name| graph.get_bus(name))
+                    .collect();
 
-            if !bus_nodes.is_empty() {
-                // Mix all buses together
-                let mixed = if bus_nodes.len() == 1 {
-                    bus_nodes[0]
+                let nodes_to_mix = if !auto_route_nodes.is_empty() {
+                    auto_route_nodes
                 } else {
-                    // Chain Add nodes to mix all buses
-                    let mut result = bus_nodes[0];
-                    for &node in &bus_nodes[1..] {
-                        result = graph.add_node(SignalNode::Add {
-                            a: Signal::Node(result),
-                            b: Signal::Node(node),
-                        });
-                    }
-                    result
+                    // Priority 4: Fallback - mix all buses
+                    bus_names
+                        .iter()
+                        .filter_map(|name| graph.get_bus(name))
+                        .collect()
                 };
-                graph.set_output(mixed);
+
+                if !nodes_to_mix.is_empty() {
+                    let mixed = if nodes_to_mix.len() == 1 {
+                        nodes_to_mix[0]
+                    } else {
+                        let mut result = nodes_to_mix[0];
+                        for &node in &nodes_to_mix[1..] {
+                            result = graph.add_node(SignalNode::Add {
+                                a: Signal::Node(result),
+                                b: Signal::Node(node),
+                            });
+                        }
+                        result
+                    };
+                    graph.set_output(mixed);
+                }
             }
         }
     }
 
     Ok(graph)
+}
+
+/// Check if a bus name matches auto-routing patterns (TidalCycles style).
+/// Matches: d1, d2, ..., d16, out1, out2, ...
+fn is_auto_route_bus(name: &str) -> bool {
+    if let Some(suffix) = name.strip_prefix('d') {
+        // "d" followed by digits only (d1, d2, d16)
+        !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit())
+    } else if let Some(suffix) = name.strip_prefix("out") {
+        // "out" followed by digits only (out1, out2)
+        !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit())
+    } else {
+        false
+    }
 }
 
 /// Reserved signal function names that cannot be used as bus names
@@ -505,7 +611,7 @@ const PATTERN_TRANSFORM_NAMES: &[&str] = &[
     "rarely", "almostNever", "almostAlways", "someCycles", "struct", "euclid",
     "rotL", "rotR", "ply", "press", "pressBy", "ghost", "ghostWith", "swing",
     "inside", "outside", "zoom", "compress", "off", "superimpose", "layer",
-    "jux", "juxBy", "bite", "mask", "sew", "stitch", "when",
+    "jux", "juxBy", "bite", "mask", "sew", "stitch", "when", "groove",
 ];
 
 /// Check if an expression is a pure pattern transform (no signal source)
@@ -839,7 +945,19 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             ctx.buses
                 .get(&name)
                 .copied()
-                .ok_or_else(|| format!("Undefined bus: ~{}", name))
+                .ok_or_else(|| {
+                    let available: Vec<&str> = ctx.buses.keys().map(|s| s.as_str()).collect();
+                    let suggestion = suggest_similar_owned(&name, &available);
+                    let mut msg = format!("Undefined bus: ~{}", name);
+                    if let Some(s) = suggestion {
+                        msg.push_str(&format!(". Did you mean: ~{}?", s));
+                    }
+                    if !available.is_empty() {
+                        let bus_list: Vec<String> = available.iter().map(|b| format!("~{}", b)).collect();
+                        msg.push_str(&format!(". Available buses: {}", bus_list.join(", ")));
+                    }
+                    msg
+                })
         }
 
         Expr::BusCall { name, args } => {
@@ -932,6 +1050,44 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             }
             if name == "tri" || name == "triangle" {
                 return compile_oscillator(ctx, Waveform::Triangle, vec![Expr::Number(1.0)]);
+            }
+
+            // Check if this is a known function that requires arguments
+            let functions_needing_args: &[&str] = &[
+                "s", "fm", "pm", "blip", "vco", "wavetable", "granular",
+                "pluck", "waveguide", "formant", "vowel", "additive", "vocoder",
+                "pitch_shift", "impulse", "lag", "xline", "asr", "pulse", "ring_mod",
+                "fmcrossmod", "fm_crossmod", "limiter",
+                "pan2_l", "pan2_r", "pan2",
+                "organ_hz", "organ", "moog_hz", "reverb_stereo", "fchorus",
+                "saw_hz", "soft_saw_hz", "soft_saw", "square_hz", "triangle_hz",
+                "sine_trig", "saw_trig", "square_trig", "tri_trig",
+                "synth", "midiSynth", "midi_synth",
+                "superkick", "supersaw", "superpwm", "superchip", "superfm",
+                "supersnare", "superhat",
+                "lpf", "hpf", "bpf", "notch", "comb", "moog_ladder", "moog",
+                "parametric_eq", "eq",
+                "reverb", "convolve", "convolution", "freeze",
+                "distort", "distortion", "dist", "delay",
+                "tapedelay", "tape", "multitap", "pingpong", "plate", "lush",
+                "chorus", "flanger", "compressor", "comp",
+                "expander", "expand", "bitcrush", "coarse", "djf",
+                "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
+                "xfade", "mix", "select", "allpass",
+                "svf_lp", "svf_hp", "svf_bp", "svf_notch",
+                "bq_lp", "bq_hp", "bq_bp", "bq_notch",
+                "resonz", "rlpf", "rhpf",
+                "env", "envelope", "env_trig", "adsr", "ad", "line", "curve", "segments",
+                "rms", "schmidt", "latch", "timer", "peak_follower", "amp_follower",
+                "n", "note", "gain", "pan", "speed", "cut", "attack", "release",
+                "ar", "begin", "end", "unit", "loop", "amp", "struct",
+                "tar", "tadsr", "gate", "trig",
+                "run", "scan", "irand", "mtof", "cosine",
+                "range", "min", "wrap", "sample_hold", "decimator",
+                "stack", "cat", "slowcat", "wedge", "sew",
+            ];
+            if functions_needing_args.contains(&name.as_str()) {
+                return Err(format!("'{}' requires argument(s). Usage: {} <input> [params]", name, name));
             }
 
             // Otherwise, look up variable (function parameter)
@@ -3033,7 +3189,51 @@ fn compile_function_call(
                     name, name, name
                 ))
             } else {
-                Err(format!("Unknown function: {}", name))
+                let known_functions: &[&str] = &[
+                    "stack", "cat", "slowcat", "wedge", "sew",
+                    "s", "sine", "saw", "square", "tri", "triangle",
+                    "fm", "pm", "blip", "vco", "wavetable", "granular",
+                    "pluck", "waveguide", "formant", "vowel", "additive", "vocoder",
+                    "pitch_shift", "white_noise", "pink_noise", "brown_noise",
+                    "impulse", "lag", "xline", "asr", "pulse", "ring_mod",
+                    "fmcrossmod", "fm_crossmod", "limiter",
+                    "pan2_l", "pan2_r", "pan2",
+                    "organ_hz", "organ", "moog_hz", "reverb_stereo", "fchorus",
+                    "saw_hz", "soft_saw_hz", "soft_saw", "square_hz", "triangle_hz",
+                    "noise", "pink",
+                    "sine_trig", "saw_trig", "square_trig", "tri_trig",
+                    "synth", "midiSynth", "midi_synth",
+                    "superkick", "supersaw", "superpwm", "superchip", "superfm",
+                    "supersnare", "superhat",
+                    "lpf", "hpf", "bpf", "notch", "comb", "moog_ladder", "moog",
+                    "parametric_eq", "eq",
+                    "reverb", "convolve", "convolution", "freeze",
+                    "distort", "distortion", "dist", "delay",
+                    "tapedelay", "tape", "multitap", "pingpong", "plate", "lush",
+                    "chorus", "flanger", "compressor", "comp",
+                    "sidechain_compressor", "sidechain_comp", "sc_comp",
+                    "expander", "expand", "bitcrush", "coarse", "djf", "ring",
+                    "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
+                    "xfade", "mix", "if", "select", "allpass",
+                    "svf_lp", "svf_hp", "svf_bp", "svf_notch",
+                    "bq_lp", "bq_hp", "bq_bp", "bq_notch",
+                    "resonz", "rlpf", "rhpf", "tap", "probe",
+                    "env", "envelope", "env_trig", "adsr", "ad", "line", "curve", "segments",
+                    "rms", "schmidt", "latch", "timer", "peak_follower", "amp_follower",
+                    "n", "note", "gain", "pan", "speed", "cut", "attack", "release",
+                    "ar", "begin", "end", "unit", "loop", "amp", "struct",
+                    "tar", "tadsr", "gate", "trig",
+                    "run", "scan", "irand", "rand", "phasor", "mtof", "cosine",
+                    "every_val", "sometimes_val", "sometimes_by_val", "whenmod_val",
+                    "every_effect", "sometimes_effect", "whenmod_effect",
+                    "range", "min", "wrap", "sample_hold", "decimator",
+                    "vst", "vst2", "vst3", "au", "clap", "lv2", "plugin", "param",
+                ];
+                let suggestion = suggest_similar(name, known_functions);
+                match suggestion {
+                    Some(s) => Err(format!("Unknown function: {}. Did you mean: {}?", name, s)),
+                    None => Err(format!("Unknown function: {}", name)),
+                }
             }
         }
     }
@@ -4334,28 +4534,54 @@ fn compile_fm_crossmod(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
     Ok(ctx.graph.add_node(node))
 }
 
-/// Compile brick-wall limiter
+/// Compile lookahead limiter
+/// Usage: limiter input threshold [attack] [release]
+/// - threshold: maximum amplitude (linear, 0.0-1.0)
+/// - attack: lookahead/attack time in seconds (default 0.005)
+/// - release: release time in seconds (default 0.05)
 fn compile_limiter(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    if args.len() != 2 {
+    use crate::unified_graph::LimiterState;
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.is_empty() || params.len() > 3 {
         return Err(format!(
-            "limiter requires 2 parameters (input, threshold), got {}",
-            args.len()
+            "limiter requires 1-3 parameters (threshold [attack] [release]), got {}",
+            params.len()
         ));
     }
 
-    // Compile input signal and threshold
-    let input_node = compile_expr(ctx, args[0].clone())?;
-    let threshold_node = compile_expr(ctx, args[1].clone())?;
+    let threshold_node = compile_expr(ctx, params[0].clone())?;
 
-    let release = if args.len() >= 3 {
-        Signal::Node(compile_expr(ctx, args[2].clone())?)
+    // Optional attack time (default 5ms)
+    let attack = if params.len() >= 2 {
+        Signal::Node(compile_expr(ctx, params[1].clone())?)
     } else {
-        Signal::Value(0.01)
+        Signal::Value(0.005)
     };
 
+    // Optional release time (default 50ms)
+    let release = if params.len() >= 3 {
+        Signal::Node(compile_expr(ctx, params[2].clone())?)
+    } else {
+        Signal::Value(0.05)
+    };
+
+    // Compute lookahead buffer size from attack time
+    // Use default 5ms if attack is a pattern (we'll use default buffer size)
+    let attack_secs = match &attack {
+        Signal::Value(v) => *v as f64,
+        _ => 0.005,
+    };
+    let lookahead_samples = (attack_secs * ctx.graph.sample_rate() as f64) as usize;
+
     let node = SignalNode::Limiter {
-        input: Signal::Node(input_node),
+        input: input_signal,
         threshold: Signal::Node(threshold_node),
+        attack,
+        release,
+        state: LimiterState::new(lookahead_samples.max(1)),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -8199,10 +8425,13 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
             }
         }
-        Transform::Chop(n_expr) | Transform::Striate(n_expr) => {
-            // chop and striate are aliases - both slice pattern into n parts
+        Transform::Chop(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.chop(n))
+        }
+        Transform::Striate(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.striate(n))
         }
         Transform::Stripe(n_expr) => {
             // stripe n - repeat pattern n times over n cycles at random speeds
@@ -8308,6 +8537,42 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     Ok(pattern.swing(Pattern::pure(amount)))
                 }
             }
+        }
+        Transform::Groove { preset, amount } => {
+            // Resolve preset name to a GrooveTemplate
+            let preset_name = match preset.as_ref() {
+                Expr::String(s) => s.clone(),
+                _ => return Err("groove preset must be a string (e.g., groove \"mpc\")".to_string()),
+            };
+
+            let template = match preset_name.as_str() {
+                "mpc" | "mpc_swing" => crate::groove::presets::mpc_swing(0.5),
+                "hiphop" | "lazy_hiphop" => crate::groove::presets::lazy_hiphop(),
+                "reggae" | "reggae_one_drop" => crate::groove::presets::reggae_one_drop(),
+                "one_drop" => crate::groove::presets::reggae_one_drop(),
+                "jazz" | "jazz_swing" => crate::groove::presets::jazz_swing(0.5),
+                "drunken" | "drunk" => crate::groove::presets::drunken(0.5),
+                _ => return Err(format!("Unknown groove preset '{}'. Available: mpc, hiphop, reggae, jazz, drunken", preset_name)),
+            };
+
+            let template = Arc::new(template);
+
+            // Resolve amount pattern (default 1.0)
+            let amount_pattern = match amount {
+                Some(amount_expr) => match amount_expr.as_ref() {
+                    Expr::String(s) => {
+                        let string_pattern = parse_mini_notation(s);
+                        string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
+                    }
+                    _ => {
+                        let val = extract_number(&amount_expr)?;
+                        Pattern::pure(val)
+                    }
+                },
+                None => Pattern::pure(1.0),
+            };
+
+            Ok(pattern.apply_groove(template, amount_pattern))
         }
         Transform::Legato(factor_expr) => {
             // Support both pattern strings and constant numbers
@@ -9101,6 +9366,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // detect effect transforms and handle them specially.
             Err("Transform::Effect cannot be applied to patterns - it must be handled at the signal level".to_string())
         }
+
     }
 }
 

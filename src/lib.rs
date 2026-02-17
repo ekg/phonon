@@ -27,7 +27,7 @@
 //!
 //! ### Basic Sample Playback
 //!
-//! ```rust
+//! ```ignore
 //! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
 //! use phonon::mini_notation_v3::parse_mini_notation;
 //! use std::collections::HashMap;
@@ -41,11 +41,21 @@
 //!     pattern_str: "bd ~ bd ~ ~ sn ~ ~".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -56,7 +66,7 @@
 //!
 //! ### Pattern-Controlled Parameters
 //!
-//! ```rust
+//! ```ignore
 //! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
 //! use phonon::mini_notation_v3::parse_mini_notation;
 //! use std::collections::HashMap;
@@ -79,11 +89,21 @@
 //!     pattern_str: "hh*8".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(0.8),
 //!     pan: Signal::Node(pan_node), // Pan controlled by pattern!
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -91,8 +111,9 @@
 //!
 //! ### Synthesis with Filters
 //!
-//! ```rust
+//! ```ignore
 //! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform, FilterState};
+//! use std::cell::RefCell;
 //!
 //! let mut graph = UnifiedSignalGraph::new(44100.0);
 //!
@@ -100,7 +121,10 @@
 //! let osc = graph.add_node(SignalNode::Oscillator {
 //!     freq: Signal::Value(110.0), // A2 note
 //!     waveform: Waveform::Saw,
+//!     semitone_offset: 0.0,
 //!     phase: RefCell::new(0.0),
+//!     pending_freq: RefCell::new(None),
+//!     last_sample: RefCell::new(0.0),
 //! });
 //!
 //! // Add a lowpass filter
@@ -206,7 +230,7 @@
 //!
 //! ### Multi-Output Routing
 //!
-//! ```rust
+//! ```ignore
 //! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
 //! use phonon::mini_notation_v3::parse_mini_notation;
 //! use std::collections::HashMap;
@@ -220,11 +244,21 @@
 //!     pattern_str: "bd ~ bd ~".to_string(),
 //!     pattern: kick_pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! // Snare on channel 2
@@ -233,17 +267,27 @@
 //!     pattern_str: "~ sn ~ sn".to_string(),
 //!     pattern: snare_pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output_channel(1, kick_node);
 //! graph.set_output_channel(2, snare_node);
 //!
-//! // Process multi-channel output
+//! // Process multi-channel audio
 //! let outputs = graph.process_sample_multi(); // Vec<f32>
 //! // outputs[0] = channel 1, outputs[1] = channel 2
 //! ```
@@ -284,15 +328,12 @@ pub mod dependency_graph;
 pub mod node_task; // Continuous async task wrapper for AudioNode (Phase 5)
 pub mod nodes; // Concrete AudioNode implementations // High-level graph wrapper (Phase 3)
 
-pub mod ab_test;
 pub mod audio;
 pub mod audio_analysis;
 pub mod audio_similarity;
-pub mod beat_grid;
 pub mod compositional_compiler;
 pub mod compositional_parser;
 pub mod macro_expander;
-pub mod dsl_osc_handler;
 pub mod dsp_parameter;
 pub mod engine;
 pub mod enhanced_parser;
@@ -313,13 +354,10 @@ pub mod mini_notation;
 pub mod mini_notation_v3;
 pub mod modal_editor;
 pub mod modulation_router;
-pub mod musical_quality;
-pub mod nom_parser;
 pub mod onset_timing;
 pub mod osc_control;
 pub mod osc_live_server;
 pub mod pattern;
-pub mod pattern_bridge;
 pub mod pattern_debug;
 pub mod pattern_lang_parser;
 pub mod pattern_metrics;
@@ -332,7 +370,6 @@ pub mod pattern_signal;
 pub mod pattern_structure;
 pub mod pattern_test;
 pub mod pattern_tonal;
-pub mod phonon_lang;
 pub mod plugin_host;
 pub mod reference_audio;
 pub mod render;

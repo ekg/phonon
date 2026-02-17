@@ -1266,34 +1266,6 @@ pub fn get_all_functions() -> HashMap<String, GeneratedNodeMetadata> {
         ],
     });
 
-    // transientshaper (Effects)
-    map.insert("transientshaper".to_string(), GeneratedNodeMetadata {
-        name: "transientshaper".to_string(),
-        description: "Transient shaper node: independent control of attack and sustain".to_string(),
-        category: "Effects".to_string(),
-        example: "".to_string(),
-        params: vec![
-            GeneratedParamMetadata {
-                name: "input".to_string(),
-                param_type: "NodeId".to_string(),
-                default: None,
-                description: "".to_string(),
-            },
-            GeneratedParamMetadata {
-                name: "attack_input".to_string(),
-                param_type: "NodeId".to_string(),
-                default: None,
-                description: "".to_string(),
-            },
-            GeneratedParamMetadata {
-                name: "sustain_input".to_string(),
-                param_type: "NodeId".to_string(),
-                default: None,
-                description: "".to_string(),
-            },
-        ],
-    });
-
     // latch (Effects)
     map.insert("latch".to_string(), GeneratedNodeMetadata {
         name: "latch".to_string(),

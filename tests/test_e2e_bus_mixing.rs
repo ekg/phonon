@@ -741,7 +741,6 @@ fn test_crossfade_between_buses() {
 
 /// Test 28: Many buses (8 buses)
 #[test]
-#[ignore = "BUG: stack overflow from recursive signal evaluation with 8 buses"]
 fn test_many_buses() {
     let code = r#"
         tempo: 0.5

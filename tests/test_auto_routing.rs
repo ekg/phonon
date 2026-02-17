@@ -187,9 +187,9 @@ fn test_non_matching_buses_dont_auto_route() {
     // Test that buses not matching the pattern don't auto-route
     let phonon_code = r#"
 cps: 2.0
-~d1: saw 110        # Matches pattern, auto-routes
-~drums: saw 220     # Doesn't match, should NOT auto-route
-~bass: saw 55       # Doesn't match, should NOT auto-route
+~d1: saw 110        -- Matches pattern, auto-routes
+~drums: saw 220     -- Doesn't match, should NOT auto-route
+~bass: saw 55       -- Doesn't match, should NOT auto-route
 "#;
 
     fs::write("/tmp/test_non_matching.phonon", phonon_code).unwrap();

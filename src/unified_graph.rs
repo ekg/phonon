@@ -99,6 +99,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -150,6 +155,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -191,6 +201,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -199,9 +214,10 @@
 //! ## Example: Gain Envelope
 //!
 //! ```rust
-//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr};
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr, Waveform};
 //! use phonon::mini_notation_v3::parse_mini_notation;
 //! use std::collections::HashMap;
+//! use std::cell::RefCell;
 //!
 //! let mut graph = UnifiedSignalGraph::new(44100.0);
 //! graph.set_cps(2.0);
@@ -209,8 +225,11 @@
 //! // Create LFO for gain modulation (0.5 Hz sine wave)
 //! let lfo = graph.add_node(SignalNode::Oscillator {
 //!     freq: Signal::Value(0.5),
-//!     waveform: phonon::unified_graph::Waveform::Sine,
+//!     waveform: Waveform::Sine,
+//!     semitone_offset: 0.0,
 //!     phase: RefCell::new(0.0),
+//!     pending_freq: RefCell::new(None),
+//!     last_sample: RefCell::new(0.0),
 //! });
 //!
 //! // Scale LFO from -1..1 to 0.2..1.0 (quiet to loud)
@@ -236,6 +255,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -272,6 +296,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! // Cutoff frequency pattern (200 Hz to 2000 Hz)
@@ -300,6 +329,7 @@
 //! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform, SignalExpr};
 //! use phonon::mini_notation_v3::parse_mini_notation;
 //! use std::collections::HashMap;
+//! use std::cell::RefCell;
 //!
 //! let mut graph = UnifiedSignalGraph::new(44100.0);
 //! graph.set_cps(2.0);
@@ -308,7 +338,10 @@
 //! let modulator = graph.add_node(SignalNode::Oscillator {
 //!     freq: Signal::Value(5.0),
 //!     waveform: Waveform::Sine,
+//!     semitone_offset: 0.0,
 //!     phase: RefCell::new(0.0),
+//!     pending_freq: RefCell::new(None),
+//!     last_sample: RefCell::new(0.0),
 //! });
 //!
 //! // Carrier frequency: 220 Hz + modulation
@@ -324,7 +357,10 @@
 //! let carrier = graph.add_node(SignalNode::Oscillator {
 //!     freq: modulated_freq,
 //!     waveform: Waveform::Sine,
+//!     semitone_offset: 0.0,
 //!     phase: RefCell::new(0.0),
+//!     pending_freq: RefCell::new(None),
+//!     last_sample: RefCell::new(0.0),
 //! });
 //!
 //! graph.set_output(carrier);
@@ -358,6 +394,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! // Snare pattern on channel 2
@@ -376,6 +417,11 @@
 //!     note: Signal::Value(0.0),
 //!     attack: Signal::Value(0.0),
 //!     release: Signal::Value(0.0),
+//!     envelope_type: None,
+//!     unit_mode: Signal::Value(0.0),
+//!     loop_enabled: Signal::Value(0.0),
+//!     begin: Signal::Value(0.0),
+//!     end: Signal::Value(1.0),
 //! });
 //!
 //! graph.set_output_channel(1, kick_node);  // Channel 1
@@ -873,11 +919,14 @@ pub enum SignalNode {
         state: PitchShifterState,
     },
 
-    /// Brick-wall limiter (prevents signal from exceeding threshold)
-    /// Clamps signal to [-threshold, +threshold]
+    /// Lookahead limiter (prevents signal from exceeding threshold)
+    /// Uses lookahead delay and smooth gain envelope for transparent limiting
     Limiter {
         input: Signal,     // Input signal
-        threshold: Signal, // Maximum allowed amplitude
+        threshold: Signal, // Maximum allowed amplitude (linear, 0.0-1.0)
+        attack: Signal,    // Attack/lookahead time in seconds (0.001 to 0.1)
+        release: Signal,   // Release time in seconds (0.01 to 1.0)
+        state: LimiterState,
     },
 
     /// State Variable Filter (Chamberlin topology)
@@ -3878,6 +3927,32 @@ impl Default for ExpanderState {
     }
 }
 
+/// Lookahead limiter state
+/// Uses a delay buffer and envelope follower for transparent limiting
+#[derive(Debug, Clone)]
+pub struct LimiterState {
+    envelope: f32,       // Current gain envelope (0.0 to 1.0)
+    delay_buffer: Vec<f32>, // Circular buffer for lookahead delay
+    write_idx: usize,    // Write position in delay buffer
+}
+
+impl LimiterState {
+    pub fn new(lookahead_samples: usize) -> Self {
+        Self {
+            envelope: 1.0, // Start with unity gain
+            delay_buffer: vec![0.0; lookahead_samples.max(1)],
+            write_idx: 0,
+        }
+    }
+}
+
+impl Default for LimiterState {
+    fn default() -> Self {
+        // Default: 5ms lookahead at 44100 Hz = 220 samples
+        Self::new(220)
+    }
+}
+
 /// Adaptive Compressor state
 /// Tracks both envelope follower and RMS analysis for adaptive behavior
 #[derive(Debug, Clone)]
@@ -4571,6 +4646,7 @@ pub enum ExtractedFxState {
     // Dynamics (preserves envelope state)
     Compressor(CompressorState),
     Expander(ExpanderState),
+    Limiter(LimiterState),
 
     // Filters (preserves filter state - prevents clicks)
     Filter(FilterState),
@@ -5247,6 +5323,11 @@ impl UnifiedSignalGraph {
                             Arc::new(RwLock::new(state.clone()))
                         ));
                     }
+                    SignalNode::Limiter { state, .. } => {
+                        registry.register(node_id, SharedState::Limiter(
+                            Arc::new(RwLock::new(state.clone()))
+                        ));
+                    }
 
                     // === Medium priority: Synthesis ===
                     SignalNode::Granular { state, .. } => {
@@ -5743,6 +5824,10 @@ impl UnifiedSignalGraph {
                     SignalNode::Expander { state, .. } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "expander");
                         state_map.insert(key, ExtractedFxState::Expander(state.clone()));
+                    }
+                    SignalNode::Limiter { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "limiter");
+                        state_map.insert(key, ExtractedFxState::Limiter(state.clone()));
                     }
                     SignalNode::LowPass { state, .. }
                     | SignalNode::HighPass { state, .. }
@@ -6377,9 +6462,11 @@ impl UnifiedSignalGraph {
                 collect!(cutoff);
                 collect!(resonance);
             }
-            SignalNode::Limiter { input, threshold } => {
+            SignalNode::Limiter { input, threshold, attack, release, .. } => {
                 collect!(input);
                 collect!(threshold);
+                collect!(attack);
+                collect!(release);
             }
 
             // === Binary operations ===
@@ -7884,6 +7971,23 @@ impl UnifiedSignalGraph {
                                 attack: attack.clone(),
                                 release: release.clone(),
                                 makeup_gain: makeup_gain.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    SignalNode::Limiter {
+                        input, threshold, attack, release, ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "limiter");
+                        if let Some(ExtractedFxState::Limiter(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Limiter {
+                                input: input.clone(),
+                                threshold: threshold.clone(),
+                                attack: attack.clone(),
+                                release: release.clone(),
                                 state: state.clone(),
                             })
                         } else {
@@ -9461,7 +9565,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Evaluate a signal to get its current value
-    #[inline(always)]
+    #[inline]
     fn eval_signal(&mut self, signal: &Signal) -> f32 {
         let cycle_position = self.get_cycle_position();
         self.eval_signal_at_time(signal, cycle_position)
@@ -10032,7 +10136,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Evaluate a node to get its current output value
-    #[inline(always)]
+    #[inline]
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
         // Use call_stack size as recursion depth indicator
         let depth = self.eval_call_stack.len();
@@ -10044,6 +10148,20 @@ impl UnifiedSignalGraph {
             // Safety limit to prevent actual stack overflow
             if depth > 500 {
                 return 0.0;
+            }
+        }
+
+        // DAG MODE: Check dag_buffer_cache for pre-computed values from topological processing.
+        // Bus nodes are processed in topological order before the output node. Their results
+        // are stored in dag_buffer_cache. Without this check, eval_node recurses through all
+        // intermediate expression nodes (Add/Multiply), causing stack overflow with many buses.
+        // Skip the check for the node currently being processed (it references itself for
+        // feedback/z^-1 which is handled by the cycle detection below).
+        if self.in_dag_processing && self.current_dag_node_id != Some(node_id.0) {
+            if let Some(buffer) = self.dag_buffer_cache.get(&node_id.0) {
+                if let Some(&value) = buffer.get(self.current_sample_idx) {
+                    return value;
+                }
             }
         }
 
@@ -11147,14 +11265,61 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Limiter {
-                input, threshold, ..
+                input, threshold, attack, release, state,
             } => {
-                // Evaluate input signal and threshold
                 let input_val = self.eval_signal(input);
-                let thresh = self.eval_signal(threshold).max(0.0);
+                let thresh = self.eval_signal(threshold).clamp(0.001, 2.0);
+                let _attack_time = self.eval_signal(attack).clamp(0.001, 0.1);
+                let release_time = self.eval_signal(release).clamp(0.01, 1.0);
 
-                // Brick-wall limiting: clamp to [-threshold, +threshold]
-                input_val.clamp(-thresh, thresh)
+                // Lookahead limiter algorithm:
+                // The delay buffer provides lookahead so we can see peaks before
+                // they reach the output, allowing transparent gain reduction.
+                //
+                // Gain reduction is instant (we take the minimum of current
+                // envelope and target gain). Only gain recovery (release) is
+                // smoothed to avoid pumping artifacts.
+
+                let buf_len = state.delay_buffer.len();
+                let mut envelope = state.envelope;
+
+                // Read the delayed sample (lookahead output)
+                let write_idx = state.write_idx % buf_len;
+                let delayed_sample = state.delay_buffer[write_idx];
+
+                // Compute target gain from current input (we see this before output)
+                let input_abs = input_val.abs();
+                let target_gain = if input_abs > thresh {
+                    thresh / input_abs
+                } else {
+                    1.0
+                };
+
+                // Gain reduction is instant (take minimum)
+                // Gain recovery (release) is smoothed
+                if target_gain < envelope {
+                    // Instant attack - immediately reduce gain
+                    envelope = target_gain;
+                } else {
+                    // Smooth release - gradually return to unity
+                    let release_coeff = (-1.0 / (release_time * self.sample_rate)).exp();
+                    envelope = release_coeff * envelope + (1.0 - release_coeff) * target_gain;
+                }
+
+                // Apply gain to delayed signal
+                let output = delayed_sample * envelope;
+
+                // Update state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Limiter { state: s, .. } = node {
+                        s.delay_buffer[write_idx] = input_val;
+                        s.write_idx = (write_idx + 1) % buf_len;
+                        s.envelope = envelope;
+                    }
+                }
+
+                output
             }
 
             SignalNode::SVF {

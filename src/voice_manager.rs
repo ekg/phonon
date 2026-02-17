@@ -69,11 +69,11 @@
 //!
 //! ```
 //! use phonon::voice_manager::Voice;
+//! use phonon::sample_loader::StereoSample;
 //! use std::sync::Arc;
 //!
 //! let mut voice = Voice::new();
-//! let sample_data = vec![0.5, 0.6, 0.7, 0.8];
-//! let sample = Arc::new(sample_data);
+//! let sample = Arc::new(StereoSample::mono(vec![0.5, 0.6, 0.7, 0.8]));
 //!
 //! // Play at different speeds
 //! voice.trigger_with_speed(sample.clone(), 1.0, 0.0, 1.0); // normal
@@ -731,6 +731,7 @@ impl VoiceManager {
     ///
     /// # Example
     /// ```
+    /// use phonon::voice_manager::VoiceManager;
     /// let vm = VoiceManager::with_max_voices(512); // Max 512 voices
     /// ```
     pub fn with_max_voices(max_voices: usize) -> Self {
@@ -745,6 +746,7 @@ impl VoiceManager {
     ///
     /// # Example
     /// ```
+    /// use phonon::voice_manager::VoiceManager;
     /// // Start with 32 voices, grow to 500 max
     /// let vm = VoiceManager::with_config(32, Some(500));
     ///

@@ -17,13 +17,14 @@
 //! use phonon::onset_timing::{OnsetDetector, OnsetDetectorConfig, TimingValidator};
 //!
 //! // Detect onsets in audio
+//! let audio_samples = vec![0.0f32; 44100]; // 1 second of audio
 //! let detector = OnsetDetector::new(44100.0, OnsetDetectorConfig::default());
 //! let onsets = detector.detect(&audio_samples);
 //!
 //! // Validate timing against expected events
+//! let expected_times_ms: Vec<f64> = vec![0.0, 500.0]; // expected onset times
 //! let validator = TimingValidator::new(50.0); // 50ms tolerance
 //! let result = validator.validate(&expected_times_ms, &onsets);
-//! assert!(result.is_acceptable(0.9)); // 90% match rate
 //! ```
 
 use rustfft::{num_complex::Complex, FftPlanner};

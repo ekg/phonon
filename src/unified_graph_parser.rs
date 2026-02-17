@@ -454,6 +454,8 @@ pub enum PatternTransformOp {
     },
     /// Stereo effect (original + transformed): jux (rev)
     Jux(Box<PatternTransformOp>),
+    /// Hurry: fast + speed combined (speeds up pattern and pitch): hurry 2
+    Hurry(Box<DslExpression>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1209,6 +1211,10 @@ fn parse_transform_op_group2(input: &str) -> IResult<&str, PatternTransformOp> {
         // slow n
         map(preceded(tag("slow"), ws(primary)), |n| {
             PatternTransformOp::Slow(Box::new(n))
+        }),
+        // hurry n (fast + speed combined)
+        map(preceded(tag("hurry"), ws(primary)), |n| {
+            PatternTransformOp::Hurry(Box::new(n))
         }),
         // squeeze n
         map(preceded(tag("squeeze"), ws(primary)), |n| {
@@ -3449,6 +3455,10 @@ impl DslCompiler {
             PatternTransformOp::Slow(factor_expr) => {
                 let factor = self.extract_constant(*factor_expr)?;
                 Ok(pattern.slow(Pattern::pure(factor)))
+            }
+            PatternTransformOp::Hurry(factor_expr) => {
+                let factor = self.extract_constant(*factor_expr)?;
+                Ok(pattern.hurry(Pattern::pure(factor)))
             }
             PatternTransformOp::Squeeze(factor_expr) => {
                 let factor = self.extract_constant(*factor_expr)?;
