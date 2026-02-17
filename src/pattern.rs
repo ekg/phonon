@@ -1310,8 +1310,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     }
 
                     // Scale the query to pattern's internal time
-                    let scaled_start = (query_start - pattern_start) * len;
-                    let scaled_end = (query_end - pattern_start) * len;
+                    // Preserve the cycle offset so nested slowcat/alternation
+                    // patterns can determine which cycle they're on
+                    let scaled_start = (query_start - pattern_start) * len + cycle_f;
+                    let scaled_end = (query_end - pattern_start) * len + cycle_f;
 
                     let scaled_state = State {
                         span: TimeSpan::new(
@@ -1324,8 +1326,9 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     // Query the pattern and rescale results
                     for mut hap in pattern.query(&scaled_state) {
                         // Rescale from pattern time back to global time
-                        let hap_start = hap.part.begin.to_float() / len + pattern_start + cycle_f;
-                        let hap_end = hap.part.end.to_float() / len + pattern_start + cycle_f;
+                        // Subtract cycle_f to undo the cycle offset we added
+                        let hap_start = (hap.part.begin.to_float() - cycle_f) / len + pattern_start + cycle_f;
+                        let hap_end = (hap.part.end.to_float() - cycle_f) / len + pattern_start + cycle_f;
 
                         hap.part = TimeSpan::new(
                             Fraction::from_float(hap_start),
@@ -1334,8 +1337,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                         if let Some(whole) = hap.whole {
                             let whole_start =
-                                whole.begin.to_float() / len + pattern_start + cycle_f;
-                            let whole_end = whole.end.to_float() / len + pattern_start + cycle_f;
+                                (whole.begin.to_float() - cycle_f) / len + pattern_start + cycle_f;
+                            let whole_end = (whole.end.to_float() - cycle_f) / len + pattern_start + cycle_f;
                             hap.whole = Some(TimeSpan::new(
                                 Fraction::from_float(whole_start),
                                 Fraction::from_float(whole_end),

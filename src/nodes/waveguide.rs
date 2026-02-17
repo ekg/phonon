@@ -242,7 +242,9 @@ impl AudioNode for WaveguideNode {
 
             // Inject excitation and apply decay feedback
             // In a waveguide, waves travel in opposite directions and couple at boundaries
-            let fwd_input = excitation * 0.5 + bwd_filtered * decay;
+            // The backward wave is negated (inverted) to simulate a fixed boundary condition,
+            // which creates proper oscillation around zero (like a string fixed at both ends)
+            let fwd_input = excitation * 0.5 - bwd_filtered * decay;
             let bwd_input = excitation * 0.5 + fwd_filtered * decay;
 
             // Write to delay lines
@@ -330,7 +332,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "BUG: high frequency handling needs better delay line"]
     fn test_waveguide_frequency_controls_pitch() {
         // Test 2: Verify frequency parameter affects pitch
         // Compare two different frequencies to ensure pitch control works

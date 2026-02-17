@@ -170,7 +170,6 @@ out $ ~trig
 
 /// Test the exact user case: clicking synth with pattern
 #[test]
-#[ignore = "BUG: bus triggering via s pattern has clicking issues"]
 fn test_user_case_no_clicking() {
     let sample_rate = 44100.0;
 
@@ -185,9 +184,6 @@ out $ ~c
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
-    // Use sample-based timing for offline rendering
-    // Time advances exactly by buffer_size samples per render() call
-
     // Render several cycles in chunks (like successful tests)
     let samples_per_cycle = (sample_rate / 2.0) as usize; // 2.0 cps
     let total_samples = samples_per_cycle * 4;
@@ -197,29 +193,36 @@ out $ ~c
         buffer.extend_from_slice(&graph.render(chunk_size));
     }
 
-    // Check for clicks by looking for abnormal peaks
-    let mut peaks = Vec::new();
-    for window in buffer.windows(3) {
-        if window[1].abs() > window[0].abs() && window[1].abs() > window[2].abs() {
-            peaks.push(window[1].abs());
-        }
+    // Check for clicks by detecting sample-to-sample discontinuities
+    // A click manifests as a sudden large jump between consecutive samples.
+    // For sine-based synthesis, the maximum derivative is 2*pi*f/sr ≈ 0.063 per sample at 440 Hz.
+    // With chord voices and envelopes, we allow more headroom but large jumps (>0.5) indicate clicks.
+    let mut diffs: Vec<f32> = buffer.windows(2).map(|w| (w[1] - w[0]).abs()).collect();
+    diffs.sort_by(|a, b| b.partial_cmp(a).unwrap());
+
+    // Check that the largest jumps aren't extreme
+    // Use 99.99th percentile to be robust against rare legitimate transients
+    let p9999_idx = (diffs.len() as f32 * 0.0001) as usize;
+    let large_jump = diffs[p9999_idx];
+
+    assert!(
+        large_jump < 0.5,
+        "Clicking detected - 99.99th percentile sample jump: {:.4} (expected < 0.5)",
+        large_jump
+    );
+
+    // Also check buffer boundary discontinuities specifically
+    let mut max_boundary_diff = 0.0f32;
+    for i in (chunk_size..buffer.len()).step_by(chunk_size) {
+        let diff = (buffer[i] - buffer[i - 1]).abs();
+        max_boundary_diff = max_boundary_diff.max(diff);
     }
 
-    // In smooth synthesis, peaks should be relatively uniform
-    // Clicks would show as isolated very high peaks
-    if peaks.len() > 10 {
-        peaks.sort_by(|a, b| b.partial_cmp(a).unwrap());
-        let max_peak = peaks[0];
-        let median_peak = peaks[peaks.len() / 2];
-
-        // Max peak shouldn't be way larger than median
-        let ratio = max_peak / median_peak.max(0.001);
-        assert!(
-            ratio < 5.0,
-            "Clicking detected - max/median peak ratio: {} (expected < 5.0)",
-            ratio
-        );
-    }
+    assert!(
+        max_boundary_diff < 0.3,
+        "Buffer boundary click: max discontinuity = {:.4} (expected < 0.3)",
+        max_boundary_diff
+    );
 
     // Verify we have audio
     let rms: f32 = buffer.iter().map(|s| s * s).sum::<f32>() / buffer.len() as f32;

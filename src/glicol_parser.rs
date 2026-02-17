@@ -658,7 +658,7 @@ impl GlicolParser {
             Token::Lpf => {
                 self.advance();
                 let cutoff = self.parse_number_or_ref()?;
-                let q = if let Token::Number(_) = self.current_token() {
+                let q = if matches!(self.current_token(), Token::Number(_) | Token::Tilde) {
                     self.parse_number_or_ref()?
                 } else {
                     1.0
@@ -671,7 +671,7 @@ impl GlicolParser {
             Token::Hpf => {
                 self.advance();
                 let cutoff = self.parse_number_or_ref()?;
-                let q = if let Token::Number(_) = self.current_token() {
+                let q = if matches!(self.current_token(), Token::Number(_) | Token::Tilde) {
                     self.parse_number_or_ref()?
                 } else {
                     1.0
@@ -684,7 +684,7 @@ impl GlicolParser {
             Token::Delay => {
                 self.advance();
                 let time = self.parse_number_or_ref()?;
-                let feedback = if let Token::Number(_) = self.current_token() {
+                let feedback = if matches!(self.current_token(), Token::Number(_) | Token::Tilde) {
                     self.parse_number_or_ref()?
                 } else {
                     0.5
@@ -698,7 +698,7 @@ impl GlicolParser {
             Token::Reverb => {
                 self.advance();
                 let room = self.parse_number_or_ref()?;
-                let damp = if let Token::Number(_) = self.current_token() {
+                let damp = if matches!(self.current_token(), Token::Number(_) | Token::Tilde) {
                     self.parse_number_or_ref()?
                 } else {
                     0.5

@@ -50,14 +50,13 @@ fn test_zero_crossing_detector_basic() {
 }
 
 #[test]
-#[ignore = "BUG: 3-stage feedback with samples produces silence (RMS=0)"]
 fn test_multi_stage_feedback_3_stages() {
     // Test 3-stage feedback network: A → B → C → A
     let mut graph = UnifiedSignalGraph::new(44100.0);
     graph.set_cps(2.0);
 
     // Create a simple pattern trigger
-    let pattern = phonon::mini_notation_v3::parse_mini_notation("x ~ x ~");
+    let pattern = phonon::mini_notation_v3::parse_mini_notation("bd ~ bd ~");
     let trigger_node = graph.add_node(SignalNode::Sample {
         pattern_str: "bd ~ bd ~".to_string(),
         pattern,

@@ -273,7 +273,6 @@ fn test_bpf_attenuates_high_frequencies() {
 }
 
 #[test]
-#[ignore = "BUG: BPF Q-factor test expectation may be wrong"]
 fn test_bpf_q_factor_width() {
     // Wide BPF (low Q) should pass more frequencies
     let narrow = render_dsl("tempo: 0.5\nout $ white_noise # bpf 1000 10.0", 1.0);
@@ -282,19 +281,26 @@ fn test_bpf_q_factor_width() {
     let (freqs_narrow, mags_narrow) = analyze_spectrum(&narrow, SAMPLE_RATE);
     let (freqs_wide, mags_wide) = analyze_spectrum(&wide, SAMPLE_RATE);
 
-    // Wide filter should have energy across broader range
+    // Normalize by total energy to compare bandwidth independent of peak gain
+    // (High Q has higher peak gain at center, which inflates off-center energy too)
+    let total_narrow = calculate_band_energy(&freqs_narrow, &mags_narrow, 20.0, 20000.0).max(0.001);
+    let total_wide = calculate_band_energy(&freqs_wide, &mags_wide, 20.0, 20000.0).max(0.001);
+
     let energy_2k_narrow = calculate_band_energy(&freqs_narrow, &mags_narrow, 1500.0, 3000.0);
     let energy_2k_wide = calculate_band_energy(&freqs_wide, &mags_wide, 1500.0, 3000.0);
 
-    let ratio = energy_2k_wide / energy_2k_narrow.max(0.001);
+    // Compare fraction of energy in the off-center band
+    let frac_narrow = energy_2k_narrow / total_narrow;
+    let frac_wide = energy_2k_wide / total_wide;
+    let ratio = frac_wide / frac_narrow.max(0.001);
 
     assert!(
         ratio > 1.5,
-        "Wide BPF should pass more off-center frequencies, ratio: {:.2}",
-        ratio
+        "Wide BPF should pass proportionally more off-center frequencies, ratio: {:.2} (wide frac: {:.4}, narrow frac: {:.4})",
+        ratio, frac_wide, frac_narrow
     );
 
-    println!("BPF wide/narrow off-center energy ratio: {:.2}", ratio);
+    println!("BPF wide/narrow off-center energy fraction ratio: {:.2}", ratio);
 }
 
 // ========== NOTCH (Band-reject Filter) Tests ==========
@@ -367,12 +373,8 @@ fn test_notch_q_factor_width() {
 // ============================================================================
 
 // ========== ATTACK Envelope Tests ==========
-// NOTE: attack/release/ar modifiers only work with sample patterns (s "..."),
-// not with raw oscillators. These tests are ignored until we have a general
-// envelope node for oscillators.
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_shapes_onset() {
     let fast = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.001", 0.2);
     let slow = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.1", 0.2);
@@ -395,7 +397,6 @@ fn test_attack_shapes_onset() {
 }
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_reaches_full_amplitude() {
     let code = r#"
         tempo: 0.5
@@ -420,7 +421,6 @@ fn test_attack_reaches_full_amplitude() {
 }
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_different_times() {
     let attack_10ms = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.01", 0.1);
     let attack_50ms = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.05", 0.1);
@@ -445,7 +445,6 @@ fn test_attack_different_times() {
 // ========== RELEASE Envelope Tests ==========
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_release_shapes_decay() {
     // Note: release affects how quickly sound fades when events end
     // For continuous signals, release creates a fade-out tail
@@ -471,7 +470,6 @@ fn test_release_shapes_decay() {
 }
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_release_different_times() {
     let release_10ms = render_dsl("tempo: 0.5\nout $ sine 440 # release 0.01", 0.3);
     let release_100ms = render_dsl("tempo: 0.5\nout $ sine 440 # release 0.1", 0.3);
@@ -495,10 +493,7 @@ fn test_release_different_times() {
 
 // ========== AR (Attack-Release) Envelope Tests ==========
 
-// DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
-// To apply envelopes to synthesis, use a separate envelope node (ADSR, etc.)
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_combines_attack_release() {
     let code = r#"
         tempo: 0.5
@@ -518,9 +513,7 @@ fn test_ar_combines_attack_release() {
     println!("AR envelope RMS: {:.3}", rms);
 }
 
-// DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_attack_affects_onset() {
     let fast_attack = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.001 0.05", 0.2);
     let slow_attack = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.1 0.05", 0.2);
@@ -542,9 +535,7 @@ fn test_ar_attack_affects_onset() {
     );
 }
 
-// DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_different_parameters() {
     let short = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.01 0.01", 0.2);
     let long = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.1 0.1", 0.2);
@@ -716,7 +707,6 @@ fn test_irand_range_affects_output() {
 // ============================================================================
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_filter_with_envelope() {
     let code = r#"
         tempo: 0.5
@@ -736,7 +726,6 @@ fn test_filter_with_envelope() {
 }
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_envelope_with_filter() {
     let code = r#"
         tempo: 0.5
@@ -832,7 +821,6 @@ fn test_all_filters_produce_audio() {
 }
 
 #[test]
-#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_all_envelopes_produce_audio() {
     // Test that all envelope functions compile and produce audio
     let envelopes = vec![
