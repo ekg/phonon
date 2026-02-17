@@ -3,6 +3,11 @@
 //! This module provides real-time MIDI input functionality,
 //! allowing patterns to be recorded from MIDI controllers.
 
+#![allow(
+    clippy::collapsible_else_if,
+    clippy::should_implement_trait,
+    clippy::unnecessary_map_or
+)]
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiInputPort};
 use std::collections::{HashMap, VecDeque};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};

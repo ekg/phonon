@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments, clippy::needless_range_loop)]
 //! Lush Reverb - A rich, flexible algorithmic reverb
 //!
 //! This reverb combines multiple components for a truly rich, living sound:

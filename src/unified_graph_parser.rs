@@ -141,6 +141,7 @@
 //! let graph = compiler.compile(statements);
 //! ```
 
+#![allow(clippy::manual_unwrap_or)]
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -177,6 +178,8 @@ pub enum DslStatement {
     SetOutputMixMode(String),
     /// Silence output channel(s): hush, hush1, hush2
     Hush { channel: Option<usize> },
+    /// Restore silenced output channel(s): unhush, unhush1, unhush2
+    Unhush { channel: Option<usize> },
     /// Kill all voices and silence all outputs: panic
     Panic,
 }
@@ -688,7 +691,6 @@ fn delay(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse DSP modifiers (Tidal-style)
 /// These are applied via # operator: s "bd" # gain 0.5
-
 /// Parse gain modifier: gain 0.5 or gain "0.5 1.0"
 fn gain_modifier(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("gain"), function_args), |args| {
@@ -747,7 +749,7 @@ fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
     alt((
         // segments "0 1 0" "0.1 0.2"
         map(preceded(tag("segments"), function_args), |args| {
-            let levels_str = if let Some(DslExpression::Pattern(s)) = args.get(0) {
+            let levels_str = if let Some(DslExpression::Pattern(s)) = args.first() {
                 s.clone()
             } else {
                 String::from("0 1 0")
@@ -767,7 +769,7 @@ fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
         // curve 0 1 0.3 3.0
         map(preceded(tag("curve"), function_args), |args| {
             DslExpression::CurveModifier {
-                start: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.0))),
+                start: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
                 end: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(1.0))),
                 duration: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(0.3))),
                 curve: Box::new(args.get(3).cloned().unwrap_or(DslExpression::Value(0.0))),
@@ -776,7 +778,7 @@ fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
         // adsr 0.01 0.1 0.7 0.2
         map(preceded(tag("adsr"), function_args), |args| {
             DslExpression::ADSRModifier {
-                attack: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.01))),
+                attack: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.01))),
                 decay: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(0.1))),
                 sustain: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(0.7))),
                 release: Box::new(args.get(3).cloned().unwrap_or(DslExpression::Value(0.2))),
@@ -785,7 +787,7 @@ fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
         // ar 0.01 0.1 (attack/release envelope - no sustain)
         map(preceded(tag("ar"), function_args), |args| {
             DslExpression::ARModifier {
-                attack: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.01))),
+                attack: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.01))),
                 release: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(0.1))),
             }
         }),
@@ -1393,8 +1395,8 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
             preceded(char('~'), identifier),
-            // Accept $ or # (Tidal-style syntax)
-            alt((ws(char('$')), ws(char('#')))),
+            // Accept $, #, or : as separator (legacy colon syntax supported)
+            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
             expression,
         )),
         |(name, _, expr)| DslStatement::BusDefinition {
@@ -1420,8 +1422,8 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
                 map_res(digit1, |s: &str| s.parse::<usize>()),
                 value(0, tag("")), // Default to channel 0 for plain "out"
             )),
-            // Accept $ or # (Tidal-style syntax)
-            alt((ws(char('$')), ws(char('#')))),
+            // Accept $, #, or : as separator (legacy colon syntax supported)
+            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
             expression,
         )),
         |(prefix, channel, _, expr)| {
@@ -1514,6 +1516,22 @@ fn hush_statement(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
+/// Parse unhush statement: unhush, unhush1, unhush2, etc.
+fn unhush_statement(input: &str) -> IResult<&str, DslStatement> {
+    map(
+        tuple((
+            tag("unhush"),
+            alt((
+                map_res(digit1, |s: &str| s.parse::<usize>()),
+                value(0, tag("")),
+            )),
+        )),
+        |(_, channel)| DslStatement::Unhush {
+            channel: if channel == 0 { None } else { Some(channel) },
+        },
+    )(input)
+}
+
 /// Parse panic statement: panic
 fn panic_statement(input: &str) -> IResult<&str, DslStatement> {
     map(tag("panic"), |_| DslStatement::Panic)(input)
@@ -1540,6 +1558,7 @@ fn statement(input: &str) -> IResult<&str, DslStatement> {
         output_definition,
         cps_setting,
         outmix_setting,
+        unhush_statement,
         hush_statement,
         panic_statement,
     ))(input)
@@ -1810,6 +1829,10 @@ impl DslCompiler {
             DslStatement::Hush { channel } => match channel {
                 None => self.graph.hush_all(),
                 Some(ch) => self.graph.hush_channel(ch),
+            },
+            DslStatement::Unhush { channel } => match channel {
+                None => self.graph.unhush_all(),
+                Some(ch) => self.graph.unhush_channel(ch),
             },
             DslStatement::Panic => {
                 self.graph.panic();
@@ -2361,7 +2384,7 @@ impl DslCompiler {
                     }
                     SynthType::SuperHat => {
                         // Note: structural params must be constant (synth design limitation)
-                        let bright = params.get(0).and_then(|e| {
+                        let bright = params.first().and_then(|e| {
                             if let DslExpression::Value(v) = e {
                                 Some(*v)
                             } else {

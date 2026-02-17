@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 /// Dataflow graph coordinator - manages continuous message-passing between nodes
 ///
 /// This module coordinates the entire dataflow graph:

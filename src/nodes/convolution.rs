@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop, clippy::manual_div_ceil)]
 /// Convolution node - FFT-based convolution reverb using impulse responses
 ///
 /// This node implements efficient convolution using overlap-add FFT method:

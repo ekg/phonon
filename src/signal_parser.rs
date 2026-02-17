@@ -4,6 +4,7 @@
 //!
 //! Parses text-based signal flow definitions into signal graphs
 
+#![allow(clippy::upper_case_acronyms)]
 use crate::signal_graph::{AnalysisType, Node, NodeId, ProcessorType, SignalGraph, SourceType};
 
 /// Token types for the DSL

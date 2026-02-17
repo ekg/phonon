@@ -1,4 +1,5 @@
 #![allow(unused_assignments, unused_mut)]
+#![allow(clippy::should_implement_trait)]
 //! Complete set of pattern operators ported from Strudel
 //! All the pattern transformation functions you know and love
 

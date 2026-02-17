@@ -7,6 +7,7 @@
 //! This module provides a registry of shared state that persists across parallel clones.
 //! Each stateful node gets an Arc<RwLock<State>> that all clones reference.
 
+#![allow(clippy::arc_with_non_send_sync)]
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

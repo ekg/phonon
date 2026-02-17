@@ -39,6 +39,7 @@
 //! out $ s "loop.wav" $ phase_sync ~grid
 //! ```
 
+#![allow(clippy::manual_abs_diff)]
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -173,7 +174,7 @@ impl BeatGrid {
         let mut beat_count = 0u32;
 
         while time < duration {
-            let is_downbeat = beat_count % grid.time_signature_numerator == 0;
+            let is_downbeat = beat_count.is_multiple_of(grid.time_signature_numerator);
             grid.beats.push(Beat {
                 time,
                 confidence: 1.0,

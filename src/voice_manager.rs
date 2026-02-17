@@ -1,4 +1,12 @@
 #![allow(unused_assignments, unused_mut)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::needless_range_loop,
+    clippy::if_same_then_else,
+    clippy::derivable_impls,
+    clippy::same_item_push,
+    clippy::ptr_arg
+)]
 //! Voice Manager - Handles polyphonic sample playback with voice allocation
 //!
 //! Based on SuperCollider's architecture, this module manages multiple

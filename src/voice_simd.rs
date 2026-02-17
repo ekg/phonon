@@ -33,6 +33,10 @@
 //! - **Scalar**: Automatic fallback if SIMD unavailable
 
 
+#![allow(
+    clippy::manual_memcpy,
+    clippy::missing_safety_doc
+)]
 use std::arch::x86_64::*;
 
 /// Process 8 voices simultaneously using AVX2

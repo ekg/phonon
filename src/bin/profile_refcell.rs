@@ -7,6 +7,7 @@
 //
 // Usage: cargo run --release --bin profile_refcell -- <file.ph> <cycles>
 
+#![allow(clippy::needless_range_loop)]
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::fs;

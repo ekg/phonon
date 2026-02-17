@@ -23,6 +23,7 @@
 //! assert!(similarity.overall >= 0.8, "Audio should be similar");
 //! ```
 
+#![allow(clippy::manual_range_contains)]
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::collections::VecDeque;
 use std::f32::consts::PI;

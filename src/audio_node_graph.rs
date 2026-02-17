@@ -4,6 +4,7 @@
 //! entire 512-sample buffers at once, replacing the sample-by-sample
 //! SignalNode evaluation.
 
+#![allow(clippy::if_same_then_else)]
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::block_processor::BlockProcessor;
 use crate::dataflow_graph::DataflowGraph;
@@ -302,7 +303,7 @@ impl AudioNodeGraph {
         let mut channel_buffers = HashMap::new();
 
         // Process main output if set
-        if let Some(_) = self.output_node {
+        if self.output_node.is_some() {
             let mut buffer = vec![0.0; buffer_size];
             self.process_buffer(&mut buffer)?;
 

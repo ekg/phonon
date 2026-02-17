@@ -6,6 +6,7 @@
 //! - `~amp: sin 1.0 >> mul 0.3 >> add 0.5`
 //! - Integration with mini-notation patterns
 
+#![allow(clippy::useless_vec)]
 use crate::glicol_dsp::{DspChain, DspEnvironment, DspNode};
 
 #[derive(Debug, Clone, PartialEq)]

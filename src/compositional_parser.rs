@@ -14,6 +14,7 @@
 //! - `~name[i]` indexed bus syntax
 //! - `sum(~name[N..M])` to mix indexed buses
 
+#![allow(clippy::while_let_loop)]
 use crate::macro_expander::expand_macros;
 use nom::{
     branch::alt,
@@ -72,8 +73,10 @@ pub enum Statement {
         body: Vec<Statement>, // Bus assignments
         return_expr: Expr,
     },
-    /// Hush command: silence all outputs
-    Hush,
+    /// Hush command: silence outputs (all or specific channel)
+    Hush { channel: Option<usize> },
+    /// Unhush command: restore silenced outputs (all or specific channel)
+    Unhush { channel: Option<usize> },
     /// Panic command: stop all audio immediately
     Panic,
     /// Reset cycles to 0 (like Tidal's resetCycles)
@@ -620,7 +623,8 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_reset_cycles, // Try resetCycles command
         parse_set_cycle,    // Try setCycle command
         parse_nudge,        // Try nudge command
-        parse_hush,         // Try hush command
+        parse_unhush,       // Try unhush command (before hush to avoid prefix match)
+        parse_hush,         // Try hush/hushN command
         parse_panic,        // Try panic command
         parse_bus_assignment,
         parse_template_assignment,
@@ -772,8 +776,8 @@ fn parse_output_or_channel(input: &str) -> IResult<&str, Statement> {
     let (input, channel_opt) = opt(digit1)(input)?;
 
     let (input, _) = space0(input)?;
-    // Only accept $ or # (no : to avoid confusion)
-    let (input, _) = alt((char('$'), char('#')))(input)?;
+    // Accept $, #, or : as separator (legacy colon syntax supported)
+    let (input, _) = alt((char('$'), char('#'), char(':')))(input)?;
     let (input, _) = space0(input)?;
     let (input, expr) = parse_expr(input)?;
 
@@ -871,10 +875,20 @@ fn parse_outmix(input: &str) -> IResult<&str, Statement> {
     Ok((input, Statement::OutputMixMode(mode.to_string())))
 }
 
-/// Parse hush command: silence all outputs
+/// Parse hush command: silence outputs (hush = all, hush1 = channel 1, etc.)
 fn parse_hush(input: &str) -> IResult<&str, Statement> {
     let (input, _) = tag("hush")(input)?;
-    Ok((input, Statement::Hush))
+    let (input, channel_opt) = opt(digit1)(input)?;
+    let channel = channel_opt.map(|s: &str| s.parse::<usize>().unwrap());
+    Ok((input, Statement::Hush { channel }))
+}
+
+/// Parse unhush command: restore silenced outputs (unhush = all, unhush1 = channel 1, etc.)
+fn parse_unhush(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("unhush")(input)?;
+    let (input, channel_opt) = opt(digit1)(input)?;
+    let channel = channel_opt.map(|s: &str| s.parse::<usize>().unwrap());
+    Ok((input, Statement::Unhush { channel }))
 }
 
 /// Parse panic command: stop all audio immediately

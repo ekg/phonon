@@ -5,6 +5,7 @@
 //! - FXP/FXB files - standard VST preset format
 //! - Plugin's native state (opaque binary)
 
+#![allow(clippy::op_ref)]
 use super::types::*;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::{Deserialize, Serialize};

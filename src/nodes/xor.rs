@@ -1,3 +1,4 @@
+#![allow(clippy::doc_lazy_continuation)]
 /// Logical XOR node - exclusive OR operator for boolean signals
 ///
 /// This node demonstrates exclusive OR logic for control flow and toggle operations.

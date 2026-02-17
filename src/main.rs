@@ -1,6 +1,10 @@
 #![allow(unused_assignments, unused_mut)]
 //! Phonon CLI - Command-line interface for the Phonon synthesis system
 
+#![allow(
+    clippy::if_same_then_else,
+    clippy::manual_strip
+)]
 use clap::{Parser, Subcommand};
 use phonon::pattern::Pattern;
 use std::cell::RefCell;
@@ -213,7 +217,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let is_edit_mode = matches!(cli.command, Commands::Edit { .. });
     if is_edit_mode {
         // Redirect tracing to a log file to prevent TUI corruption
-        use tracing_subscriber::fmt::writer::MakeWriterExt;
+        
         let log_file = std::fs::File::create("/tmp/phonon_audio_errors.log")
             .unwrap_or_else(|_| std::fs::File::create("/dev/null").unwrap());
         tracing_subscriber::fmt()
@@ -1398,7 +1402,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else if realtime {
                 // REALTIME MODE: Use process_buffer() like live mode for profiling
                 const BLOCK_SIZE: usize = 512;
-                let num_blocks = (total_samples + BLOCK_SIZE - 1) / BLOCK_SIZE;
+                let num_blocks = total_samples.div_ceil(BLOCK_SIZE);
 
                 // Check if graph contains effects that need sequential processing
                 let needs_sequential = graph.has_sequential_dependencies();
@@ -1433,11 +1437,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!(
                         "   Parallel threads: {} (processing ~{} blocks each)",
                         num_threads,
-                        (num_blocks + num_threads - 1) / num_threads
+                        num_blocks.div_ceil(num_threads)
                     );
 
                     // Split blocks into chunks, one chunk per thread
-                    let blocks_per_thread = (num_blocks + num_threads - 1) / num_threads;
+                    let blocks_per_thread = num_blocks.div_ceil(num_threads);
                     let chunks: Vec<std::ops::Range<usize>> = (0..num_threads)
                         .map(|thread_idx| {
                             let start_block = thread_idx * blocks_per_thread;
@@ -2019,7 +2023,7 @@ out sine(440) * 0.2
                         static mut UNDERRUN_COUNT: usize = 0;
                         unsafe {
                             UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT % 100 == 0 {
+                            if UNDERRUN_COUNT.is_multiple_of(100) {
                                 eprintln!("⚠️  Audio underrun (synth can't keep up)");
                             }
                         }
@@ -2233,7 +2237,7 @@ out sine(440) * 0.2
                     let mut registry = PluginRegistry::with_cache(cache_path.clone());
 
                     // Load from cache
-                    if let Err(_) = registry.load_cache(&cache_path) {
+                    if registry.load_cache(&cache_path).is_err() {
                         println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
                         return Ok(());
                     }
@@ -2269,8 +2273,8 @@ out sine(440) * 0.2
                         _ => {
                             // Table format
                             println!(
-                                "\n{:<30} {:<12} {:<15} {}",
-                                "Name", "Format", "Category", "Vendor"
+                                "\n{:<30} {:<12} {:<15} Vendor",
+                                "Name", "Format", "Category"
                             );
                             println!("{}", "-".repeat(75));
                             for plugin in &plugins {
@@ -2290,7 +2294,7 @@ out sine(440) * 0.2
                 PluginAction::Search { query } => {
                     let mut registry = PluginRegistry::with_cache(cache_path.clone());
 
-                    if let Err(_) = registry.load_cache(&cache_path) {
+                    if registry.load_cache(&cache_path).is_err() {
                         println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
                         return Ok(());
                     }
@@ -2313,7 +2317,7 @@ out sine(440) * 0.2
                 PluginAction::Info { name } => {
                     let mut registry = PluginRegistry::with_cache(cache_path.clone());
 
-                    if let Err(_) = registry.load_cache(&cache_path) {
+                    if registry.load_cache(&cache_path).is_err() {
                         println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
                         return Ok(());
                     }
@@ -2352,7 +2356,7 @@ out sine(440) * 0.2
                 PluginAction::Params { name } => {
                     let mut registry = PluginRegistry::with_cache(cache_path.clone());
 
-                    if let Err(_) = registry.load_cache(&cache_path) {
+                    if registry.load_cache(&cache_path).is_err() {
                         println!("⚠️  No plugin cache found. Run 'phonon plugins scan' first.");
                         return Ok(());
                     }
@@ -2369,8 +2373,8 @@ out sine(440) * 0.2
                                 );
                                 println!("{}", "=".repeat(60));
                                 println!(
-                                    "{:<5} {:<25} {:<10} {:<8} {}",
-                                    "ID", "Name", "Default", "Range", "Unit"
+                                    "{:<5} {:<25} {:<10} {:<8} Unit",
+                                    "ID", "Name", "Default", "Range"
                                 );
                                 println!("{}", "-".repeat(60));
 

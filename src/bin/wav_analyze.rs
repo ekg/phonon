@@ -171,9 +171,9 @@ impl AudioAnalysis {
                 freq, mag
             ));
             if i < num_bins - 1 {
-                json.push_str(",");
+                json.push(',');
             }
-            json.push_str("\n");
+            json.push('\n');
         }
         json.push_str("  ]\n");
 

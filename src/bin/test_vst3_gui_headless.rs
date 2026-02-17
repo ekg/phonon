@@ -12,7 +12,6 @@
 use rack::prelude::*;
 use std::process::Command;
 use std::time::Duration;
-use std::path::Path;
 
 fn main() -> Result<()> {
     println!("VST3 Headless GUI Test");

@@ -1,3 +1,4 @@
+#![allow(clippy::let_and_return)]
 /// Scale Quantize node - quantize frequencies/pitches to musical scales
 ///
 /// This node maps input frequencies to the nearest pitch in a musical scale.

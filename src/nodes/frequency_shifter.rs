@@ -1,3 +1,4 @@
+#![allow(clippy::excessive_precision)]
 /// Frequency shifter node - shift all frequencies by a constant Hz amount
 ///
 /// This node implements single-sideband (SSB) modulation to shift all frequencies

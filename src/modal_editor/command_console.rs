@@ -2,6 +2,7 @@
 //!
 //! Provides a searchable help system accessible via Alt+/
 
+#![allow(clippy::single_char_add_str)]
 use super::completion::*;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},

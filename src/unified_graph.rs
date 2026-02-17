@@ -1,4 +1,45 @@
 #![allow(unused_variables)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::needless_range_loop,
+    clippy::type_complexity,
+    clippy::arc_with_non_send_sync,
+    clippy::len_zero,
+    clippy::clone_on_copy,
+    clippy::manual_clamp,
+    clippy::unnecessary_unwrap,
+    clippy::if_same_then_else,
+    clippy::collapsible_if,
+    clippy::collapsible_else_if,
+    clippy::single_match,
+    clippy::unnecessary_cast,
+    clippy::manual_strip,
+    clippy::let_and_return,
+    clippy::map_entry,
+    clippy::derivable_impls,
+    clippy::only_used_in_recursion,
+    clippy::redundant_pattern_matching,
+    clippy::unnecessary_lazy_evaluations,
+    clippy::manual_map,
+    clippy::iter_skip_next,
+    clippy::match_single_binding,
+    clippy::unit_arg,
+    clippy::large_enum_variant,
+    clippy::needless_return,
+    clippy::manual_range_contains,
+    clippy::should_implement_trait,
+    clippy::option_map_or_none,
+    clippy::suspicious_open_options,
+    clippy::unnecessary_map_or,
+    clippy::useless_format,
+    clippy::vec_init_then_push,
+    clippy::option_if_let_else,
+    clippy::manual_flatten,
+    clippy::for_kv_map,
+    clippy::new_without_default,
+    clippy::unneeded_struct_pattern,
+    clippy::collapsible_match
+)]
 //! Unified Signal Graph - The heart of Phonon
 //!
 //! Everything is a signal. Patterns, audio, control data - all flow through
@@ -460,11 +501,11 @@ impl DependencyGraph {
     pub fn add_dependency(&mut self, from_node: NodeId, to_node: NodeId) {
         self.dependencies
             .entry(from_node)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(to_node);
         self.dependents
             .entry(to_node)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(from_node);
     }
 
@@ -1860,7 +1901,7 @@ impl FundspState {
         // Create a closure that owns the unit and calls tick
         let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
             // Processor: takes 1 audio input
-            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
+            let audio_input = inputs.first().copied().unwrap_or(0.0);
             // moog_hz takes 1 input, returns 1 output
             let output_frame = unit.tick(&[audio_input].into());
             output_frame[0]
@@ -1887,7 +1928,7 @@ impl FundspState {
         // Create a closure that owns the unit and calls tick
         let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
             // Processor: takes 1 audio input
-            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
+            let audio_input = inputs.first().copied().unwrap_or(0.0);
             // reverb_stereo: 2 inputs (stereo) -> 2 outputs (stereo)
             // Convert mono to stereo input, return left channel
             let output_frame = unit.tick(&[audio_input, audio_input].into());
@@ -1918,7 +1959,7 @@ impl FundspState {
         // Create a closure that owns the unit and calls tick
         let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
             // Processor: takes 1 audio input
-            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
+            let audio_input = inputs.first().copied().unwrap_or(0.0);
             // chorus: 1 input -> 1 output
             let output_frame = unit.tick(&[audio_input].into());
             output_frame[0]
@@ -2080,7 +2121,7 @@ impl FundspState {
         // Create a closure that owns the unit and calls tick with inputs
         let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
             // Multi-input UGen: expects [frequency, pulse_width]
-            let freq = inputs.get(0).copied().unwrap_or(440.0);
+            let freq = inputs.first().copied().unwrap_or(440.0);
             let width = inputs.get(1).copied().unwrap_or(0.5);
 
             let output_frame = unit.tick(&[freq, width].into());
@@ -3409,7 +3450,7 @@ impl VocoderState {
     pub fn new(num_bands: usize, sample_rate: f32) -> Self {
         use std::f32::consts::PI;
 
-        let num_bands = num_bands.max(2).min(32); // Limit 2-32 bands
+        let num_bands = num_bands.clamp(2, 32); // Limit 2-32 bands
 
         // Pre-calculate filter coefficients for all bands
         let min_freq: f32 = 100.0;
@@ -4265,7 +4306,7 @@ fn eval_node_isolated(
             pending_freq,
             last_sample,
         } => {
-            let base_freq = eval_signal_isolated(nodes, &freq, sample_rate);
+            let base_freq = eval_signal_isolated(nodes, freq, sample_rate);
 
             // Decode pitch value:
             // >= 1000: Absolute MIDI note (subtract 1000, convert to Hz)
@@ -4322,10 +4363,10 @@ fn eval_node_isolated(
             state,
         } => {
             // Biquad Filter (RBJ Audio EQ Cookbook)
-            let input_val = eval_signal_isolated(nodes, &input, sample_rate);
-            let freq = eval_signal_isolated(nodes, &frequency, sample_rate)
+            let input_val = eval_signal_isolated(nodes, input, sample_rate);
+            let freq = eval_signal_isolated(nodes, frequency, sample_rate)
                 .clamp(10.0, sample_rate * 0.45);
-            let q_val = eval_signal_isolated(nodes, &q, sample_rate).clamp(0.1, 20.0);
+            let q_val = eval_signal_isolated(nodes, q, sample_rate).clamp(0.1, 20.0);
 
             // Calculate normalized frequency
             let omega = 2.0 * std::f32::consts::PI * freq / sample_rate;
@@ -5760,7 +5801,7 @@ impl UnifiedSignalGraph {
 
             // Add input nodes to stack
             if let Some(Some(node_rc)) = self.nodes.get(node_id) {
-                let inputs = self.get_node_input_ids(&**node_rc);
+                let inputs = self.get_node_input_ids(node_rc);
                 for input_id in inputs {
                     stack.push(input_id);
                 }
@@ -5822,7 +5863,7 @@ impl UnifiedSignalGraph {
                 return true;
             }
             // Check all inputs recursively
-            let inputs = self.get_all_node_inputs(&**node_rc);
+            let inputs = self.get_all_node_inputs(node_rc);
             for input_id in inputs {
                 if self.chain_has_unit_delay(input_id, visited) {
                     return true;
@@ -5839,7 +5880,7 @@ impl UnifiedSignalGraph {
 
         for (node_id, node_opt) in self.nodes.iter().enumerate() {
             if let Some(node_rc) = node_opt {
-                let input_ids = self.get_all_node_inputs(&**node_rc);
+                let input_ids = self.get_all_node_inputs(node_rc);
                 deps.insert(node_id, input_ids);
             }
         }
@@ -8771,6 +8812,16 @@ impl UnifiedSignalGraph {
         self.hushed_channels.insert(channel);
     }
 
+    /// Restore all hushed output channels
+    pub fn unhush_all(&mut self) {
+        self.hushed_channels.clear();
+    }
+
+    /// Restore a specific hushed output channel
+    pub fn unhush_channel(&mut self, channel: usize) {
+        self.hushed_channels.remove(&channel);
+    }
+
     /// Panic: kill all voices and silence all outputs
     pub fn panic(&mut self) {
         // Kill all active voices (samples and synths)
@@ -8840,7 +8891,7 @@ impl UnifiedSignalGraph {
 
             // Continue traversing to find dependencies
             // This handles nodes with Signal inputs
-            self.traverse_node_for_samples(&**node_rc, visited, sample_nodes);
+            self.traverse_node_for_samples(node_rc, visited, sample_nodes);
         }
     }
 
@@ -9112,7 +9163,7 @@ impl UnifiedSignalGraph {
             dep_graph
                 .dependencies
                 .entry(output_id)
-                .or_insert_with(Vec::new);
+                .or_default();
         }
 
         // Also include bus dependencies
@@ -9130,7 +9181,7 @@ impl UnifiedSignalGraph {
             dep_graph
                 .dependencies
                 .entry(bus_id)
-                .or_insert_with(Vec::new);
+                .or_default();
         }
 
         dep_graph
@@ -9817,7 +9868,7 @@ impl UnifiedSignalGraph {
                         // DEBUG: Log pattern signal evaluation
                         if std::env::var("DEBUG_PATTERN").is_ok()
                             && self.sample_count < 44200
-                            && self.sample_count % 2200 == 0
+                            && self.sample_count.is_multiple_of(2200)
                         {
                             eprintln!(
                                 "Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
@@ -10075,7 +10126,7 @@ impl UnifiedSignalGraph {
                 if std::env::var("DEBUG_DAG").is_ok() && self.sample_count < 5 && self.current_sample_idx == 0 {
                     eprintln!("      Oscillator evaluating freq: {:?}", freq);
                 }
-                let requested_freq = self.eval_signal(&freq);
+                let requested_freq = self.eval_signal(freq);
                 let mut current_freq = requested_freq;
 
                 // Zero-crossing detection for anti-click frequency changes
@@ -10176,9 +10227,9 @@ impl UnifiedSignalGraph {
                 modulator_phase,
             } => {
                 // Evaluate modulatable parameters
-                let carrier_f = self.eval_signal(&carrier_freq).max(0.0);
-                let modulator_f = self.eval_signal(&modulator_freq).max(0.0);
-                let index = self.eval_signal(&mod_index).max(0.0);
+                let carrier_f = self.eval_signal(carrier_freq).max(0.0);
+                let modulator_f = self.eval_signal(modulator_freq).max(0.0);
+                let index = self.eval_signal(mod_index).max(0.0);
 
                 // FM synthesis: carrier modulated by modulator
                 // output = sin(2π * carrier_phase + mod_index * sin(2π * modulator_phase))
@@ -10224,9 +10275,9 @@ impl UnifiedSignalGraph {
                 carrier_phase,
             } => {
                 // Evaluate modulatable parameters
-                let carrier_f = self.eval_signal(&carrier_freq).max(0.0);
-                let mod_signal = self.eval_signal(&modulation);
-                let index = self.eval_signal(&mod_index);
+                let carrier_f = self.eval_signal(carrier_freq).max(0.0);
+                let mod_signal = self.eval_signal(modulation);
+                let index = self.eval_signal(mod_index);
 
                 // PM synthesis: carrier phase modulated directly by external signal
                 // output = sin(2π * carrier_phase + mod_index * modulation_signal)
@@ -10254,7 +10305,7 @@ impl UnifiedSignalGraph {
                 // Formula: blip(phase) = sum(cos(2πkφ) for k=1 to N) + 0.5
                 // where N = number of harmonics limited by Nyquist frequency
 
-                let freq = self.eval_signal(&frequency).max(0.1); // Avoid division by zero
+                let freq = self.eval_signal(frequency).max(0.1); // Avoid division by zero
                 let phase_val = *phase.borrow();
 
                 // Calculate number of harmonics before aliasing
@@ -10301,9 +10352,9 @@ impl UnifiedSignalGraph {
                 phase,
             } => {
                 // Analog-style VCO with multiple waveforms and PolyBLEP anti-aliasing
-                let freq = self.eval_signal(&frequency).max(0.0);
-                let waveform_select = self.eval_signal(&waveform);
-                let pw = self.eval_signal(&pulse_width).clamp(0.01, 0.99);
+                let freq = self.eval_signal(frequency).max(0.0);
+                let waveform_select = self.eval_signal(waveform);
+                let pw = self.eval_signal(pulse_width).clamp(0.01, 0.99);
 
                 let phase_val = *phase.borrow();
                 let phase_inc = freq / self.sample_rate;
@@ -10547,7 +10598,7 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Impulse { frequency, state } => {
-                let freq = self.eval_signal(&frequency).max(0.0);
+                let freq = self.eval_signal(frequency).max(0.0);
                 let current_phase = state.phase;
 
                 // Calculate phase increment based on frequency
@@ -10586,8 +10637,8 @@ impl UnifiedSignalGraph {
                 lag_time,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let time = self.eval_signal(&lag_time).max(0.0);
+                let input_val = self.eval_signal(input);
+                let time = self.eval_signal(lag_time).max(0.0);
                 let prev = state.previous_output;
 
                 // Calculate smoothing coefficient using exponential formula
@@ -10622,9 +10673,9 @@ impl UnifiedSignalGraph {
                 duration,
                 state,
             } => {
-                let start_val = self.eval_signal(&start);
-                let end_val = self.eval_signal(&end);
-                let dur = self.eval_signal(&duration).max(0.0);
+                let start_val = self.eval_signal(start);
+                let end_val = self.eval_signal(end);
+                let dur = self.eval_signal(duration).max(0.0);
                 let elapsed = state.elapsed_samples;
 
                 // Calculate progress (0.0 to 1.0)
@@ -10669,9 +10720,9 @@ impl UnifiedSignalGraph {
                 release,
                 state,
             } => {
-                let gate_val = self.eval_signal(&gate);
-                let attack_time = self.eval_signal(&attack).max(0.0001);
-                let release_time = self.eval_signal(&release).max(0.0001);
+                let gate_val = self.eval_signal(gate);
+                let attack_time = self.eval_signal(attack).max(0.0001);
+                let release_time = self.eval_signal(release).max(0.0001);
 
                 // DEBUG: Log ASR parameters on first sample
                 if std::env::var("DEBUG_ASR").is_ok() && self.sample_count < 10 {
@@ -10756,8 +10807,8 @@ impl UnifiedSignalGraph {
 
             SignalNode::Pulse { freq, width, phase } => {
                 // Evaluate modulatable parameters
-                let f = self.eval_signal(&freq).max(0.0);
-                let w = self.eval_signal(&width).clamp(0.0, 1.0);
+                let f = self.eval_signal(freq).max(0.0);
+                let w = self.eval_signal(width).clamp(0.0, 1.0);
 
                 // Pulse wave: output +1 when phase < width, -1 otherwise
                 let sample = if *phase < w { 1.0 } else { -1.0 };
@@ -10778,7 +10829,7 @@ impl UnifiedSignalGraph {
 
             SignalNode::Wavetable { freq, state } => {
                 // Evaluate frequency (pattern-modulatable)
-                let f = self.eval_signal(&freq).max(0.0);
+                let f = self.eval_signal(freq).max(0.0);
 
                 // Get interpolated sample at current phase
                 let sample = state.get_sample(state.phase);
@@ -10805,16 +10856,16 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate pattern-modulatable parameters
-                let source_sample = self.eval_signal(&source);
+                let source_sample = self.eval_signal(source);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return source_sample;
                 }
 
-                let grain_ms = self.eval_signal(&grain_size_ms).max(5.0).min(500.0);
-                let density_val = self.eval_signal(&density).clamp(0.0, 1.0);
-                let pitch_val = self.eval_signal(&pitch).max(0.1).min(4.0);
+                let grain_ms = self.eval_signal(grain_size_ms).clamp(5.0, 500.0);
+                let density_val = self.eval_signal(density).clamp(0.0, 1.0);
+                let pitch_val = self.eval_signal(pitch).clamp(0.1, 4.0);
 
                 // Convert grain size from milliseconds to samples
                 let grain_size_samples = (grain_ms * self.sample_rate / 1000.0) as usize;
@@ -10860,9 +10911,9 @@ impl UnifiedSignalGraph {
                 }
 
                 // Evaluate pattern-modulatable parameters
-                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
-                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
-                let trig = self.eval_signal(&trigger);
+                let f = self.eval_signal(freq).clamp(20.0, 10000.0);
+                let damp = self.eval_signal(damping).clamp(0.0, 1.0);
+                let trig = self.eval_signal(trigger);
 
                 // Calculate required delay line size for this frequency
                 let required_size = (self.sample_rate / f) as usize;
@@ -10917,9 +10968,9 @@ impl UnifiedSignalGraph {
                 }
 
                 // Evaluate pattern-modulatable parameters
-                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
-                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
-                let pickup = self.eval_signal(&pickup_position).clamp(0.0, 1.0);
+                let f = self.eval_signal(freq).clamp(20.0, 10000.0);
+                let damp = self.eval_signal(damping).clamp(0.0, 1.0);
+                let pickup = self.eval_signal(pickup_position).clamp(0.0, 1.0);
 
                 // Calculate required delay line size for this frequency
                 let required_size = (self.sample_rate / f) as usize;
@@ -10960,15 +11011,15 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate input source signal
-                let input = self.eval_signal(&source);
+                let input = self.eval_signal(source);
 
                 // Evaluate formant parameters (all pattern-modulatable)
-                let f1_val = self.eval_signal(&f1).max(50.0).min(5000.0);
-                let f2_val = self.eval_signal(&f2).max(50.0).min(5000.0);
-                let f3_val = self.eval_signal(&f3).max(50.0).min(10000.0);
-                let bw1_val = self.eval_signal(&bw1).max(10.0).min(1000.0);
-                let bw2_val = self.eval_signal(&bw2).max(10.0).min(1000.0);
-                let bw3_val = self.eval_signal(&bw3).max(10.0).min(1000.0);
+                let f1_val = self.eval_signal(f1).clamp(50.0, 5000.0);
+                let f2_val = self.eval_signal(f2).clamp(50.0, 5000.0);
+                let f3_val = self.eval_signal(f3).clamp(50.0, 10000.0);
+                let bw1_val = self.eval_signal(bw1).clamp(10.0, 1000.0);
+                let bw2_val = self.eval_signal(bw2).clamp(10.0, 1000.0);
+                let bw3_val = self.eval_signal(bw3).clamp(10.0, 1000.0);
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
@@ -10987,10 +11038,10 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate input source signal
-                let input = self.eval_signal(&source);
+                let input = self.eval_signal(source);
 
                 // Evaluate vowel selector (0-4 maps to a,e,i,o,u)
-                let vowel_val = self.eval_signal(&vowel).round().clamp(0.0, 4.0) as i32;
+                let vowel_val = self.eval_signal(vowel).round().clamp(0.0, 4.0) as i32;
 
                 // Map vowel to formant frequencies (male voice)
                 // a, e, i, o, u
@@ -11025,7 +11076,7 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate fundamental frequency (pattern-modulatable)
-                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+                let f = self.eval_signal(freq).clamp(20.0, 10000.0);
 
                 // Get mutable state and process with fixed amplitudes
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
@@ -11050,8 +11101,8 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate modulator and carrier signals
-                let mod_sample = self.eval_signal(&modulator);
-                let carr_sample = self.eval_signal(&carrier);
+                let mod_sample = self.eval_signal(modulator);
+                let carr_sample = self.eval_signal(carrier);
 
                 // BYPASS MODE: For pipelined rendering, pass through carrier unchanged
                 if self.bypass_sequential_effects {
@@ -11075,14 +11126,14 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate input and semitones
-                let input_sample = self.eval_signal(&input);
+                let input_sample = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_sample;
                 }
 
-                let semitones_val = self.eval_signal(&semitones);
+                let semitones_val = self.eval_signal(semitones);
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
@@ -11099,8 +11150,8 @@ impl UnifiedSignalGraph {
                 input, threshold, ..
             } => {
                 // Evaluate input signal and threshold
-                let input_val = self.eval_signal(&input);
-                let thresh = self.eval_signal(&threshold).max(0.0);
+                let input_val = self.eval_signal(input);
+                let thresh = self.eval_signal(threshold).max(0.0);
 
                 // Brick-wall limiting: clamp to [-threshold, +threshold]
                 input_val.clamp(-thresh, thresh)
@@ -11116,11 +11167,11 @@ impl UnifiedSignalGraph {
                 // Chamberlin State Variable Filter
                 // Produces LP, HP, BP, and Notch outputs simultaneously
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let freq = self
-                    .eval_signal(&frequency)
+                    .eval_signal(frequency)
                     .clamp(10.0, self.sample_rate * 0.45);
-                let res = self.eval_signal(&resonance).max(0.1); // Prevent division by zero
+                let res = self.eval_signal(resonance).max(0.1); // Prevent division by zero
 
                 // Calculate filter coefficients
                 // f = 2 * sin(π * cutoff / sampleRate)
@@ -11135,9 +11186,9 @@ impl UnifiedSignalGraph {
                 let mut band = state.band;
 
                 // Update filter
-                low = low + f * band;
+                low += f * band;
                 let high = input_val - low - q * band;
-                band = f * high + band;
+                band += f * high;
                 let notch = high + low;
 
                 // Clamp state to prevent runaway values and NaN
@@ -11179,11 +11230,11 @@ impl UnifiedSignalGraph {
                 // Biquad Filter (RBJ Audio EQ Cookbook)
                 // High-quality second-order IIR filter with multiple modes
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let freq = self
-                    .eval_signal(&frequency)
+                    .eval_signal(frequency)
                     .clamp(10.0, self.sample_rate * 0.45);
-                let q_val = self.eval_signal(&q).clamp(0.1, 20.0); // Prevent instability
+                let q_val = self.eval_signal(q).clamp(0.1, 20.0); // Prevent instability
 
                 // Calculate normalized frequency
                 let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
@@ -11302,11 +11353,11 @@ impl UnifiedSignalGraph {
                 // Implemented as biquad bandpass with emphasis on resonance
                 // Similar to Biquad BP but optimized for high Q values
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let freq = self
-                    .eval_signal(&frequency)
+                    .eval_signal(frequency)
                     .clamp(10.0, self.sample_rate * 0.45);
-                let q_val = self.eval_signal(&q).clamp(0.5, 100.0); // Allow higher Q for more resonance
+                let q_val = self.eval_signal(q).clamp(0.5, 100.0); // Allow higher Q for more resonance
 
                 // Calculate normalized frequency
                 let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
@@ -11378,11 +11429,11 @@ impl UnifiedSignalGraph {
                 // Classic analog synthesizer lowpass with resonance
                 // Implemented as biquad lowpass with Q parameter
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let freq = self
-                    .eval_signal(&cutoff)
+                    .eval_signal(cutoff)
                     .clamp(10.0, self.sample_rate * 0.45);
-                let q_val = self.eval_signal(&resonance).clamp(0.1, 20.0);
+                let q_val = self.eval_signal(resonance).clamp(0.1, 20.0);
 
                 // Calculate normalized frequency
                 let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
@@ -11455,11 +11506,11 @@ impl UnifiedSignalGraph {
                 // Highpass filter with resonance peak at cutoff
                 // Implemented as biquad highpass with Q parameter
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let freq = self
-                    .eval_signal(&cutoff)
+                    .eval_signal(cutoff)
                     .clamp(10.0, self.sample_rate * 0.45);
-                let q_val = self.eval_signal(&resonance).clamp(0.1, 20.0);
+                let q_val = self.eval_signal(resonance).clamp(0.1, 20.0);
 
                 // Calculate normalized frequency
                 let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
@@ -11523,8 +11574,8 @@ impl UnifiedSignalGraph {
 
             SignalNode::Pan2Left { input, position } => {
                 // Evaluate input signal and pan position
-                let input_val = self.eval_signal(&input);
-                let pan = self.eval_signal(&position).clamp(-1.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let pan = self.eval_signal(position).clamp(-1.0, 1.0);
 
                 // Equal-power panning law
                 // Map pan from [-1, 1] to angle [0, π/2]
@@ -11536,8 +11587,8 @@ impl UnifiedSignalGraph {
 
             SignalNode::Pan2Right { input, position } => {
                 // Evaluate input signal and pan position
-                let input_val = self.eval_signal(&input);
-                let pan = self.eval_signal(&position).clamp(-1.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let pan = self.eval_signal(position).clamp(-1.0, 1.0);
 
                 // Equal-power panning law
                 // Map pan from [-1, 1] to angle [0, π/2]
@@ -12047,9 +12098,9 @@ impl UnifiedSignalGraph {
                 // Apply effect every N cycles, bypass otherwise
                 let current_cycle = self.get_cycle_position().floor() as i32;
                 if current_cycle % n == 0 {
-                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                    self.eval_signal_at_time(effect, self.get_cycle_position())
                 } else {
-                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                    self.eval_signal_at_time(input, self.get_cycle_position())
                 }
             }
 
@@ -12062,12 +12113,12 @@ impl UnifiedSignalGraph {
                 use rand::{rngs::StdRng, Rng, SeedableRng};
                 let current_cycle = self.get_cycle_position().floor() as u64;
                 let mut rng = StdRng::seed_from_u64(current_cycle);
-                let prob_val = self.eval_signal(&prob) as f64; // Pattern-modulatable probability
+                let prob_val = self.eval_signal(prob) as f64; // Pattern-modulatable probability
 
                 if rng.gen::<f64>() < prob_val {
-                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                    self.eval_signal_at_time(effect, self.get_cycle_position())
                 } else {
-                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                    self.eval_signal_at_time(input, self.get_cycle_position())
                 }
             }
 
@@ -12080,28 +12131,28 @@ impl UnifiedSignalGraph {
                 // Apply effect when (cycle - offset) % modulo == 0
                 let current_cycle = self.get_cycle_position().floor() as i32;
                 if (current_cycle - offset) % modulo == 0 {
-                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                    self.eval_signal_at_time(effect, self.get_cycle_position())
                 } else {
-                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                    self.eval_signal_at_time(input, self.get_cycle_position())
                 }
             }
 
-            SignalNode::Add { a, b } => self.eval_signal(&a) + self.eval_signal(&b),
+            SignalNode::Add { a, b } => self.eval_signal(a) + self.eval_signal(b),
 
-            SignalNode::Multiply { a, b } => self.eval_signal(&a) * self.eval_signal(&b),
+            SignalNode::Multiply { a, b } => self.eval_signal(a) * self.eval_signal(b),
 
-            SignalNode::Min { a, b } => self.eval_signal(&a).min(self.eval_signal(&b)),
+            SignalNode::Min { a, b } => self.eval_signal(a).min(self.eval_signal(b)),
 
             SignalNode::MidiToFreq { midi } => {
-                let midi_val = self.eval_signal(&midi);
+                let midi_val = self.eval_signal(midi);
                 // freq = 440 * 2^((midi - 69) / 12)
                 440.0 * (2.0_f32).powf((midi_val - 69.0) / 12.0)
             }
 
             SignalNode::Wrap { input, min, max } => {
-                let input_val = self.eval_signal(&input);
-                let min_val = self.eval_signal(&min);
-                let max_val = self.eval_signal(&max);
+                let input_val = self.eval_signal(input);
+                let min_val = self.eval_signal(min);
+                let max_val = self.eval_signal(max);
 
                 let range = max_val - min_val;
                 if range.abs() < 1e-10 {
@@ -12122,8 +12173,8 @@ impl UnifiedSignalGraph {
                 held_value,
                 last_trigger,
             } => {
-                let input_val = self.eval_signal(&input);
-                let trigger_val = self.eval_signal(&trigger);
+                let input_val = self.eval_signal(input);
+                let trigger_val = self.eval_signal(trigger);
 
                 // Check for zero crossing (negative or zero to positive)
                 let last = *last_trigger.borrow();
@@ -12147,9 +12198,9 @@ impl UnifiedSignalGraph {
                 held_value,
                 smooth_state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let factor_val = self.eval_signal(&factor).max(1.0); // Clamp to minimum 1.0
-                let smooth_val = self.eval_signal(&smooth).clamp(0.0, 0.99); // Clamp to [0, 0.99] - must be <1.0 to allow new values through
+                let input_val = self.eval_signal(input);
+                let factor_val = self.eval_signal(factor).max(1.0); // Clamp to minimum 1.0
+                let smooth_val = self.eval_signal(smooth).clamp(0.0, 0.99); // Clamp to [0, 0.99] - must be <1.0 to allow new values through
 
                 // Increment sample counter
                 let mut counter = sample_counter.borrow_mut();
@@ -12181,9 +12232,9 @@ impl UnifiedSignalGraph {
                 signal_b,
                 position,
             } => {
-                let a_val = self.eval_signal(&signal_a);
-                let b_val = self.eval_signal(&signal_b);
-                let pos = self.eval_signal(&position).clamp(0.0, 1.0);
+                let a_val = self.eval_signal(signal_a);
+                let b_val = self.eval_signal(signal_b);
+                let pos = self.eval_signal(position).clamp(0.0, 1.0);
 
                 // Linear crossfade: (1-pos)*a + pos*b
                 (1.0 - pos) * a_val + pos * b_val
@@ -12204,8 +12255,8 @@ impl UnifiedSignalGraph {
             SignalNode::Allpass {
                 input, coefficient, ..
             } => {
-                let x = self.eval_signal(&input);
-                let g = self.eval_signal(&coefficient).clamp(-1.0, 1.0);
+                let x = self.eval_signal(input);
+                let g = self.eval_signal(coefficient).clamp(-1.0, 1.0);
 
                 // Get previous state
                 let (x1, y1) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
@@ -12237,9 +12288,9 @@ impl UnifiedSignalGraph {
             SignalNode::LowPass {
                 input, cutoff, q, ..
             } => {
-                let input_val = self.eval_signal(&input);
-                let fc = self.eval_signal(&cutoff).max(20.0).min(20000.0);
-                let q_val = self.eval_signal(&q).max(0.5).min(20.0);
+                let input_val = self.eval_signal(input);
+                let fc = self.eval_signal(cutoff).clamp(20.0, 20000.0);
+                let q_val = self.eval_signal(q).clamp(0.5, 20.0);
 
                 // Get state and cached coefficients
                 let (mut low, mut band, mut high, mut f, mut damp) =
@@ -12302,9 +12353,9 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::When { input, condition } => {
-                let cond = self.eval_signal(&condition);
+                let cond = self.eval_signal(condition);
                 if cond > 0.0 {
-                    self.eval_signal(&input)
+                    self.eval_signal(input)
                 } else {
                     0.0
                 }
@@ -12317,16 +12368,16 @@ impl UnifiedSignalGraph {
                 mix,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let room = self.eval_signal(&room_size).clamp(0.0, 1.0);
-                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let room = self.eval_signal(room_size).clamp(0.0, 1.0);
+                let damp = self.eval_signal(damping).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 // Process comb filters (parallel)
                 let mut comb_out = 0.0;
@@ -12391,19 +12442,19 @@ impl UnifiedSignalGraph {
             } => {
                 // Full Dattorro reverb implementation
                 // Based on Jon Dattorro's 1997 AES paper
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let pre_delay_ms = self.eval_signal(&pre_delay).clamp(0.0, 500.0);
-                let decay_val = self.eval_signal(&decay).clamp(0.1, 10.0);
-                let diffusion_val = self.eval_signal(&diffusion).clamp(0.0, 1.0);
-                let damping_val = self.eval_signal(&damping).clamp(0.0, 1.0);
-                let mod_depth_val = self.eval_signal(&mod_depth).clamp(0.0, 1.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let pre_delay_ms = self.eval_signal(pre_delay).clamp(0.0, 500.0);
+                let decay_val = self.eval_signal(decay).clamp(0.1, 10.0);
+                let diffusion_val = self.eval_signal(diffusion).clamp(0.0, 1.0);
+                let damping_val = self.eval_signal(damping).clamp(0.0, 1.0);
+                let mod_depth_val = self.eval_signal(mod_depth).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 // Helper function for allpass filter
                 // y[n] = -x[n] + x[n-D] + g * (x[n] - y[n-D])
@@ -12633,7 +12684,7 @@ impl UnifiedSignalGraph {
                 state: _,
             } => {
                 // Evaluate input first
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
@@ -12641,15 +12692,15 @@ impl UnifiedSignalGraph {
                 }
 
                 // Evaluate remaining parameters
-                let predelay_val = self.eval_signal(&predelay);
-                let decay_val = self.eval_signal(&decay);
-                let size_val = self.eval_signal(&size);
-                let diffusion_val = self.eval_signal(&diffusion);
-                let damping_val = self.eval_signal(&damping);
-                let spin_val = self.eval_signal(&spin);
-                let wander_val = self.eval_signal(&wander);
-                let freeze_val = self.eval_signal(&freeze);
-                let mix_val = self.eval_signal(&mix);
+                let predelay_val = self.eval_signal(predelay);
+                let decay_val = self.eval_signal(decay);
+                let size_val = self.eval_signal(size);
+                let diffusion_val = self.eval_signal(diffusion);
+                let damping_val = self.eval_signal(damping);
+                let spin_val = self.eval_signal(spin);
+                let wander_val = self.eval_signal(wander);
+                let freeze_val = self.eval_signal(freeze);
+                let mix_val = self.eval_signal(mix);
 
                 // SHARED STATE: Check if shared state is enabled for parallel rendering
                 if let Some(ref registry) = self.shared_state {
@@ -12697,7 +12748,7 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Convolution { input, state } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
@@ -12724,14 +12775,14 @@ impl UnifiedSignalGraph {
                 trigger,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let trigger_val = self.eval_signal(&trigger);
+                let trigger_val = self.eval_signal(trigger);
 
                 // Process through spectral freeze
                 let output = if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
@@ -12749,9 +12800,9 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Distortion { input, drive, mix } => {
-                let input_val = self.eval_signal(&input);
-                let drive_val = self.eval_signal(&drive).clamp(1.0, 100.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let drive_val = self.eval_signal(drive).clamp(1.0, 100.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 // Soft clipping waveshaper
                 let driven = input_val * drive_val;
@@ -12766,9 +12817,9 @@ impl UnifiedSignalGraph {
                 sample_rate,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let bit_depth = self.eval_signal(&bits).clamp(1.0, 16.0);
-                let rate_reduction = self.eval_signal(&sample_rate).clamp(1.0, 64.0);
+                let input_val = self.eval_signal(input);
+                let bit_depth = self.eval_signal(bits).clamp(1.0, 16.0);
+                let rate_reduction = self.eval_signal(sample_rate).clamp(1.0, 64.0);
 
                 let phase = *state.phase.borrow() + rate_reduction;
                 let mut output = *state.last_sample.borrow();
@@ -12803,10 +12854,10 @@ impl UnifiedSignalGraph {
                 mix,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let lfo_rate = self.eval_signal(&rate).clamp(0.1, 10.0);
-                let mod_depth = self.eval_signal(&depth).clamp(0.0, 1.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let lfo_rate = self.eval_signal(rate).clamp(0.1, 10.0);
+                let mod_depth = self.eval_signal(depth).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 // LFO for delay modulation
                 let lfo_phase = state.lfo_phase;
@@ -12849,10 +12900,10 @@ impl UnifiedSignalGraph {
                 feedback,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let lfo_rate = self.eval_signal(&rate).clamp(0.1, 10.0);
-                let mod_depth = self.eval_signal(&depth).clamp(0.0, 1.0);
-                let feedback_amt = self.eval_signal(&feedback).clamp(0.0, 0.95);
+                let input_val = self.eval_signal(input);
+                let lfo_rate = self.eval_signal(rate).clamp(0.1, 10.0);
+                let mod_depth = self.eval_signal(depth).clamp(0.0, 1.0);
+                let feedback_amt = self.eval_signal(feedback).clamp(0.0, 0.95);
 
                 // Bypass effect if depth is very small
                 if mod_depth < 0.01 {
@@ -12914,12 +12965,12 @@ impl UnifiedSignalGraph {
                 makeup_gain,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
-                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
-                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
-                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
-                let makeup_db = self.eval_signal(&makeup_gain).clamp(0.0, 30.0);
+                let input_val = self.eval_signal(input);
+                let threshold_db = self.eval_signal(threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(release).clamp(0.01, 3.0);
+                let makeup_db = self.eval_signal(makeup_gain).clamp(0.0, 30.0);
 
                 // Convert threshold from dB to linear
                 let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
@@ -12976,13 +13027,13 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate both inputs
-                let main_val = self.eval_signal(&main_input);
-                let sidechain_val = self.eval_signal(&sidechain_input);
+                let main_val = self.eval_signal(main_input);
+                let sidechain_val = self.eval_signal(sidechain_input);
 
-                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
-                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
-                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
-                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+                let threshold_db = self.eval_signal(threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(release).clamp(0.01, 3.0);
 
                 // Convert threshold from dB to linear
                 let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
@@ -13033,11 +13084,11 @@ impl UnifiedSignalGraph {
                 release,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
-                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 10.0);
-                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
-                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+                let input_val = self.eval_signal(input);
+                let threshold_db = self.eval_signal(threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(ratio).clamp(1.0, 10.0);
+                let attack_time = self.eval_signal(attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(release).clamp(0.01, 3.0);
 
                 // Convert threshold from dB to linear
                 let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
@@ -13092,14 +13143,14 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate both inputs
-                let main_val = self.eval_signal(&main_input);
-                let sidechain_val = self.eval_signal(&sidechain_input);
+                let main_val = self.eval_signal(main_input);
+                let sidechain_val = self.eval_signal(sidechain_input);
 
-                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
-                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
-                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
-                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
-                let adapt_factor = self.eval_signal(&adaptive_factor).clamp(0.0, 1.0);
+                let threshold_db = self.eval_signal(threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(release).clamp(0.01, 3.0);
+                let adapt_factor = self.eval_signal(adaptive_factor).clamp(0.0, 1.0);
 
                 // Convert threshold from dB to linear
                 let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
@@ -13175,9 +13226,9 @@ impl UnifiedSignalGraph {
                 depth,
                 phase,
             } => {
-                let input_val = self.eval_signal(&input);
-                let rate_hz = self.eval_signal(&rate).clamp(0.1, 20.0);
-                let depth_val = self.eval_signal(&depth).clamp(0.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let rate_hz = self.eval_signal(rate).clamp(0.1, 20.0);
+                let depth_val = self.eval_signal(depth).clamp(0.0, 1.0);
 
                 // Fast bypass for zero depth
                 if depth_val < 0.001 {
@@ -13222,9 +13273,9 @@ impl UnifiedSignalGraph {
                 delay_buffer,
                 buffer_pos,
             } => {
-                let input_val = self.eval_signal(&input);
-                let rate_hz = self.eval_signal(&rate).clamp(0.1, 20.0);
-                let depth_semitones = self.eval_signal(&depth).clamp(0.0, 2.0);
+                let input_val = self.eval_signal(input);
+                let rate_hz = self.eval_signal(rate).clamp(0.1, 20.0);
+                let depth_semitones = self.eval_signal(depth).clamp(0.0, 2.0);
 
                 // Fast bypass for zero depth
                 if depth_semitones < 0.001 {
@@ -13304,10 +13355,10 @@ impl UnifiedSignalGraph {
                 allpass_y1,
                 feedback_sample,
             } => {
-                let input_val = self.eval_signal(&input);
-                let rate_hz = self.eval_signal(&rate).clamp(0.05, 5.0);
-                let depth_val = self.eval_signal(&depth).clamp(0.0, 1.0);
-                let feedback_val = self.eval_signal(&feedback).clamp(0.0, 0.95);
+                let input_val = self.eval_signal(input);
+                let rate_hz = self.eval_signal(rate).clamp(0.05, 5.0);
+                let depth_val = self.eval_signal(depth).clamp(0.0, 1.0);
+                let feedback_val = self.eval_signal(feedback).clamp(0.0, 0.95);
 
                 // Fast bypass for zero depth
                 if depth_val < 0.001 {
@@ -13380,8 +13431,8 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::RingMod { input, freq, phase } => {
-                let input_val = self.eval_signal(&input);
-                let carrier_freq = self.eval_signal(&freq).clamp(20.0, 5000.0);
+                let input_val = self.eval_signal(input);
+                let carrier_freq = self.eval_signal(freq).clamp(20.0, 5000.0);
 
                 let mut output_val = input_val;
 
@@ -13405,9 +13456,9 @@ impl UnifiedSignalGraph {
                 modulator,
                 mod_depth,
             } => {
-                let carrier_val = self.eval_signal(&carrier);
-                let modulator_val = self.eval_signal(&modulator);
-                let depth_val = self.eval_signal(&mod_depth);
+                let carrier_val = self.eval_signal(carrier);
+                let modulator_val = self.eval_signal(modulator);
+                let depth_val = self.eval_signal(mod_depth);
 
                 // FM cross-modulation: carrier * cos(2π * depth * modulator)
                 use std::f32::consts::PI;
@@ -13519,7 +13570,7 @@ impl UnifiedSignalGraph {
 
             SignalNode::Tap { input, state } => {
                 // Evaluate input signal
-                let sample = self.eval_signal(&input);
+                let sample = self.eval_signal(input);
 
                 // Record sample (thread-safe)
                 if let Ok(mut tap_state) = state.lock() {
@@ -13530,7 +13581,7 @@ impl UnifiedSignalGraph {
                 sample
             }
 
-            SignalNode::Output { input } => self.eval_signal(&input),
+            SignalNode::Output { input } => self.eval_signal(input),
 
             SignalNode::Pattern {
                 pattern_str,
@@ -13569,7 +13620,7 @@ impl UnifiedSignalGraph {
                 // DEBUG: Log all pattern queries
                 if std::env::var("DEBUG_PATTERN").is_ok()
                     && self.sample_count < 200
-                    && self.sample_count % 20 == 0
+                    && self.sample_count.is_multiple_of(20)
                 {
                     eprintln!(
                         "Pattern '{}' at cycle {:.6}, sample {}: {} events",
@@ -13683,8 +13734,8 @@ impl UnifiedSignalGraph {
                 let cycle_position = self.get_cycle_position();
                 let current_cycle = cycle_position.floor() as i32;
                 let cycle_fraction = cycle_position - cycle_position.floor();
-                let pulse_width_val = self.eval_signal(&pulse_width); // Pattern-modulatable
-                let pulse_duration = pulse_width_val / self.cps as f32; // Convert pulse width to cycles
+                let pulse_width_val = self.eval_signal(pulse_width); // Pattern-modulatable
+                let pulse_duration = pulse_width_val / self.cps; // Convert pulse width to cycles
 
                 // Output 1.0 if we're within the pulse duration at the start of a new cycle
                 // Output 0.0 otherwise
@@ -13902,7 +13953,7 @@ impl UnifiedSignalGraph {
                         // Evaluate DSP parameters at THIS EVENT'S start time
                         // This ensures each event gets its own parameter values from the pattern
                         let mut gain_val = self
-                            .eval_signal_at_time(&gain, event_start_abs)
+                            .eval_signal_at_time(gain, event_start_abs)
                             .max(0.0)
                             .min(10.0);
 
@@ -13917,7 +13968,7 @@ impl UnifiedSignalGraph {
                         let pan_val = if let Some(pan_str) = event.context.get("pan") {
                             pan_str.parse::<f32>().unwrap_or(0.0).clamp(-1.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&pan, event_start_abs)
+                            self.eval_signal_at_time(pan, event_start_abs)
                                 .clamp(-1.0, 1.0)
                         };
 
@@ -13929,10 +13980,10 @@ impl UnifiedSignalGraph {
                             // speed parameter from loopAt or explicit speed control
                             speed_str.parse::<f32>().unwrap_or(1.0).clamp(-10.0, 10.0)
                         } else {
-                            self.eval_signal_at_time(&speed, event_start_abs)
+                            self.eval_signal_at_time(speed, event_start_abs)
                                 .clamp(-10.0, 10.0)
                         };
-                        let cut_group_val = self.eval_signal_at_time(&cut_group, event_start_abs);
+                        let cut_group_val = self.eval_signal_at_time(cut_group, event_start_abs);
                         let cut_group_opt = if cut_group_val > 0.0 {
                             Some(cut_group_val as u32)
                         } else {
@@ -13940,7 +13991,7 @@ impl UnifiedSignalGraph {
                         };
 
                         // Evaluate n modifier for sample number selection
-                        let n_val = self.eval_signal_at_time(&n, event_start_abs);
+                        let n_val = self.eval_signal_at_time(n, event_start_abs);
                         let n_index = n_val.round().max(0.0) as usize;
 
                         // Modify sample name with n index if n > 0
@@ -13955,7 +14006,7 @@ impl UnifiedSignalGraph {
                         // Note is in semitones: 0 = original, 12 = octave up, -12 = octave down
                         // Supports: numbers (5), letter notes (c4, e4, g4), solfège (do, re, mi)
                         // Also supports chord notation: "c4'maj" -> vec![0, 4, 7] (C, E, G)
-                        let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
+                        let chord_notes = self.eval_note_signal_as_chord(note, event_start_abs);
 
                         // CRITICAL: If note pattern returned empty (rest), skip this event entirely
                         // This handles `# note "~ c4"` where ~ should produce silence
@@ -13983,11 +14034,11 @@ impl UnifiedSignalGraph {
 
                         // Evaluate envelope parameters
                         let attack_val = self
-                            .eval_signal_at_time(&attack, event_start_abs)
+                            .eval_signal_at_time(attack, event_start_abs)
                             .max(0.0)
                             .min(10.0); // Attack time in seconds
                         let mut release_val = self
-                            .eval_signal_at_time(&release, event_start_abs)
+                            .eval_signal_at_time(release, event_start_abs)
                             .max(0.0)
                             .min(10.0); // Release time in seconds
 
@@ -14008,12 +14059,12 @@ impl UnifiedSignalGraph {
                         // Legacy: Update release_val for old code paths (will be superseded by ADSR+auto-release)
                         // dur takes priority over legato_duration
                         if let Some(dur_seconds) = dur_seconds_opt {
-                            release_val = dur_seconds.max(0.001).min(10.0);
+                            release_val = dur_seconds.clamp(0.001, 10.0);
                         } else if let Some(duration_cycles) = legato_duration_opt {
                             // Convert duration from cycles to seconds using tempo
                             // cps is cycles/second, so seconds = cycles / cps
                             let duration_seconds = duration_cycles / self.cps;
-                            release_val = duration_seconds.max(0.001).min(10.0);
+                            release_val = duration_seconds.clamp(0.001, 10.0);
                         }
 
                         // CRITICAL FIX: When attack=0 and release=0 (default), don't apply
@@ -14031,9 +14082,9 @@ impl UnifiedSignalGraph {
                             };
 
                         // Evaluate unit mode and loop parameters
-                        let unit_mode_val = self.eval_signal_at_time(&unit_mode, event_start_abs);
+                        let unit_mode_val = self.eval_signal_at_time(unit_mode, event_start_abs);
                         let loop_enabled_val =
-                            self.eval_signal_at_time(&loop_enabled, event_start_abs);
+                            self.eval_signal_at_time(loop_enabled, event_start_abs);
 
                         // Convert to appropriate types
                         let unit_mode_enum = if unit_mode_val > 0.5 {
@@ -14049,13 +14100,13 @@ impl UnifiedSignalGraph {
                         let begin_val = if let Some(begin_str) = event.context.get("begin") {
                             begin_str.parse::<f32>().unwrap_or(0.0).clamp(0.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&begin, event_start_abs)
+                            self.eval_signal_at_time(begin, event_start_abs)
                                 .clamp(0.0, 1.0)
                         };
                         let end_val = if let Some(end_str) = event.context.get("end") {
                             end_str.parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&end, event_start_abs)
+                            self.eval_signal_at_time(end, event_start_abs)
                                 .clamp(0.0, 1.0)
                         };
 
@@ -14236,7 +14287,7 @@ impl UnifiedSignalGraph {
                                                 .max(0.0);
                                         // Convert to samples
                                         let auto_release_samples =
-                                            (sustain_seconds * self.sample_rate as f32) as usize;
+                                            (sustain_seconds * self.sample_rate) as usize;
 
                                         // Set auto-release on the last triggered voice
                                         self.voice_manager
@@ -14418,20 +14469,20 @@ impl UnifiedSignalGraph {
                 use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
 
                 // Evaluate DSP parameters (all pattern-modulatable at sample rate)
-                let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
-                let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
-                let n_val = self.eval_signal(&n); // Semitone transposition
+                let gain_val = self.eval_signal(gain).clamp(0.0, 10.0);
+                let pan_val = self.eval_signal(pan).clamp(-1.0, 1.0);
+                let n_val = self.eval_signal(n); // Semitone transposition
 
                 // Evaluate envelope parameters (sampled at trigger time for each note)
-                let attack_val = self.eval_signal(&attack).max(0.0001);
-                let decay_val = self.eval_signal(&decay).max(0.0);
-                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_val = self.eval_signal(&release).max(0.0001);
+                let attack_val = self.eval_signal(attack).max(0.0001);
+                let decay_val = self.eval_signal(decay).max(0.0);
+                let sustain_val = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(release).max(0.0001);
 
                 // Evaluate filter parameters (sampled at trigger time for each note)
-                let filter_cutoff_val = self.eval_signal(&filter_cutoff).max(20.0).min(20000.0);
-                let filter_resonance_val = self.eval_signal(&filter_resonance).clamp(0.0, 1.0);
-                let filter_env_amount_val = self.eval_signal(&filter_env_amount);
+                let filter_cutoff_val = self.eval_signal(filter_cutoff).clamp(20.0, 20000.0);
+                let filter_resonance_val = self.eval_signal(filter_resonance).clamp(0.0, 1.0);
+                let filter_env_amount_val = self.eval_signal(filter_env_amount);
 
                 // Query pattern for note events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -14582,13 +14633,13 @@ impl UnifiedSignalGraph {
                 use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
 
                 // Evaluate all parameters (pattern-modulatable at sample rate)
-                let gain_val = self.eval_signal(gain).max(0.0).min(10.0);
-                let attack_val = self.eval_signal(&attack).max(0.0001);
-                let decay_val = self.eval_signal(&decay).max(0.0);
-                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_val = self.eval_signal(&release).max(0.0001);
-                let filter_cutoff_val = self.eval_signal(&filter_cutoff).max(20.0).min(20000.0);
-                let filter_resonance_val = self.eval_signal(&filter_resonance).clamp(0.0, 1.0);
+                let gain_val = self.eval_signal(gain).clamp(0.0, 10.0);
+                let attack_val = self.eval_signal(attack).max(0.0001);
+                let decay_val = self.eval_signal(decay).max(0.0);
+                let sustain_val = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(release).max(0.0001);
+                let filter_cutoff_val = self.eval_signal(filter_cutoff).clamp(20.0, 20000.0);
+                let filter_resonance_val = self.eval_signal(filter_resonance).clamp(0.0, 1.0);
 
                 // Process MIDI events from queue
                 if let Ok(mut queue) = event_queue.lock() {
@@ -14689,8 +14740,8 @@ impl UnifiedSignalGraph {
                 use crate::midi_input::MidiMessageType;
 
                 // Evaluate attack and release (pattern-modulatable at sample rate)
-                let attack_val = self.eval_signal(&attack).max(0.0001);
-                let release_val = self.eval_signal(&release).max(0.0001);
+                let attack_val = self.eval_signal(attack).max(0.0001);
+                let release_val = self.eval_signal(release).max(0.0001);
 
                 let sample_rate = self.sample_rate;
                 let attack_rate = if attack_val > 0.0 { 1.0 / (attack_val * sample_rate) } else { 1.0 };
@@ -14971,9 +15022,9 @@ impl UnifiedSignalGraph {
             SignalNode::HighPass {
                 input, cutoff, q, ..
             } => {
-                let input_val = self.eval_signal(&input);
-                let fc = self.eval_signal(&cutoff).max(20.0).min(20000.0);
-                let q_val = self.eval_signal(&q).max(0.5).min(20.0);
+                let input_val = self.eval_signal(input);
+                let fc = self.eval_signal(cutoff).clamp(20.0, 20000.0);
+                let q_val = self.eval_signal(q).clamp(0.5, 20.0);
 
                 // Get state and cached coefficients
                 let (mut low, mut band, mut high, mut f, mut damp) =
@@ -15037,9 +15088,9 @@ impl UnifiedSignalGraph {
             SignalNode::BandPass {
                 input, center, q, ..
             } => {
-                let input_val = self.eval_signal(&input);
-                let fc = self.eval_signal(&center).max(20.0).min(20000.0);
-                let q_val = self.eval_signal(&q).max(0.5).min(20.0);
+                let input_val = self.eval_signal(input);
+                let fc = self.eval_signal(center).clamp(20.0, 20000.0);
+                let q_val = self.eval_signal(q).clamp(0.5, 20.0);
 
                 // Get state and cached coefficients
                 let (mut low, mut band, mut high, mut f, mut damp) =
@@ -15101,8 +15152,8 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::DJFilter { input, value, .. } => {
-                let input_val = self.eval_signal(&input);
-                let djf_value = self.eval_signal(&value).clamp(0.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let djf_value = self.eval_signal(value).clamp(0.0, 1.0);
 
                 // Map djf value to filter cutoff frequency
                 // Keep cutoff well below Nyquist (22050 Hz) to avoid instability
@@ -15183,9 +15234,9 @@ impl UnifiedSignalGraph {
             SignalNode::Notch {
                 input, center, q, ..
             } => {
-                let input_val = self.eval_signal(&input);
-                let fc = self.eval_signal(&center).max(20.0).min(20000.0);
-                let q_val = self.eval_signal(&q).max(0.5).min(20.0);
+                let input_val = self.eval_signal(input);
+                let fc = self.eval_signal(center).clamp(20.0, 20000.0);
+                let q_val = self.eval_signal(q).clamp(0.5, 20.0);
 
                 // State variable filter (Chamberlin) - notch is low + high
                 let f = 2.0 * (PI * fc / self.sample_rate).sin();
@@ -15228,15 +15279,15 @@ impl UnifiedSignalGraph {
                 buffer,
                 write_pos,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let freq = self.eval_signal(&frequency).max(20.0).min(20000.0);
-                let fb = self.eval_signal(&feedback).clamp(0.0, 0.99);
+                let freq = self.eval_signal(frequency).clamp(20.0, 20000.0);
+                let fb = self.eval_signal(feedback).clamp(0.0, 0.99);
 
                 // Convert frequency to delay time in samples
                 let delay_samples = (self.sample_rate / freq).round() as usize;
@@ -15272,9 +15323,9 @@ impl UnifiedSignalGraph {
                 resonance,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let fc = self.eval_signal(&cutoff).clamp(20.0, 20000.0);
-                let res = self.eval_signal(&resonance).clamp(0.0, 1.0);
+                let input_val = self.eval_signal(input);
+                let fc = self.eval_signal(cutoff).clamp(20.0, 20000.0);
+                let res = self.eval_signal(resonance).clamp(0.0, 1.0);
 
                 // Calculate cutoff coefficient (g) from frequency
                 // g = tan(π * fc / sr) / (1 + tan(π * fc / sr))
@@ -15334,7 +15385,7 @@ impl UnifiedSignalGraph {
             } => {
                 use std::f32::consts::PI;
 
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let sample_rate = self.sample_rate; // Extract to avoid borrow issues
 
                 // Helper function to apply peaking filter
@@ -15409,17 +15460,17 @@ impl UnifiedSignalGraph {
                     };
 
                 // Evaluate parameters
-                let low_f = self.eval_signal(&low_freq);
-                let low_g = self.eval_signal(&low_gain);
-                let low_q_val = self.eval_signal(&low_q);
+                let low_f = self.eval_signal(low_freq);
+                let low_g = self.eval_signal(low_gain);
+                let low_q_val = self.eval_signal(low_q);
 
-                let mid_f = self.eval_signal(&mid_freq);
-                let mid_g = self.eval_signal(&mid_gain);
-                let mid_q_val = self.eval_signal(&mid_q);
+                let mid_f = self.eval_signal(mid_freq);
+                let mid_g = self.eval_signal(mid_gain);
+                let mid_q_val = self.eval_signal(mid_q);
 
-                let high_f = self.eval_signal(&high_freq);
-                let high_g = self.eval_signal(&high_gain);
-                let high_q_val = self.eval_signal(&high_q);
+                let high_f = self.eval_signal(high_freq);
+                let high_g = self.eval_signal(high_gain);
+                let high_q_val = self.eval_signal(high_q);
 
                 // Apply all three bands in series
                 let (after_low, new_low_state) =
@@ -15451,14 +15502,14 @@ impl UnifiedSignalGraph {
                 release,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let trig = self.eval_signal(&trigger);
+                let input_val = self.eval_signal(input);
+                let trig = self.eval_signal(trigger);
 
                 // Evaluate pattern-modulatable parameters
-                let attack_val = self.eval_signal(&attack);
-                let decay_val = self.eval_signal(&decay);
-                let sustain_val = self.eval_signal(&sustain);
-                let release_val = self.eval_signal(&release);
+                let attack_val = self.eval_signal(attack);
+                let decay_val = self.eval_signal(decay);
+                let sustain_val = self.eval_signal(sustain);
+                let release_val = self.eval_signal(release);
 
                 // Work with state in place (no clone needed)
                 let mut output_level = *state.level.borrow();
@@ -15559,10 +15610,10 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate modulatable parameters
-                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
-                let decay_time = self.eval_signal(&decay).max(0.001);
-                let sustain_level = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_time = self.eval_signal(&release).max(0.001);
+                let attack_time = self.eval_signal(attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(decay).max(0.001);
+                let sustain_level = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_time = self.eval_signal(release).max(0.001);
 
                 let mut adsr_state = state.clone();
 
@@ -15617,8 +15668,8 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // Evaluate modulatable parameters
-                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
-                let decay_time = self.eval_signal(&decay).max(0.001);
+                let attack_time = self.eval_signal(attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(decay).max(0.001);
 
                 let mut ad_state = state.clone();
 
@@ -15664,8 +15715,8 @@ impl UnifiedSignalGraph {
 
             SignalNode::Line { start, end } => {
                 // Evaluate start and end values (supports pattern modulation!)
-                let start_val = self.eval_signal(&start);
-                let end_val = self.eval_signal(&end);
+                let start_val = self.eval_signal(start);
+                let end_val = self.eval_signal(end);
 
                 // Calculate position within current cycle (0.0 to 1.0)
                 let cycle_pos = (self.get_cycle_position() % 1.0) as f32;
@@ -15683,10 +15734,10 @@ impl UnifiedSignalGraph {
                 curve,
                 elapsed_time,
             } => {
-                let start_val = self.eval_signal(&start);
-                let end_val = self.eval_signal(&end);
-                let duration_val = self.eval_signal(&duration).max(0.001); // Min 1ms
-                let curve_val = self.eval_signal(&curve);
+                let start_val = self.eval_signal(start);
+                let end_val = self.eval_signal(end);
+                let duration_val = self.eval_signal(duration).max(0.001); // Min 1ms
+                let curve_val = self.eval_signal(curve);
 
                 let mut output_val = start_val;
 
@@ -15801,13 +15852,13 @@ impl UnifiedSignalGraph {
                 state,
                 ..
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // Evaluate envelope parameters (pattern-modulatable at sample rate)
-                let attack_val = self.eval_signal(&attack).max(0.0);
-                let decay_val = self.eval_signal(&decay).max(0.0);
-                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_val = self.eval_signal(&release).max(0.0);
+                let attack_val = self.eval_signal(attack).max(0.0);
+                let decay_val = self.eval_signal(decay).max(0.0);
+                let sustain_val = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(release).max(0.0);
 
                 // Query pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -15991,13 +16042,13 @@ impl UnifiedSignalGraph {
                 state,
                 ..
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // Evaluate envelope parameters (pattern-modulatable at sample rate)
-                let attack_val = self.eval_signal(&attack).max(0.0);
-                let decay_val = self.eval_signal(&decay).max(0.0);
-                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_val = self.eval_signal(&release).max(0.0);
+                let attack_val = self.eval_signal(attack).max(0.0);
+                let decay_val = self.eval_signal(decay).max(0.0);
+                let sustain_val = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(release).max(0.0);
 
                 // Query boolean pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -16175,8 +16226,8 @@ impl UnifiedSignalGraph {
                 state,
                 ..
             } => {
-                let attack_val = self.eval_signal(&attack).max(0.001);
-                let release_val = self.eval_signal(&release).max(0.001);
+                let attack_val = self.eval_signal(attack).max(0.001);
+                let release_val = self.eval_signal(release).max(0.001);
 
                 // Query boolean pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -16299,10 +16350,10 @@ impl UnifiedSignalGraph {
                 state,
                 ..
             } => {
-                let attack_val = self.eval_signal(&attack).max(0.001);
-                let decay_val = self.eval_signal(&decay).max(0.001);
-                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_val = self.eval_signal(&release).max(0.001);
+                let attack_val = self.eval_signal(attack).max(0.001);
+                let decay_val = self.eval_signal(decay).max(0.001);
+                let sustain_val = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(release).max(0.001);
 
                 // Query boolean pattern
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -16538,16 +16589,16 @@ impl UnifiedSignalGraph {
                 buffer,
                 write_idx,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let delay_time = self.eval_signal(&time).max(0.0).min(2.0);
-                let fb = self.eval_signal(&feedback).max(0.0).min(0.99);
-                let mix_val = self.eval_signal(&mix).max(0.0).min(1.0);
+                let delay_time = self.eval_signal(time).clamp(0.0, 2.0);
+                let fb = self.eval_signal(feedback).clamp(0.0, 0.99);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 let delay_samples = (delay_time * self.sample_rate) as usize;
                 let delay_samples = delay_samples.min(buffer.len() - 1).max(1);
@@ -16590,21 +16641,21 @@ impl UnifiedSignalGraph {
                 mix,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
-                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
-                let wow_r = self.eval_signal(&wow_rate).clamp(0.1, 2.0);
-                let wow_d = self.eval_signal(&wow_depth).clamp(0.0, 1.0);
-                let flutter_r = self.eval_signal(&flutter_rate).clamp(5.0, 10.0);
-                let flutter_d = self.eval_signal(&flutter_depth).clamp(0.0, 1.0);
-                let sat = self.eval_signal(&saturation).clamp(0.0, 1.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let delay_time = self.eval_signal(time).clamp(0.001, 1.0);
+                let fb = self.eval_signal(feedback).clamp(0.0, 0.95);
+                let wow_r = self.eval_signal(wow_rate).clamp(0.1, 2.0);
+                let wow_d = self.eval_signal(wow_depth).clamp(0.0, 1.0);
+                let flutter_r = self.eval_signal(flutter_rate).clamp(5.0, 10.0);
+                let flutter_d = self.eval_signal(flutter_depth).clamp(0.0, 1.0);
+                let sat = self.eval_signal(saturation).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 let buffer_len = state.buffer.len();
                 let sample_rate = state.sample_rate;
@@ -16677,16 +16728,16 @@ impl UnifiedSignalGraph {
                 buffer,
                 write_idx,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let base_time = self.eval_signal(&time).max(0.001).min(1.0);
-                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let base_time = self.eval_signal(time).clamp(0.001, 1.0);
+                let fb = self.eval_signal(feedback).clamp(0.0, 0.95);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 let buffer_len = buffer.len();
                 let sample_rate = self.sample_rate();
@@ -16694,7 +16745,7 @@ impl UnifiedSignalGraph {
 
                 // Sum multiple tap outputs
                 let mut tap_sum = 0.0;
-                let tap_count = (*taps).min(8).max(2);
+                let tap_count = (*taps).clamp(2, 8);
 
                 for i in 1..=tap_count {
                     let tap_delay = base_delay_samples * i;
@@ -16738,17 +16789,17 @@ impl UnifiedSignalGraph {
                 buffer_r,
                 write_idx,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
 
                 // BYPASS MODE: For pipelined rendering, pass through unchanged
                 if self.bypass_sequential_effects {
                     return input_val;
                 }
 
-                let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
-                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
-                let width = self.eval_signal(&stereo_width).clamp(0.0, 1.0);
-                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+                let delay_time = self.eval_signal(time).clamp(0.001, 1.0);
+                let fb = self.eval_signal(feedback).clamp(0.0, 0.95);
+                let width = self.eval_signal(stereo_width).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(mix).clamp(0.0, 1.0);
 
                 let buffer_len = buffer_l.len();
                 let sample_rate = self.sample_rate();
@@ -16804,8 +16855,8 @@ impl UnifiedSignalGraph {
                 buffer,
                 write_idx,
             } => {
-                let input_val = self.eval_signal(&input);
-                let window_seconds = self.eval_signal(&window_size).max(0.001).min(1.0);
+                let input_val = self.eval_signal(input);
+                let window_seconds = self.eval_signal(window_size).clamp(0.001, 1.0);
 
                 // Convert window size (seconds) to samples
                 let window_samples = (window_seconds * self.sample_rate) as usize;
@@ -16842,9 +16893,9 @@ impl UnifiedSignalGraph {
                 low_threshold,
                 state,
             } => {
-                let input_val = self.eval_signal(&input);
-                let high = self.eval_signal(&high_threshold);
-                let low = self.eval_signal(&low_threshold);
+                let input_val = self.eval_signal(input);
+                let high = self.eval_signal(high_threshold);
+                let low = self.eval_signal(low_threshold);
 
                 // Current state (captured from the pattern match)
                 let mut output_state = *state;
@@ -16886,8 +16937,8 @@ impl UnifiedSignalGraph {
                 held_value,
                 last_gate,
             } => {
-                let input_val = self.eval_signal(&input);
-                let gate_val = self.eval_signal(&gate);
+                let input_val = self.eval_signal(input);
+                let gate_val = self.eval_signal(gate);
 
                 // Current held value and last gate (captured from pattern match)
                 let mut output_val = *held_value;
@@ -16923,7 +16974,7 @@ impl UnifiedSignalGraph {
                 elapsed_time,
                 last_trigger,
             } => {
-                let trigger_val = self.eval_signal(&trigger);
+                let trigger_val = self.eval_signal(trigger);
 
                 // Current elapsed time (captured from pattern match)
                 let mut output_val = *elapsed_time;
@@ -16958,7 +17009,7 @@ impl UnifiedSignalGraph {
 
             SignalNode::Pitch { input, last_pitch } => {
                 // Simplified pitch detection - would need more sophisticated algorithm
-                let _input_val = self.eval_signal(&input);
+                let _input_val = self.eval_signal(input);
 
                 // For now, just return last pitch
                 // Real implementation would do autocorrelation or FFT
@@ -16970,8 +17021,8 @@ impl UnifiedSignalGraph {
                 threshold,
                 last_value,
             } => {
-                let input_val = self.eval_signal(&input).abs();
-                let threshold_val = self.eval_signal(&threshold); // Pattern-modulatable threshold
+                let input_val = self.eval_signal(input).abs();
+                let threshold_val = self.eval_signal(threshold); // Pattern-modulatable threshold
                 let last = *last_value;
 
                 // Detect sharp changes (for saw wave discontinuities)
@@ -17006,7 +17057,7 @@ impl UnifiedSignalGraph {
                 window_samples,
                 last_frequency,
             } => {
-                let input_val = self.eval_signal(&input);
+                let input_val = self.eval_signal(input);
                 let last = *last_sample;
 
                 let mut output_freq = *last_frequency;
@@ -17063,9 +17114,9 @@ impl UnifiedSignalGraph {
                 release_time,
                 current_peak,
             } => {
-                let input_val = self.eval_signal(&input).abs();
-                let attack_sec = self.eval_signal(&attack_time).max(0.00001); // Min 10μs
-                let release_sec = self.eval_signal(&release_time).max(0.00001);
+                let input_val = self.eval_signal(input).abs();
+                let attack_sec = self.eval_signal(attack_time).max(0.00001); // Min 10μs
+                let release_sec = self.eval_signal(release_time).max(0.00001);
 
                 let mut output_val = *current_peak;
 
@@ -17107,10 +17158,10 @@ impl UnifiedSignalGraph {
                 write_idx,
                 current_envelope,
             } => {
-                let input_val = self.eval_signal(&input);
-                let attack_sec = self.eval_signal(&attack_time).max(0.00001);
-                let release_sec = self.eval_signal(&release_time).max(0.00001);
-                let window_sec = self.eval_signal(&window_size).max(0.0001);
+                let input_val = self.eval_signal(input);
+                let attack_sec = self.eval_signal(attack_time).max(0.00001);
+                let release_sec = self.eval_signal(release_time).max(0.00001);
+                let window_sec = self.eval_signal(window_size).max(0.0001);
 
                 let mut output_val = *current_envelope;
 
@@ -17126,7 +17177,7 @@ impl UnifiedSignalGraph {
                     {
                         // Update buffer size if window changed
                         let target_size = (window_sec * self.sample_rate) as usize;
-                        let target_size = target_size.max(1).min(88200); // Max 2 seconds
+                        let target_size = target_size.clamp(1, 88200); // Max 2 seconds
 
                         if buf.len() != target_size {
                             buf.resize(target_size, 0.0);
@@ -17166,7 +17217,7 @@ impl UnifiedSignalGraph {
                 destinations: _,
             } => {
                 // Router just passes through input, destinations are handled separately
-                self.eval_signal(&input)
+                self.eval_signal(input)
             }
 
             SignalNode::Conditional {
@@ -17175,19 +17226,19 @@ impl UnifiedSignalGraph {
                 else_signal,
             } => {
                 // Evaluate condition
-                let cond_value = self.eval_signal(&condition);
+                let cond_value = self.eval_signal(condition);
 
                 // Route based on condition (> 0.5 = true)
                 if cond_value > 0.5 {
-                    self.eval_signal(&then_signal)
+                    self.eval_signal(then_signal)
                 } else {
-                    self.eval_signal(&else_signal)
+                    self.eval_signal(else_signal)
                 }
             }
 
             SignalNode::Select { index, inputs } => {
                 // Evaluate index signal
-                let index_value = self.eval_signal(&index);
+                let index_value = self.eval_signal(index);
 
                 // Handle empty inputs
                 if inputs.is_empty() {
@@ -18091,11 +18142,11 @@ impl UnifiedSignalGraph {
             // Mix in all numbered output channels
             // Use pre-collected output_channels to avoid borrow checker issues
             for (ch, node_id) in &output_channels {
-                if self.hushed_channels.contains(&ch) {
+                if self.hushed_channels.contains(ch) {
                     continue;
                 }
                 num_active_channels += 1;
-                mixed_output += self.eval_node(&node_id);
+                mixed_output += self.eval_node(node_id);
             }
             if let Some(start) = eval_start {
                 eval_time_us += start.elapsed().as_micros();
@@ -18604,7 +18655,7 @@ impl UnifiedSignalGraph {
             let channels = self.process_sample_multi();
 
             // Extract left (channel 0/out1) and right (channel 1/out2)
-            let left_sample = channels.get(0).copied().unwrap_or(0.0);
+            let left_sample = channels.first().copied().unwrap_or(0.0);
             let right_sample = channels.get(1).copied().unwrap_or(0.0);
 
             left.push(left_sample);
@@ -18642,7 +18693,6 @@ impl UnifiedSignalGraph {
     /// # Migration Status
     /// During gradual migration, not all nodes support buffer evaluation yet.
     /// Unsupported nodes fall back to sample-by-sample evaluation.
-
     /// Find all oscillator nodes in a signal chain by traversing from the output node
     /// This is needed because a bus like `sine 440 # gain 0.3` creates a chain where
     /// the bus points to the Multiply (gain) node, not the Oscillator.
@@ -18932,7 +18982,7 @@ impl UnifiedSignalGraph {
                 };
 
                 // Update last_note_cycle for compatibility (though not strictly needed with new approach)
-                if let Some(_) = note_pattern {
+                if note_pattern.is_some() {
                     let current_cycle = self.get_cycle_position().floor() as i32;
                     last_note_cycle.set(current_cycle);
                 }
@@ -19532,8 +19582,8 @@ impl UnifiedSignalGraph {
                 // Process entire buffer
                 for i in 0..buffer_size {
                     // Clamp parameters to valid ranges
-                    let fc = cutoff_buffer[i].max(20.0).min(20000.0);
-                    let q_val = q_buffer[i].max(0.5).min(20.0);
+                    let fc = cutoff_buffer[i].clamp(20.0, 20000.0);
+                    let q_val = q_buffer[i].clamp(0.5, 20.0);
 
                     // Compute SVF coefficients (Chamberlin)
                     // f = 2 * sin(π * fc / fs)
@@ -19588,8 +19638,8 @@ impl UnifiedSignalGraph {
                 // Process entire buffer
                 for i in 0..buffer_size {
                     // Clamp parameters to valid ranges
-                    let fc = cutoff_buffer[i].max(20.0).min(20000.0);
-                    let q_val = q_buffer[i].max(0.5).min(20.0);
+                    let fc = cutoff_buffer[i].clamp(20.0, 20000.0);
+                    let q_val = q_buffer[i].clamp(0.5, 20.0);
 
                     // Compute SVF coefficients (Chamberlin)
                     // f = 2 * sin(π * fc / fs)
@@ -19641,8 +19691,8 @@ impl UnifiedSignalGraph {
                 // Process entire buffer
                 for i in 0..buffer_size {
                     // Clamp parameters to valid ranges
-                    let fc = center_buffer[i].max(20.0).min(20000.0);
-                    let q_val = q_buffer[i].max(0.5).min(20.0);
+                    let fc = center_buffer[i].clamp(20.0, 20000.0);
+                    let q_val = q_buffer[i].clamp(0.5, 20.0);
 
                     // Compute SVF coefficients (Chamberlin)
                     // f = 2 * sin(π * fc / fs)
@@ -19694,8 +19744,8 @@ impl UnifiedSignalGraph {
                 // Process entire buffer
                 for i in 0..buffer_size {
                     // Clamp parameters to valid ranges
-                    let fc = center_buffer[i].max(20.0).min(20000.0);
-                    let q_val = q_buffer[i].max(0.5).min(20.0);
+                    let fc = center_buffer[i].clamp(20.0, 20000.0);
+                    let q_val = q_buffer[i].clamp(0.5, 20.0);
 
                     // Compute SVF coefficients (Chamberlin)
                     // f = 2 * sin(π * fc / fs)
@@ -19946,9 +19996,9 @@ impl UnifiedSignalGraph {
                         // Process buffer: for each sample, read from delay line, write new sample
                         for i in 0..buffer_size {
                             // Clamp parameters to reasonable ranges
-                            let delay_time = time_buffer[i].max(0.0).min(2.0);
-                            let fb = feedback_buffer[i].max(0.0).min(0.99);
-                            let mix_val = mix_buffer[i].max(0.0).min(1.0);
+                            let delay_time = time_buffer[i].clamp(0.0, 2.0);
+                            let fb = feedback_buffer[i].clamp(0.0, 0.99);
+                            let mix_val = mix_buffer[i].clamp(0.0, 1.0);
 
                             // Convert delay time to samples
                             let delay_samples = (delay_time * self.sample_rate) as usize;
@@ -20015,7 +20065,7 @@ impl UnifiedSignalGraph {
                         // Process buffer: for each sample, read from delay line and apply comb filter
                         for i in 0..buffer_size {
                             // Clamp parameters to reasonable ranges
-                            let freq = frequency_buffer[i].max(20.0).min(20000.0);
+                            let freq = frequency_buffer[i].clamp(20.0, 20000.0);
                             let fb = feedback_buffer[i].clamp(0.0, 0.99);
 
                             // Convert frequency to delay time in samples
@@ -20702,7 +20752,7 @@ impl UnifiedSignalGraph {
                 // Process entire buffer
                 for i in 0..buffer_size {
                     // Clamp parameters to valid ranges
-                    let delay_time = time_buffer[i].max(0.001).min(1.0);
+                    let delay_time = time_buffer[i].clamp(0.001, 1.0);
                     let fb = feedback_buffer[i].clamp(0.0, 0.95);
                     let wow_r = wow_rate_buffer[i].clamp(0.1, 2.0);
                     let wow_d = wow_depth_buffer[i].clamp(0.0, 1.0);
@@ -21378,7 +21428,7 @@ impl UnifiedSignalGraph {
                 let current_channel = *channel;
 
                 for i in 0..buffer_size {
-                    let delay_time = time_buffer[i].max(0.001).min(1.0);
+                    let delay_time = time_buffer[i].clamp(0.001, 1.0);
                     let fb = feedback_buffer[i].clamp(0.0, 0.95);
                     let width = stereo_width_buffer[i].clamp(0.0, 1.0);
                     let mix_val = mix_buffer[i].clamp(0.0, 1.0);
@@ -21470,9 +21520,9 @@ impl UnifiedSignalGraph {
                     let q = 1.0 / res.max(0.1); // Convert resonance to damping
 
                     // Update filter (Chamberlin topology)
-                    low = low + f * band;
+                    low += f * band;
                     let high = input_buffer[i] - low - q * band;
-                    band = f * high + band;
+                    band += f * high;
                     let notch = high + low;
 
                     // Clamp state to prevent runaway values and NaN
@@ -21852,10 +21902,10 @@ impl UnifiedSignalGraph {
                 // Evaluates envelope over entire buffer based on cycle position
 
                 // Evaluate modulatable parameters (constant for this buffer)
-                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
-                let decay_time = self.eval_signal(&decay).max(0.001);
-                let sustain_level = self.eval_signal(&sustain).clamp(0.0, 1.0);
-                let release_time = self.eval_signal(&release).max(0.001);
+                let attack_time = self.eval_signal(attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(decay).max(0.001);
+                let sustain_level = self.eval_signal(sustain).clamp(0.0, 1.0);
+                let release_time = self.eval_signal(release).max(0.001);
 
                 let mut adsr_state = state.clone();
                 let cycle_duration = 1.0 / self.cps;
@@ -21915,8 +21965,8 @@ impl UnifiedSignalGraph {
                 // AD envelope generator - buffer-based evaluation
 
                 // Evaluate modulatable parameters (constant for this buffer)
-                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
-                let decay_time = self.eval_signal(&decay).max(0.001);
+                let attack_time = self.eval_signal(attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(decay).max(0.001);
 
                 let mut ad_state = state.clone();
                 let cycle_duration = 1.0 / self.cps;

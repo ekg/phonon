@@ -1,3 +1,4 @@
+#![allow(clippy::manual_clamp)]
 /// Brown noise generator (Brownian/red noise)
 ///
 /// Generates random walk values in the range [-amplitude, amplitude] using a

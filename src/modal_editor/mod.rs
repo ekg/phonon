@@ -5,6 +5,7 @@
 //! Provides a full-screen text editor for writing Phonon DSL code with
 //! real-time audio generation using ring buffer architecture for parallel synthesis
 
+#![allow(clippy::redundant_pattern_matching)]
 mod command_console;
 pub mod completion;
 mod highlighting;
@@ -336,7 +337,7 @@ impl ModalEditor {
                         use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
                         static NO_GRAPH_COUNT: AtomicUsize = AtomicUsize::new(0);
                         let count = NO_GRAPH_COUNT.fetch_add(1, AtomicOrdering::Relaxed) + 1;
-                        if count % 100 == 0 {
+                        if count.is_multiple_of(100) {
                             eprintln!("⚠️  No graph loaded! ({}x)", count);
                         }
                     }

@@ -1,3 +1,4 @@
+#![allow(clippy::derivable_impls)]
 /// Schmidt trigger node - comparator with hysteresis for noise immunity
 ///
 /// A Schmidt trigger converts an analog signal to a digital gate signal with

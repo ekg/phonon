@@ -1,4 +1,5 @@
 #![allow(unused_assignments, unused_mut)]
+#![allow(clippy::let_and_return, clippy::too_many_arguments)]
 //! SuperDirt-inspired synthesizer definitions
 //!
 //! This module provides a library of predefined synthesizers inspired by

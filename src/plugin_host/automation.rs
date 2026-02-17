@@ -3,6 +3,7 @@
 //! Provides sample-accurate parameter automation from Phonon patterns.
 //! Maps parameter names to indices and generates per-sample automation data.
 
+#![allow(clippy::double_ended_iterator_last)]
 use super::types::*;
 use std::collections::HashMap;
 

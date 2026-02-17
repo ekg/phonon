@@ -117,7 +117,7 @@ fn render_live(code: &str, output_path: &str) -> Result<(), Box<dyn std::error::
     // Spawn audio engine with --record option
     eprintln!("   Spawning phonon-audio with --record...");
     let mut audio_process = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--release",
             "--bin",

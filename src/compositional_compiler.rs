@@ -4,6 +4,11 @@
 //! Compiles the clean compositional AST into the AudioNode architecture.
 //! Uses block-based buffer passing for efficient DAW-style processing.
 
+#![allow(
+    clippy::collapsible_match,
+    clippy::only_used_in_recursion,
+    clippy::redundant_closure
+)]
 use crate::compositional_parser::{BinOp, BusType, Expr, Statement, Transform, UnOp};
 use crate::midi_input::{ArpPattern, Arpeggiator, MidiEventQueue, Scale, parse_root_note};
 use crate::mini_notation_v3::parse_mini_notation;
@@ -707,9 +712,18 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             );
             Ok(())
         }
-        Statement::Hush => {
-            // Silence all outputs (keeps them defined but hushed)
-            ctx.graph.hush_all();
+        Statement::Hush { channel } => {
+            match channel {
+                None => ctx.graph.hush_all(),
+                Some(ch) => ctx.graph.hush_channel(ch),
+            }
+            Ok(())
+        }
+        Statement::Unhush { channel } => {
+            match channel {
+                None => ctx.graph.unhush_all(),
+                Some(ch) => ctx.graph.unhush_channel(ch),
+            }
             Ok(())
         }
         Statement::Panic => {
@@ -2121,7 +2135,7 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             match expr.as_ref() {
                 Expr::String(pattern_str) => {
                     // Parse mini-notation to create Pattern<String>
-                    let mut pattern = parse_mini_notation(&pattern_str);
+                    let mut pattern = parse_mini_notation(pattern_str);
 
                     // Apply transform using the helper function
                     pattern = apply_transform_to_pattern(ctx, pattern, transform.clone())?;
@@ -2518,7 +2532,7 @@ fn compile_function_call(
 
                                 let mut transforms = vec![transform.clone()];
                                 let base_str =
-                                    extract_pattern_and_transforms(&**expr, &mut transforms)?;
+                                    extract_pattern_and_transforms(expr, &mut transforms)?;
 
                                 // Parse base pattern
                                 let mut pattern = parse_mini_notation(&base_str);
@@ -2638,7 +2652,7 @@ fn compile_function_call(
                         }
 
                         let mut transforms = vec![transform.clone()];
-                        let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
+                        let base_str = extract_pattern_and_transforms(expr, &mut transforms)?;
 
                         // Parse base pattern
                         let mut pattern = parse_mini_notation(&base_str);
@@ -3378,7 +3392,6 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 ///
 /// Special case: When frequency argument is ~midi, creates a MidiPolySynth
 /// that handles polyphonic MIDI note triggering with proper voice allocation.
-
 /// Check if an expression references the ~midi bus
 fn is_midi_bus_ref(expr: &Expr) -> bool {
     match expr {
@@ -5855,7 +5868,7 @@ fn compile_sidechain_compressor(
     use crate::unified_graph::CompressorState;
 
     let node = SignalNode::SidechainCompressor {
-        main_input: main_input,
+        main_input,
         sidechain_input: Signal::Node(sidechain_node),
         threshold: Signal::Node(threshold_node),
         ratio: Signal::Node(ratio_node),
@@ -7737,7 +7750,7 @@ fn compile_transform(
         if name == "s" && !args.is_empty() {
             if let Expr::String(pattern_str) = &args[0] {
                 // Parse and transform the pattern
-                let mut pattern = parse_mini_notation(&pattern_str);
+                let mut pattern = parse_mini_notation(pattern_str);
                 pattern = apply_transform_to_pattern(ctx, pattern, transform)?;
 
                 // Create Sample node with transformed pattern
@@ -7949,8 +7962,8 @@ fn create_signal_pattern_for_transform(
 
         // Return a single event spanning the query span with the sampled value
         vec![Hap {
-            whole: Some(state.span.clone()),
-            part: state.span.clone(),
+            whole: Some(state.span),
+            part: state.span,
             value,
             context: HashMap::new(),
         }]
@@ -10289,7 +10302,6 @@ fn compile_whenmod_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 
 /// Conditional effect compilers
 /// These create signal-level conditional routing for effects
-
 fn compile_every_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // every_effect n (effect_chain)
     // When used in chain: input # every_effect 2 (lpf 500 0.8)
@@ -10932,5 +10944,241 @@ mod tests {
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile vst in bus");
+    }
+
+    // ========== parse_transform_from_call Tests ==========
+
+    #[test]
+    fn test_parse_transform_fast() {
+        assert!(matches!(parse_transform_from_call("fast", &[Expr::Number(2.0)]), Ok(Transform::Fast(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_slow() {
+        assert!(matches!(parse_transform_from_call("slow", &[Expr::Number(0.5)]), Ok(Transform::Slow(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_rev() {
+        assert!(matches!(parse_transform_from_call("rev", &[]), Ok(Transform::Rev)));
+    }
+
+    #[test]
+    fn test_parse_transform_palindrome() {
+        assert!(matches!(parse_transform_from_call("palindrome", &[]), Ok(Transform::Palindrome)));
+    }
+
+    #[test]
+    fn test_parse_transform_degrade() {
+        assert!(matches!(parse_transform_from_call("degrade", &[]), Ok(Transform::Degrade)));
+    }
+
+    #[test]
+    fn test_parse_transform_degradeBy() {
+        assert!(matches!(parse_transform_from_call("degradeBy", &[Expr::Number(0.3)]), Ok(Transform::DegradeBy(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_rotL() {
+        assert!(matches!(parse_transform_from_call("rotL", &[Expr::Number(1.0)]), Ok(Transform::RotL(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_rotR() {
+        assert!(matches!(parse_transform_from_call("rotR", &[Expr::Number(1.0)]), Ok(Transform::RotR(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_stutter() {
+        assert!(matches!(parse_transform_from_call("stutter", &[Expr::Number(4.0)]), Ok(Transform::Stutter(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_iter() {
+        assert!(matches!(parse_transform_from_call("iter", &[Expr::Number(3.0)]), Ok(Transform::Iter(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_chop() {
+        assert!(matches!(parse_transform_from_call("chop", &[Expr::Number(4.0)]), Ok(Transform::Chop(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_striate() {
+        assert!(matches!(parse_transform_from_call("striate", &[Expr::Number(4.0)]), Ok(Transform::Striate(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_swing() {
+        assert!(matches!(parse_transform_from_call("swing", &[Expr::Number(0.2)]), Ok(Transform::Swing(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_slice() {
+        assert!(matches!(parse_transform_from_call("slice", &[Expr::Number(8.0), Expr::String("0 1 2 3".into())]), Ok(Transform::Slice { .. })));
+    }
+
+    #[test]
+    fn test_parse_transform_zoom() {
+        assert!(matches!(parse_transform_from_call("zoom", &[Expr::Number(0.0), Expr::Number(0.5)]), Ok(Transform::Zoom { .. })));
+    }
+
+    #[test]
+    fn test_parse_transform_compress() {
+        assert!(matches!(parse_transform_from_call("compress", &[Expr::Number(0.25), Expr::Number(0.75)]), Ok(Transform::Compress { .. })));
+    }
+
+    #[test]
+    fn test_parse_transform_stut() {
+        assert!(matches!(parse_transform_from_call("stut", &[Expr::Number(4.0), Expr::Number(0.25), Expr::Number(0.5)]), Ok(Transform::Stut { .. })));
+    }
+
+    #[test]
+    fn test_parse_transform_loopAt() {
+        assert!(matches!(parse_transform_from_call("loopAt", &[Expr::Number(4.0)]), Ok(Transform::LoopAt(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_ply() {
+        assert!(matches!(parse_transform_from_call("ply", &[Expr::Number(2.0)]), Ok(Transform::Ply(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_hurry() {
+        assert!(matches!(parse_transform_from_call("hurry", &[Expr::Number(2.0)]), Ok(Transform::Hurry(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_fastGap() {
+        assert!(matches!(parse_transform_from_call("fastGap", &[Expr::Number(2.0)]), Ok(Transform::FastGap(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_squeeze() {
+        assert!(matches!(parse_transform_from_call("squeeze", &[Expr::Number(2.0)]), Ok(Transform::Squeeze(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_early() {
+        assert!(matches!(parse_transform_from_call("early", &[Expr::Number(0.25)]), Ok(Transform::Early(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_late() {
+        assert!(matches!(parse_transform_from_call("late", &[Expr::Number(0.25)]), Ok(Transform::Late(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_shuffle() {
+        assert!(matches!(parse_transform_from_call("shuffle", &[Expr::Number(4.0)]), Ok(Transform::Shuffle(_))));
+    }
+
+    #[test]
+    fn test_parse_transform_scramble() {
+        assert!(matches!(parse_transform_from_call("scramble", &[Expr::Number(4.0)]), Ok(Transform::Scramble(_))));
+    }
+
+    #[test]
+    fn test_unknown_transform_error() {
+        let result = parse_transform_from_call("totally_unknown", &[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown transform"));
+    }
+
+    #[test]
+    fn test_fast_wrong_args() {
+        assert!(parse_transform_from_call("fast", &[]).is_err());
+    }
+
+    #[test]
+    fn test_slow_wrong_args() {
+        assert!(parse_transform_from_call("slow", &[]).is_err());
+    }
+
+    #[test]
+    fn test_slice_wrong_args() {
+        assert!(parse_transform_from_call("slice", &[Expr::Number(4.0)]).is_err());
+    }
+
+    #[test]
+    fn test_zoom_wrong_args() {
+        assert!(parse_transform_from_call("zoom", &[Expr::Number(0.0)]).is_err());
+    }
+
+    #[test]
+    fn test_stut_wrong_args() {
+        assert!(parse_transform_from_call("stut", &[Expr::Number(4.0), Expr::Number(0.5)]).is_err());
+    }
+
+    // ========== ParamExtractor Tests ==========
+
+    #[test]
+    fn test_param_extractor_positional() {
+        let ext = ParamExtractor::new(vec![Expr::Number(440.0), Expr::Number(0.8)]);
+        assert_eq!(ext.positional_count(), 2);
+        assert!(matches!(ext.get_required(0, "freq"), Ok(Expr::Number(f)) if (f - 440.0).abs() < 0.001));
+        assert!(matches!(ext.get_required(1, "q"), Ok(Expr::Number(f)) if (f - 0.8).abs() < 0.001));
+    }
+
+    #[test]
+    fn test_param_extractor_missing_required() {
+        let ext = ParamExtractor::new(vec![Expr::Number(440.0)]);
+        assert!(ext.get_required(1, "q").is_err());
+    }
+
+    #[test]
+    fn test_param_extractor_optional_default() {
+        let ext = ParamExtractor::new(vec![Expr::Number(440.0)]);
+        assert!(matches!(ext.get_optional(1, "q", 1.0), Expr::Number(f) if (f - 1.0).abs() < 0.001));
+    }
+
+    #[test]
+    fn test_param_extractor_kwargs() {
+        let ext = ParamExtractor::new(vec![
+            Expr::Number(440.0),
+            Expr::Kwarg { name: "q".to_string(), value: Box::new(Expr::Number(0.5)) },
+        ]);
+        assert_eq!(ext.positional_count(), 1);
+        assert!(ext.has_kwarg("q"));
+        assert!(matches!(ext.get_required(1, "q"), Ok(Expr::Number(f)) if (f - 0.5).abs() < 0.001));
+    }
+
+    #[test]
+    fn test_param_extractor_keyword_only() {
+        let ext = ParamExtractor::new(vec![
+            Expr::Kwarg { name: "attack".to_string(), value: Box::new(Expr::Number(0.1)) },
+        ]);
+        assert_eq!(ext.positional_count(), 0);
+        assert!(ext.get_optional_keyword("attack").is_some());
+        assert!(ext.get_optional_keyword("release").is_none());
+    }
+
+    // ========== is_pure_transform Tests ==========
+
+    #[test]
+    fn test_is_pure_transform_call() {
+        assert!(is_pure_transform(&Expr::Call { name: "fast".to_string(), args: vec![Expr::Number(2.0)] }));
+        assert!(is_pure_transform(&Expr::Call { name: "rev".to_string(), args: vec![] }));
+    }
+
+    #[test]
+    fn test_is_not_pure_transform_for_signal() {
+        assert!(!is_pure_transform(&Expr::Call { name: "sine".to_string(), args: vec![Expr::Number(440.0)] }));
+        assert!(!is_pure_transform(&Expr::Call { name: "s".to_string(), args: vec![Expr::String("bd".to_string())] }));
+    }
+
+    #[test]
+    fn test_is_pure_transform_nested() {
+        let nested = Expr::Transform {
+            expr: Box::new(Expr::Call { name: "fast".to_string(), args: vec![Expr::Number(2.0)] }),
+            transform: Transform::Rev,
+        };
+        assert!(is_pure_transform(&nested));
+    }
+
+    #[test]
+    fn test_is_not_pure_transform_for_literals() {
+        assert!(!is_pure_transform(&Expr::Number(42.0)));
+        assert!(!is_pure_transform(&Expr::String("bd sn".to_string())));
     }
 }

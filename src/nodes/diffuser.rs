@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 /// Multi-channel Hadamard diffuser for high-quality reverb
 ///
 /// This node implements a sophisticated diffusion network based on the Signalsmith approach.

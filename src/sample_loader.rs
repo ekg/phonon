@@ -96,6 +96,7 @@
 //! let sample = bank.get_sample("my_kick").unwrap();
 //! ```
 
+#![allow(clippy::collapsible_if)]
 use std::collections::HashMap;
 use std::ops::Index;
 use std::path::{Path, PathBuf};

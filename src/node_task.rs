@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 /// Node task - wraps AudioNode as continuous async task for dataflow architecture
 ///
 /// This module implements the core dataflow primitive: a continuously running

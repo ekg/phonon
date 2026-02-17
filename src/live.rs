@@ -104,7 +104,7 @@ impl LiveSession {
                             total_time += elapsed;
                             total_buffers += 1;
 
-                            if total_buffers % 10 == 0 || elapsed.as_millis() > 15 {
+                            if total_buffers.is_multiple_of(10) || elapsed.as_millis() > 15 {
                                 let avg_ms =
                                     total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
                                 let target_ms = 512.0 / 44.1; // 11.61ms
@@ -178,7 +178,7 @@ impl LiveSession {
                             use std::sync::atomic::{AtomicUsize, Ordering};
                             static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
                             let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-                            if count % 100 == 0 {
+                            if count.is_multiple_of(100) {
                                 eprintln!("⚠️  Audio underrun #{} (synth can't keep up)", count);
                             }
                         }
@@ -215,7 +215,7 @@ impl LiveSession {
                             use std::sync::atomic::{AtomicUsize, Ordering};
                             static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
                             let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-                            if count % 100 == 0 {
+                            if count.is_multiple_of(100) {
                                 eprintln!("⚠️  Audio underrun #{}", count);
                             }
                         }

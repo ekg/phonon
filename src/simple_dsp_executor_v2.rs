@@ -1,5 +1,6 @@
 #![allow(unused_assignments, unused_mut)]
 #![allow(dead_code)]
+#![allow(clippy::manual_clamp, clippy::needless_range_loop)]
 //! DSP executor v2 - Supports pattern parameters
 //!
 //! This executor can generate audio from DSP chains with pattern parameters

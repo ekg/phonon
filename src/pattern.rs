@@ -3,6 +3,7 @@
 //!
 //! This is a full implementation of the TidalCycles/Strudel pattern language
 
+#![allow(clippy::cast_abs_to_unsigned)]
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;

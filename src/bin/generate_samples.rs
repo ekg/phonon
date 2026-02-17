@@ -2,6 +2,7 @@
 //!
 //! Creates minimal synthetic samples: bd, sn, hh, cp, blip
 
+#![allow(clippy::needless_range_loop)]
 use std::f32::consts::PI;
 use std::fs::File;
 use std::io::BufWriter;

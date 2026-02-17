@@ -434,34 +434,148 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Striate - slice pattern into n parts
+    /// Striate - interlace sample slices across the pattern cycle
+    ///
+    /// Tidal semantics: `striate n` creates n copies of the pattern, each with a
+    /// different slice (begin/end), then uses cat to play them in sequence.
+    /// The result has n × original events per cycle, interlaced by slice.
+    ///
+    /// Example: striate 3 $ s "bd sn"
+    ///   Time [0, 1/3): bd[0-33%] sn[0-33%]
+    ///   Time [1/3, 2/3): bd[33-67%] sn[33-67%]
+    ///   Time [2/3, 1): bd[67-100%] sn[67-100%]
     pub fn striate(self, n: usize) -> Self {
-        Pattern::new(move |state: &State| {
-            let mut all_haps = Vec::new();
-            for i in 0..n {
+        if n <= 1 {
+            return Pattern::new(move |state: &State| {
+                let mut haps = self.query(state);
+                for hap in &mut haps {
+                    hap.context
+                        .insert("begin".to_string(), "0".to_string());
+                    hap.context
+                        .insert("end".to_string(), "1".to_string());
+                }
+                haps
+            });
+        }
+
+        // Create n versions of the pattern, each with a different slice's begin/end
+        let patterns: Vec<Pattern<T>> = (0..n)
+            .map(|i| {
                 let slice_begin = i as f64 / n as f64;
                 let slice_end = (i + 1) as f64 / n as f64;
-                let sliced = self
-                    .clone()
-                    .zoom(Pattern::pure(slice_begin), Pattern::pure(slice_end));
-                let mut sliced_haps = sliced.query(state);
+                let p = self.clone();
+                Pattern::new(move |state: &State| {
+                    let mut haps = p.query(state);
+                    for hap in &mut haps {
+                        // mergePlayRange: map new slice within any existing begin/end
+                        let existing_begin: f64 = hap
+                            .context
+                            .get("begin")
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0.0);
+                        let existing_end: f64 = hap
+                            .context
+                            .get("end")
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(1.0);
+                        let d = existing_end - existing_begin;
+                        let new_begin = slice_begin * d + existing_begin;
+                        let new_end = slice_end * d + existing_begin;
+                        hap.context
+                            .insert("begin".to_string(), new_begin.to_string());
+                        hap.context
+                            .insert("end".to_string(), new_end.to_string());
+                    }
+                    haps
+                })
+            })
+            .collect();
 
-                // Add begin/end to context for sample slicing
-                for hap in &mut sliced_haps {
-                    hap.context
-                        .insert("begin".to_string(), slice_begin.to_string());
-                    hap.context.insert("end".to_string(), slice_end.to_string());
-                }
-
-                all_haps.extend(sliced_haps);
-            }
-            all_haps
-        })
+        // cat acts as fastcat: divides the cycle among n patterns
+        Pattern::cat(patterns)
     }
 
-    /// Chop into n equal parts
+    /// Chop - subdivide each event into n slices played in sequence
+    ///
+    /// Tidal semantics: `chop n` takes each event and replaces it with n sub-events,
+    /// each playing a consecutive slice of the sample. The slices stay within the
+    /// original event's time window.
+    ///
+    /// Example: chop 3 $ s "bd sn"
+    ///   bd: bd[0-33%] bd[33-67%] bd[67-100%]
+    ///   sn: sn[0-33%] sn[33-67%] sn[67-100%]
     pub fn chop(self, n: usize) -> Self {
-        self.striate(n)
+        if n <= 1 {
+            return Pattern::new(move |state: &State| {
+                let mut haps = self.query(state);
+                for hap in &mut haps {
+                    hap.context
+                        .insert("begin".to_string(), "0".to_string());
+                    hap.context
+                        .insert("end".to_string(), "1".to_string());
+                }
+                haps
+            });
+        }
+
+        Pattern::new(move |state: &State| {
+            let haps = self.query(state);
+            let mut result = Vec::new();
+
+            for hap in haps {
+                let existing_begin: f64 = hap
+                    .context
+                    .get("begin")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0.0);
+                let existing_end: f64 = hap
+                    .context
+                    .get("end")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(1.0);
+                let d = existing_end - existing_begin;
+
+                let event_begin = hap.part.begin.to_float();
+                let event_end = hap.part.end.to_float();
+                let event_dur = event_end - event_begin;
+
+                for i in 0..n {
+                    let slice_begin = i as f64 / n as f64;
+                    let slice_end = (i + 1) as f64 / n as f64;
+
+                    let new_begin = slice_begin * d + existing_begin;
+                    let new_end = slice_end * d + existing_begin;
+
+                    let sub_begin = event_begin + event_dur * slice_begin;
+                    let sub_end = event_begin + event_dur * slice_end;
+
+                    let mut sub_hap = hap.clone();
+                    sub_hap.part = TimeSpan::new(
+                        Fraction::from_float(sub_begin),
+                        Fraction::from_float(sub_end),
+                    );
+                    if let Some(whole) = &hap.whole {
+                        let whole_begin = whole.begin.to_float();
+                        let whole_end = whole.end.to_float();
+                        let whole_dur = whole_end - whole_begin;
+                        sub_hap.whole = Some(TimeSpan::new(
+                            Fraction::from_float(whole_begin + whole_dur * slice_begin),
+                            Fraction::from_float(whole_begin + whole_dur * slice_end),
+                        ));
+                    }
+                    sub_hap
+                        .context
+                        .insert("begin".to_string(), new_begin.to_string());
+                    sub_hap
+                        .context
+                        .insert("end".to_string(), new_end.to_string());
+
+                    result.push(sub_hap);
+                }
+            }
+
+            result
+        })
     }
 
     /// Spin - rotate through different versions

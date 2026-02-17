@@ -2,6 +2,7 @@
 //!
 //! Filters available completions based on partial input and context
 
+#![allow(clippy::unnecessary_lazy_evaluations)]
 use super::context::CompletionContext;
 use super::function_metadata::FUNCTION_METADATA;
 use super::generated_metadata::get_all_functions;

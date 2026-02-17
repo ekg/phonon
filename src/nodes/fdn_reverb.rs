@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! Feedback Delay Network (FDN) Reverb
 //!
 //! An 8-channel FDN reverb using a Householder mixing matrix for efficient,

@@ -1,7 +1,6 @@
 //! Test audio output between hybrid and legacy architectures
 //! Records audio from both paths and compares them
 
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::Write;
 use std::time::Instant;

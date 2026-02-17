@@ -269,7 +269,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // DEBUG: Log buffer timing (enable with DEBUG_BUFFER_TIMING=1)
                     static DEBUG_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
                     let counter = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    if std::env::var("DEBUG_BUFFER_TIMING").is_ok() && counter % 100 == 0 {
+                    if std::env::var("DEBUG_BUFFER_TIMING").is_ok() && counter.is_multiple_of(100) {
                         eprintln!("📊 Buffer {}: cycle={:.4}, incr={:.8}, cps={:.2}",
                             counter, buffer_start_cycle, sample_increment, cps);
                     }
@@ -350,7 +350,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         static mut UNDERRUN_COUNT: usize = 0;
                         unsafe {
                             UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT % 100 == 0 {
+                            if UNDERRUN_COUNT.is_multiple_of(100) {
                                 eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
                             }
                         }
@@ -423,7 +423,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         static mut UNDERRUN_COUNT: usize = 0;
                         unsafe {
                             UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT % 100 == 0 {
+                            if UNDERRUN_COUNT.is_multiple_of(100) {
                                 eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
                             }
                         }

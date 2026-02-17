@@ -8,6 +8,7 @@
 //! - Signal references: `lpf ~lfo 0.8`
 //! - Arithmetic expressions: `lpf (~lfo * 1000 + 500) 0.8`
 
+#![allow(clippy::manual_strip)]
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, State, TimeSpan};
 use crate::pattern_tonal::note_to_midi;
