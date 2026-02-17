@@ -330,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix for high frequencies - may need better delay line handling
+    #[ignore = "BUG: high frequency handling needs better delay line"]
     fn test_waveguide_frequency_controls_pitch() {
         // Test 2: Verify frequency parameter affects pitch
         // Compare two different frequencies to ensure pitch control works

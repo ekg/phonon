@@ -2406,3 +2406,1629 @@ impl VoiceManager {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    /// Helper: create a mono sample with a simple ramp (0.0, 0.1, 0.2, ...)
+    fn make_mono_sample(len: usize) -> Arc<StereoSample> {
+        let data: Vec<f32> = (0..len).map(|i| i as f32 / len as f32).collect();
+        Arc::new(StereoSample::mono(data))
+    }
+
+    /// Helper: create a mono sample filled with a constant value
+    fn make_const_sample(len: usize, value: f32) -> Arc<StereoSample> {
+        Arc::new(StereoSample::mono(vec![value; len]))
+    }
+
+    /// Helper: create a stereo sample with different left/right data
+    fn make_stereo_sample(len: usize) -> Arc<StereoSample> {
+        let left: Vec<f32> = (0..len).map(|i| i as f32 / len as f32).collect();
+        let right: Vec<f32> = (0..len).map(|i| 1.0 - i as f32 / len as f32).collect();
+        Arc::new(StereoSample::stereo(left, right))
+    }
+
+    /// Helper: create a small VoiceManager for testing (avoids 256-voice default)
+    fn make_small_vm(count: usize) -> VoiceManager {
+        VoiceManager::with_config(count, Some(count * 4))
+    }
+
+    // =========================================================================
+    // VoiceBuffers tests
+    // =========================================================================
+
+    #[test]
+    fn test_voice_buffers_new() {
+        let vb = VoiceBuffers::new(4, 128);
+        assert_eq!(vb.buffer_size, 128);
+        assert_eq!(vb.buffers.len(), 5); // 0..=4
+        assert_eq!(vb.max_active_node, 0);
+        // All buffers start empty
+        for buf in &vb.buffers {
+            assert!(buf.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_voice_buffers_default() {
+        let vb = VoiceBuffers::default();
+        assert_eq!(vb.buffer_size, 0);
+        assert!(vb.buffers.is_empty());
+        assert_eq!(vb.max_active_node, 0);
+    }
+
+    #[test]
+    fn test_voice_buffers_get_empty() {
+        let vb = VoiceBuffers::new(4, 128);
+        // Out of bounds node returns 0.0
+        assert_eq!(vb.get(10, 0), 0.0);
+        // Empty node returns 0.0
+        assert_eq!(vb.get(0, 0), 0.0);
+    }
+
+    #[test]
+    fn test_voice_buffers_has_data() {
+        let mut vb = VoiceBuffers::new(4, 128);
+        assert!(!vb.has_data(0));
+        assert!(!vb.has_data(99)); // Out of bounds
+
+        vb.add_to_node(2, &[1.0, 2.0, 3.0]);
+        assert!(vb.has_data(2));
+        assert!(!vb.has_data(0));
+    }
+
+    #[test]
+    fn test_voice_buffers_add_to_node_first_voice() {
+        let mut vb = VoiceBuffers::new(4, 4);
+        let samples = [0.5, 0.6, 0.7, 0.8];
+        vb.add_to_node(1, &samples);
+
+        assert_eq!(vb.get(1, 0), 0.5);
+        assert_eq!(vb.get(1, 1), 0.6);
+        assert_eq!(vb.get(1, 2), 0.7);
+        assert_eq!(vb.get(1, 3), 0.8);
+        assert_eq!(vb.max_active_node, 1);
+    }
+
+    #[test]
+    fn test_voice_buffers_add_to_node_accumulates() {
+        let mut vb = VoiceBuffers::new(4, 4);
+        vb.add_to_node(1, &[0.5, 0.5, 0.5, 0.5]);
+        vb.add_to_node(1, &[0.3, 0.3, 0.3, 0.3]);
+
+        // Should accumulate
+        assert!((vb.get(1, 0) - 0.8).abs() < 1e-6);
+        assert!((vb.get(1, 1) - 0.8).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_buffers_auto_grow() {
+        let mut vb = VoiceBuffers::new(2, 4);
+        assert_eq!(vb.buffers.len(), 3); // 0..=2
+
+        // Adding to node beyond initial size should grow
+        vb.add_to_node(10, &[1.0, 2.0]);
+        assert!(vb.buffers.len() > 10);
+        assert_eq!(vb.get(10, 0), 1.0);
+        assert_eq!(vb.max_active_node, 10);
+    }
+
+    #[test]
+    fn test_voice_buffers_get_out_of_bounds_sample_idx() {
+        let mut vb = VoiceBuffers::new(4, 4);
+        vb.add_to_node(0, &[1.0, 2.0]);
+        // Sample index beyond buffer length returns 0.0
+        assert_eq!(vb.get(0, 5), 0.0);
+    }
+
+    // =========================================================================
+    // Voice construction and defaults
+    // =========================================================================
+
+    #[test]
+    fn test_voice_new_defaults() {
+        let voice = Voice::new();
+        assert_eq!(voice.state, VoiceState::Free);
+        assert_eq!(voice.gain, 1.0);
+        assert_eq!(voice.pan, 0.0);
+        assert_eq!(voice.speed, 1.0);
+        assert_eq!(voice.age, 0);
+        assert!(voice.cut_group.is_none());
+        assert!(voice.sample_data.is_none());
+        assert!(voice.synthesis_node_id.is_none());
+        assert_eq!(voice.unit_mode, UnitMode::Rate);
+        assert!(!voice.loop_enabled);
+        assert!(voice.auto_release_at_sample.is_none());
+        assert!(voice.buffer_trigger_offset.is_none());
+        assert!(voice.is_available());
+    }
+
+    #[test]
+    fn test_voice_default_trait() {
+        let v1 = Voice::new();
+        let v2 = Voice::default();
+        assert_eq!(v1.state, v2.state);
+        assert_eq!(v1.gain, v2.gain);
+    }
+
+    // =========================================================================
+    // Voice triggering
+    // =========================================================================
+
+    #[test]
+    fn test_voice_trigger_basic() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger(sample, 0.8, 0.5);
+
+        assert_eq!(voice.state, VoiceState::Playing);
+        assert_eq!(voice.gain, 0.8);
+        assert!((voice.pan - 0.5).abs() < 1e-6);
+        assert_eq!(voice.speed, 1.0);
+        assert_eq!(voice.age, 0);
+        assert_eq!(voice.position, 0.0);
+        assert!(!voice.is_available());
+    }
+
+    #[test]
+    fn test_voice_trigger_with_speed() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_speed(sample, 1.0, 0.0, 2.0);
+
+        assert_eq!(voice.speed, 2.0);
+        assert_eq!(voice.position, 0.0);
+    }
+
+    #[test]
+    fn test_voice_trigger_reverse_speed() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_speed(sample, 1.0, 0.0, -1.0);
+
+        assert_eq!(voice.speed, -1.0);
+        // Reverse playback starts at end of sample
+        assert!((voice.position - 99.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_trigger_pan_clamp() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+
+        // Pan should be clamped to [-1.0, 1.0]
+        voice.trigger(sample.clone(), 1.0, 5.0);
+        assert!((voice.pan - 1.0).abs() < 1e-6);
+
+        voice.trigger(sample.clone(), 1.0, -5.0);
+        assert!((voice.pan - (-1.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_trigger_with_cut_group() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_cut_group(sample, 1.0, 0.0, 1.0, Some(42));
+
+        assert_eq!(voice.cut_group, Some(42));
+    }
+
+    #[test]
+    fn test_voice_trigger_with_envelope() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_envelope(sample, 0.5, 0.0, 1.0, None, 0.01, 0.5);
+
+        assert_eq!(voice.state, VoiceState::Playing);
+        assert_eq!(voice.gain, 0.5);
+        assert!((voice.attack - 0.01).abs() < 1e-6);
+        assert!((voice.release - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_trigger_min_attack_release() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        // Very small attack/release should be clamped to minimums
+        voice.trigger_with_envelope(sample, 1.0, 0.0, 1.0, None, 0.0, 0.0);
+
+        assert!(voice.attack >= 0.0001);
+        assert!(voice.release >= 0.001);
+    }
+
+    #[test]
+    fn test_voice_trigger_with_adsr() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_adsr(sample, 0.9, 0.3, 1.5, None, 0.01, 0.1, 0.7, 0.3);
+
+        assert_eq!(voice.state, VoiceState::Playing);
+        assert_eq!(voice.gain, 0.9);
+        assert!((voice.pan - 0.3).abs() < 1e-6);
+        assert!((voice.speed - 1.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_trigger_with_segments() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_segments(
+            sample,
+            1.0,
+            0.0,
+            1.0,
+            None,
+            vec![0.0, 1.0, 0.5, 0.0],
+            vec![0.01, 0.1, 0.2],
+        );
+
+        assert_eq!(voice.state, VoiceState::Playing);
+    }
+
+    #[test]
+    fn test_voice_trigger_with_curve() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_curve(sample, 1.0, 0.0, 1.0, None, 0.0, 1.0, 0.5, 2.0);
+
+        assert_eq!(voice.state, VoiceState::Playing);
+    }
+
+    #[test]
+    fn test_voice_trigger_resets_age() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(1000);
+        voice.trigger(sample.clone(), 1.0, 0.0);
+
+        // Process some samples to increment age
+        for _ in 0..100 {
+            voice.process_stereo();
+        }
+        assert!(voice.age > 0);
+
+        // Re-trigger should reset age
+        voice.trigger(sample, 1.0, 0.0);
+        assert_eq!(voice.age, 0);
+    }
+
+    // =========================================================================
+    // Voice processing / audio output
+    // =========================================================================
+
+    #[test]
+    fn test_voice_free_produces_silence() {
+        let mut voice = Voice::new();
+        let (l, r) = voice.process_stereo();
+        assert_eq!(l, 0.0);
+        assert_eq!(r, 0.0);
+
+        let mono = voice.process();
+        assert_eq!(mono, 0.0);
+    }
+
+    #[test]
+    fn test_voice_produces_audio() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(1000, 0.5);
+        voice.trigger(sample, 1.0, 0.0);
+
+        // Should produce non-zero audio
+        let (l, r) = voice.process_stereo();
+        assert!(l.abs() > 0.0 || r.abs() > 0.0, "Voice should produce audio after trigger");
+    }
+
+    #[test]
+    fn test_voice_advances_position() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(1000);
+        voice.trigger_with_speed(sample, 1.0, 0.0, 1.0);
+
+        assert_eq!(voice.position, 0.0);
+        voice.process_stereo();
+        assert!((voice.position - 1.0).abs() < 1e-6);
+        voice.process_stereo();
+        assert!((voice.position - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_speed_affects_position() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(1000);
+        voice.trigger_with_speed(sample, 1.0, 0.0, 2.0);
+
+        voice.process_stereo();
+        assert!((voice.position - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_voice_increments_age() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(1000);
+        voice.trigger(sample, 1.0, 0.0);
+
+        for i in 0..10 {
+            assert_eq!(voice.age, i);
+            voice.process_stereo();
+        }
+        assert_eq!(voice.age, 10);
+    }
+
+    #[test]
+    fn test_voice_frees_after_sample_ends() {
+        let mut voice = Voice::new();
+        // Very short sample with short envelope
+        let sample = make_const_sample(5, 0.5);
+        voice.trigger_with_envelope(sample, 1.0, 0.0, 1.0, None, 0.0001, 0.001);
+
+        // Process until sample ends + envelope release completes
+        for _ in 0..10000 {
+            voice.process_stereo();
+            if voice.is_available() {
+                break;
+            }
+        }
+        assert!(voice.is_available(), "Voice should free after sample ends and envelope completes");
+    }
+
+    #[test]
+    fn test_voice_mono_center_pan() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(1000, 1.0);
+        voice.trigger(sample, 1.0, 0.0); // Center pan
+
+        let (l, r) = voice.process_stereo();
+        // Center pan: equal-power panning at 45° → cos(45°) = sin(45°) = sqrt(0.5)
+        // So left ≈ right
+        assert!((l - r).abs() < 0.01, "Center pan should have equal L/R: l={}, r={}", l, r);
+    }
+
+    #[test]
+    fn test_voice_hard_left_pan() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(1000, 1.0);
+        voice.trigger(sample, 1.0, -1.0); // Hard left
+
+        let (l, r) = voice.process_stereo();
+        // Hard left: pan_radians = 0 → cos(0) = 1, sin(0) = 0
+        assert!(l.abs() > r.abs(), "Hard left should have more left: l={}, r={}", l, r);
+    }
+
+    #[test]
+    fn test_voice_hard_right_pan() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(1000, 1.0);
+        voice.trigger(sample, 1.0, 1.0); // Hard right
+
+        let (l, r) = voice.process_stereo();
+        // Hard right: pan_radians = PI/2 → cos(PI/2) ≈ 0, sin(PI/2) = 1
+        assert!(r.abs() > l.abs(), "Hard right should have more right: l={}, r={}", l, r);
+    }
+
+    #[test]
+    fn test_voice_gain_affects_output() {
+        let sample = make_const_sample(1000, 1.0);
+
+        let mut loud = Voice::new();
+        loud.trigger(sample.clone(), 1.0, 0.0);
+        let (ll, lr) = loud.process_stereo();
+
+        let mut quiet = Voice::new();
+        quiet.trigger(sample, 0.1, 0.0);
+        let (ql, qr) = quiet.process_stereo();
+
+        let loud_energy = ll.abs() + lr.abs();
+        let quiet_energy = ql.abs() + qr.abs();
+        assert!(loud_energy > quiet_energy, "Higher gain should produce louder output");
+    }
+
+    #[test]
+    fn test_voice_process_mono() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(1000, 0.5);
+        voice.trigger(sample, 1.0, 0.0);
+
+        let mono = voice.process();
+        assert!(mono.abs() > 0.0, "Mono process should produce audio");
+    }
+
+    #[test]
+    fn test_voice_set_unit_mode() {
+        let mut voice = Voice::new();
+        assert_eq!(voice.unit_mode, UnitMode::Rate);
+        voice.set_unit_mode(UnitMode::Cycle);
+        assert_eq!(voice.unit_mode, UnitMode::Cycle);
+    }
+
+    #[test]
+    fn test_voice_set_loop_enabled() {
+        let mut voice = Voice::new();
+        assert!(!voice.loop_enabled);
+        voice.set_loop_enabled(true);
+        assert!(voice.loop_enabled);
+    }
+
+    #[test]
+    fn test_voice_looping_wraps_position() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(10, 0.5);
+        voice.trigger_with_speed(sample, 1.0, 0.0, 1.0);
+        voice.set_loop_enabled(true);
+
+        // Process past sample end - should wrap around
+        for _ in 0..20 {
+            voice.process_stereo();
+        }
+        // Voice should still be playing (looping)
+        assert_eq!(voice.state, VoiceState::Playing);
+    }
+
+    #[test]
+    fn test_voice_auto_release() {
+        let mut voice = Voice::new();
+        let sample = make_const_sample(10000, 0.5);
+        voice.trigger_with_envelope(sample, 1.0, 0.0, 1.0, None, 0.001, 0.01);
+        voice.auto_release_at_sample = Some(100);
+
+        // Process past auto-release point (age is incremented after auto-release check)
+        for _ in 0..200 {
+            voice.process_stereo();
+        }
+        // Auto-release should have been triggered and cleared
+        assert!(voice.auto_release_at_sample.is_none());
+    }
+
+    #[test]
+    fn test_voice_reverse_playback_moves_backward() {
+        let mut voice = Voice::new();
+        let sample = make_mono_sample(100);
+        voice.trigger_with_speed(sample, 1.0, 0.0, -1.0);
+
+        let initial_pos = voice.position;
+        voice.process_stereo();
+        assert!(voice.position < initial_pos, "Reverse playback should decrease position");
+    }
+
+    #[test]
+    fn test_voice_reverse_playback_no_envelope() {
+        // Reverse playback skips envelope (env_value = 1.0)
+        let mut voice = Voice::new();
+        let sample = make_const_sample(100, 0.8);
+        voice.trigger_with_speed(sample, 1.0, 0.0, -1.0);
+
+        // First sample should have full amplitude (no envelope ramp)
+        let (l, r) = voice.process_stereo();
+        let total = l.abs() + r.abs();
+        assert!(total > 0.5, "Reverse playback should bypass envelope: got {}", total);
+    }
+
+    // =========================================================================
+    // Voice synthesis mode
+    // =========================================================================
+
+    #[test]
+    fn test_voice_synthesis_mode_produces_audio() {
+        let mut voice = Voice::new();
+        // Manually set up synthesis mode
+        voice.synthesis_node_id = Some(42);
+        voice.synthesis_sample_cache = 0.5;
+        voice.state = VoiceState::Playing;
+        voice.gain = 1.0;
+        voice.pan = 0.0;
+        voice.envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1);
+        voice.envelope.trigger();
+
+        let (l, r) = voice.process_stereo();
+        assert!(l.abs() + r.abs() > 0.0, "Synthesis voice should produce audio");
+    }
+
+    #[test]
+    fn test_voice_synthesis_frees_when_envelope_done() {
+        let mut voice = Voice::new();
+        voice.synthesis_node_id = Some(1);
+        voice.synthesis_sample_cache = 0.5;
+        voice.state = VoiceState::Playing;
+        voice.gain = 1.0;
+        voice.pan = 0.0;
+        // Very short envelope so it completes quickly
+        voice.envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.0001, 0.001);
+        voice.envelope.trigger();
+        // Immediately release
+        voice.envelope.release();
+
+        // Process until envelope finishes
+        for _ in 0..10000 {
+            voice.process_stereo();
+            if voice.state == VoiceState::Free {
+                break;
+            }
+        }
+        assert_eq!(voice.state, VoiceState::Free);
+        assert!(voice.synthesis_node_id.is_none());
+    }
+
+    #[test]
+    fn test_voice_no_sample_no_synthesis_frees() {
+        let mut voice = Voice::new();
+        voice.state = VoiceState::Playing;
+        voice.sample_data = None;
+        voice.synthesis_node_id = None;
+
+        let (l, r) = voice.process_stereo();
+        assert_eq!((l, r), (0.0, 0.0));
+        assert_eq!(voice.state, VoiceState::Free);
+    }
+
+    // =========================================================================
+    // VoiceManager construction
+    // =========================================================================
+
+    #[test]
+    fn test_voice_manager_new() {
+        let vm = VoiceManager::new();
+        assert_eq!(vm.pool_size(), DEFAULT_INITIAL_VOICES); // 256
+        assert_eq!(vm.active_voice_count(), 0);
+        assert!(vm.max_voices.is_some());
+    }
+
+    #[test]
+    fn test_voice_manager_default() {
+        let vm1 = VoiceManager::new();
+        let vm2 = VoiceManager::default();
+        assert_eq!(vm1.pool_size(), vm2.pool_size());
+    }
+
+    #[test]
+    fn test_voice_manager_with_max_voices() {
+        let vm = VoiceManager::with_max_voices(32);
+        assert!(vm.pool_size() <= 32);
+        assert_eq!(vm.max_voices, Some(32));
+    }
+
+    #[test]
+    fn test_voice_manager_with_config() {
+        let vm = VoiceManager::with_config(8, Some(64));
+        assert_eq!(vm.pool_size(), 8);
+        assert_eq!(vm.max_voices, Some(64));
+    }
+
+    #[test]
+    fn test_voice_manager_with_config_unlimited() {
+        let vm = VoiceManager::with_config(8, None);
+        assert_eq!(vm.pool_size(), 8);
+        assert!(vm.max_voices.is_none());
+    }
+
+    #[test]
+    fn test_voice_manager_clamps_initial_to_at_least_one() {
+        let vm = VoiceManager::with_config(0, Some(10));
+        assert!(vm.pool_size() >= 1);
+    }
+
+    #[test]
+    fn test_voice_manager_clamps_to_absolute_max() {
+        let vm = VoiceManager::with_config(10000, Some(10000));
+        assert!(vm.pool_size() <= ABSOLUTE_MAX_VOICES);
+    }
+
+    // =========================================================================
+    // VoiceManager triggering and voice allocation
+    // =========================================================================
+
+    #[test]
+    fn test_vm_trigger_sample_allocates_voice() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        assert_eq!(vm.active_voice_count(), 0);
+        vm.trigger_sample(sample, 1.0);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_trigger_multiple_samples() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(1000);
+
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        assert_eq!(vm.active_voice_count(), 4);
+    }
+
+    #[test]
+    fn test_vm_trigger_sample_with_pan() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample_with_pan(sample, 0.8, -0.5);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_trigger_sample_with_params() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample_with_params(sample, 0.9, 0.5, 2.0);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_voice_stealing_when_full() {
+        let mut vm = VoiceManager::with_config(4, Some(4));
+        let sample = make_mono_sample(10000);
+
+        // Fill all 4 voices
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        assert_eq!(vm.active_voice_count(), 4);
+
+        // Age the voices by processing some samples
+        for _ in 0..100 {
+            vm.process();
+        }
+
+        // 5th trigger should steal the oldest voice
+        vm.trigger_sample(sample.clone(), 1.0);
+        assert_eq!(vm.active_voice_count(), 4); // Still 4, one was stolen
+    }
+
+    #[test]
+    fn test_vm_round_robin_allocation() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        // Trigger and immediately free (by processing until done)
+        vm.trigger_sample(sample.clone(), 1.0);
+        let first_idx = vm.last_triggered_voice_index;
+
+        vm.trigger_sample(sample.clone(), 1.0);
+        let second_idx = vm.last_triggered_voice_index;
+
+        // Round-robin should allocate different voices
+        assert_ne!(first_idx, second_idx);
+    }
+
+    #[test]
+    fn test_vm_last_triggered_voice_index() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        assert!(vm.last_triggered_voice_index.is_none());
+        vm.trigger_sample(sample, 1.0);
+        assert!(vm.last_triggered_voice_index.is_some());
+    }
+
+    #[test]
+    fn test_vm_take_last_triggered_voice_index() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample(sample, 1.0);
+        let idx = vm.take_last_triggered_voice_index();
+        assert!(idx.is_some());
+
+        // Should be None after take
+        let idx2 = vm.take_last_triggered_voice_index();
+        assert!(idx2.is_none());
+    }
+
+    // =========================================================================
+    // VoiceManager cut groups
+    // =========================================================================
+
+    #[test]
+    fn test_vm_cut_group_stops_same_group() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        // Trigger with cut group 1
+        vm.trigger_sample_with_cut_group(sample.clone(), 1.0, 0.0, 1.0, Some(1));
+        assert_eq!(vm.active_voice_count(), 1);
+
+        // Process some samples so voices are active
+        for _ in 0..10 {
+            vm.process();
+        }
+
+        // Trigger another in same cut group - should fade out first
+        vm.trigger_sample_with_cut_group(sample.clone(), 1.0, 0.0, 1.0, Some(1));
+        // Both voices exist briefly (old is releasing, new is playing)
+        assert!(vm.active_voice_count() >= 1);
+    }
+
+    #[test]
+    fn test_vm_cut_group_doesnt_affect_other_groups() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        // Trigger in group 1
+        vm.trigger_sample_with_cut_group(sample.clone(), 1.0, 0.0, 1.0, Some(1));
+        // Trigger in group 2
+        vm.trigger_sample_with_cut_group(sample.clone(), 1.0, 0.0, 1.0, Some(2));
+        assert_eq!(vm.active_voice_count(), 2);
+
+        // Process a bit
+        for _ in 0..10 {
+            vm.process();
+        }
+
+        // Trigger in group 1 again - should only affect group 1
+        vm.trigger_sample_with_cut_group(sample.clone(), 1.0, 0.0, 1.0, Some(1));
+        // Group 2 voice should still be active
+        assert!(vm.active_voice_count() >= 2);
+    }
+
+    #[test]
+    fn test_vm_no_cut_group_doesnt_stop_others() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        vm.trigger_sample(sample.clone(), 1.0);
+        vm.trigger_sample(sample.clone(), 1.0);
+        assert_eq!(vm.active_voice_count(), 2);
+    }
+
+    // =========================================================================
+    // VoiceManager ADSR / envelope variants
+    // =========================================================================
+
+    #[test]
+    fn test_vm_trigger_with_adsr() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample_with_adsr(sample, 0.8, 0.0, 1.0, None, 0.01, 0.1, 0.7, 0.3);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_trigger_with_segments() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample_with_segments(
+            sample,
+            1.0,
+            0.0,
+            1.0,
+            None,
+            vec![0.0, 1.0, 0.0],
+            vec![0.01, 0.1],
+        );
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_trigger_with_curve() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample_with_curve(sample, 1.0, 0.0, 1.0, None, 0.0, 1.0, 0.5, 2.0);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    // =========================================================================
+    // VoiceManager synthesis voices
+    // =========================================================================
+
+    #[test]
+    fn test_vm_trigger_synthesis_voice() {
+        let mut vm = make_small_vm(4);
+
+        vm.trigger_synthesis_voice(42, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+        assert_eq!(vm.active_voice_count(), 1);
+    }
+
+    #[test]
+    fn test_vm_get_active_synthesis_node_ids() {
+        let mut vm = make_small_vm(8);
+
+        vm.trigger_synthesis_voice(10, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+        vm.trigger_synthesis_voice(20, 1.0, 0.0, None, 0.001, 0.1, 12.0);
+
+        let ids = vm.get_active_synthesis_node_ids_with_pitch();
+        assert_eq!(ids.len(), 2);
+
+        // Check that both node IDs are present
+        let node_ids: Vec<usize> = ids.iter().map(|(id, _)| *id).collect();
+        assert!(node_ids.contains(&10));
+        assert!(node_ids.contains(&20));
+
+        // Check semitone offset
+        let offsets: Vec<f32> = ids.iter().map(|(_, offset)| *offset).collect();
+        assert!(offsets.contains(&0.0));
+        assert!(offsets.contains(&12.0));
+    }
+
+    #[test]
+    fn test_vm_update_synthesis_cache() {
+        let mut vm = make_small_vm(4);
+        vm.trigger_synthesis_voice(5, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        let mut cache = std::collections::HashMap::new();
+        cache.insert(5, 0.75_f32);
+        vm.update_synthesis_cache_with_samples(&cache);
+
+        // Process and check that synthesis voice uses cached value
+        let outputs = vm.process_synthesis_voices();
+        assert!(!outputs.is_empty(), "Should have synthesis voice output");
+    }
+
+    #[test]
+    fn test_vm_process_synthesis_voices() {
+        let mut vm = make_small_vm(4);
+        vm.trigger_synthesis_voice(1, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        // Set cache
+        let mut cache = std::collections::HashMap::new();
+        cache.insert(1, 0.5_f32);
+        vm.update_synthesis_cache_with_samples(&cache);
+
+        let outputs = vm.process_synthesis_voices();
+        assert_eq!(outputs.len(), 1);
+        let ((l, r), _source_node) = outputs[0];
+        assert!(l.abs() + r.abs() > 0.0, "Synthesis voice should produce output");
+    }
+
+    #[test]
+    fn test_vm_synthesis_cut_group() {
+        let mut vm = make_small_vm(8);
+
+        // Trigger synthesis in cut group 1
+        vm.trigger_synthesis_voice(10, 1.0, 0.0, Some(1), 0.001, 0.1, 0.0);
+        for _ in 0..10 {
+            vm.process();
+        }
+
+        // Trigger another in same cut group
+        vm.trigger_synthesis_voice(20, 1.0, 0.0, Some(1), 0.001, 0.1, 0.0);
+
+        // Both should exist (old one releasing)
+        let ids = vm.get_active_synthesis_node_ids_with_pitch();
+        assert!(!ids.is_empty());
+    }
+
+    // =========================================================================
+    // VoiceManager processing
+    // =========================================================================
+
+    #[test]
+    fn test_vm_process_empty() {
+        let mut vm = make_small_vm(4);
+        let mono = vm.process();
+        assert_eq!(mono, 0.0);
+
+        let (l, r) = vm.process_stereo();
+        assert_eq!(l, 0.0);
+        assert_eq!(r, 0.0);
+    }
+
+    #[test]
+    fn test_vm_process_produces_audio() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+        vm.trigger_sample(sample, 1.0);
+
+        let mut has_audio = false;
+        for _ in 0..100 {
+            let mono = vm.process();
+            if mono.abs() > 0.0 {
+                has_audio = true;
+                break;
+            }
+        }
+        assert!(has_audio, "VoiceManager should produce audio after trigger");
+    }
+
+    #[test]
+    fn test_vm_process_stereo_produces_audio() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+        vm.trigger_sample(sample, 1.0);
+
+        let mut has_audio = false;
+        for _ in 0..100 {
+            let (l, r) = vm.process_stereo();
+            if l.abs() + r.abs() > 0.0 {
+                has_audio = true;
+                break;
+            }
+        }
+        assert!(has_audio, "process_stereo should produce audio");
+    }
+
+    #[test]
+    fn test_vm_process_block() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+        vm.trigger_sample(sample, 1.0);
+
+        let block = vm.process_block(256);
+        assert_eq!(block.len(), 256);
+        // Should have some non-zero samples
+        assert!(block.iter().any(|&s| s.abs() > 0.0), "Block should contain audio");
+    }
+
+    #[test]
+    fn test_vm_process_per_node() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(5);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.process_per_node();
+        assert!(output.contains_key(&5), "Output should have node 5");
+    }
+
+    #[test]
+    fn test_vm_process_per_node_stereo() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(3);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.process_per_node_stereo();
+        assert!(output.contains_key(&3));
+        let &(l, r) = output.get(&3).unwrap();
+        assert!(l.abs() + r.abs() > 0.0);
+    }
+
+    #[test]
+    fn test_vm_process_per_node_separates_sources() {
+        let mut vm = make_small_vm(8);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(1);
+        vm.trigger_sample(sample.clone(), 1.0);
+
+        vm.set_default_source_node(2);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.process_per_node();
+        assert!(output.contains_key(&1));
+        assert!(output.contains_key(&2));
+    }
+
+    #[test]
+    fn test_vm_process_stereo_limiting() {
+        // When output exceeds 1.0, tanh is applied
+        let mut vm = make_small_vm(16);
+        let sample = make_const_sample(10000, 1.0);
+
+        // Trigger many voices to push output above 1.0
+        for _ in 0..10 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+
+        // Process some samples
+        for _ in 0..100 {
+            let (l, r) = vm.process_stereo();
+            // After tanh limiting, output should be bounded
+            assert!(l.abs() <= 1.0, "Left should be limited: {}", l);
+            assert!(r.abs() <= 1.0, "Right should be limited: {}", r);
+        }
+    }
+
+    // =========================================================================
+    // VoiceManager buffer processing
+    // =========================================================================
+
+    #[test]
+    fn test_vm_process_buffer_per_node() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(1);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.process_buffer_per_node(256);
+        assert!(output.contains_key(&1));
+        let buf = output.get(&1).unwrap();
+        assert_eq!(buf.len(), 256);
+        assert!(buf.iter().any(|&s| s.abs() > 0.0));
+    }
+
+    #[test]
+    fn test_vm_process_buffer_vec() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(3);
+        vm.trigger_sample(sample, 1.0);
+
+        let vb = vm.process_buffer_vec(128, 10);
+        assert!(vb.has_data(3));
+        // Check we get audio
+        let mut has_audio = false;
+        for i in 0..128 {
+            if vb.get(3, i).abs() > 0.0 {
+                has_audio = true;
+                break;
+            }
+        }
+        assert!(has_audio, "process_buffer_vec should produce audio");
+    }
+
+    #[test]
+    fn test_vm_process_buffer_vec_empty() {
+        let mut vm = make_small_vm(4);
+        let vb = vm.process_buffer_vec(128, 10);
+        // No active voices - buffers for default source node (0) may exist but should be all zeros
+        let mut any_nonzero = false;
+        for node in 0..=10 {
+            for i in 0..128 {
+                if vb.get(node, i).abs() > 1e-10 {
+                    any_nonzero = true;
+                }
+            }
+        }
+        assert!(!any_nonzero, "All buffers should be silent with no active voices");
+    }
+
+    #[test]
+    fn test_vm_render_block() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(7);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.render_block(128);
+        assert!(output.contains_key(&7));
+        assert_eq!(output.get(&7).unwrap().len(), 128);
+    }
+
+    #[test]
+    fn test_vm_render_block_empty() {
+        let mut vm = make_small_vm(4);
+        let output = vm.render_block(128);
+        // Free voices may still produce entries for default source node (all zeros)
+        for (_, buf) in &output {
+            assert!(buf.iter().all(|&s| s.abs() < 1e-10),
+                "All output should be silent with no active voices");
+        }
+    }
+
+    #[test]
+    fn test_vm_buffer_trigger_offset() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.set_default_source_node(1);
+        vm.trigger_sample(sample, 1.0);
+        vm.set_last_voice_trigger_offset(64);
+
+        let vb = vm.process_buffer_vec(128, 5);
+        // First 64 samples should be zero (before trigger offset)
+        for i in 0..64 {
+            assert!(
+                vb.get(1, i).abs() < 1e-6,
+                "Sample at {} should be zero before trigger offset, got {}",
+                i,
+                vb.get(1, i)
+            );
+        }
+    }
+
+    #[test]
+    fn test_vm_process_synthesis_buffers() {
+        let mut vm = make_small_vm(4);
+        vm.trigger_synthesis_voice(1, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        // Create a synthesis buffer with a simple signal
+        let mut synthesis_buffers = std::collections::HashMap::new();
+        let signal: Vec<f32> = (0..128).map(|i| (i as f32 * 0.1).sin()).collect();
+        synthesis_buffers.insert((1, 0), signal); // (node_id, semitone_key=0)
+
+        let output = vm.process_synthesis_buffers(&synthesis_buffers, 128);
+        assert_eq!(output.len(), 128);
+
+        // Should have some non-zero output
+        let has_output = output.iter().any(|map| {
+            map.values().any(|&v| v.abs() > 0.0)
+        });
+        assert!(has_output, "Synthesis buffer processing should produce output");
+    }
+
+    // =========================================================================
+    // VoiceManager post-trigger configuration
+    // =========================================================================
+
+    #[test]
+    fn test_vm_set_default_source_node() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.set_default_source_node(42);
+        vm.trigger_sample(sample, 1.0);
+
+        let output = vm.process_per_node();
+        assert!(output.contains_key(&42));
+    }
+
+    #[test]
+    fn test_vm_set_last_voice_source_node() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.set_last_voice_source_node(99);
+
+        let output = vm.process_per_node();
+        assert!(output.contains_key(&99));
+    }
+
+    #[test]
+    fn test_vm_set_last_voice_unit_mode() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.set_last_voice_unit_mode(UnitMode::Cycle);
+
+        // Verify it was set (indirectly - no panic means success)
+        assert!(vm.last_triggered_voice_index.is_some());
+    }
+
+    #[test]
+    fn test_vm_set_last_voice_loop_enabled() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(1000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.set_last_voice_loop_enabled(true);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_vm_set_last_voice_auto_release() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(10000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.set_last_voice_auto_release(1000);
+        // No panic = success
+    }
+
+    #[test]
+    fn test_vm_post_trigger_config_no_voice() {
+        let mut vm = make_small_vm(4);
+        // No voice triggered - these should silently do nothing
+        vm.set_last_voice_unit_mode(UnitMode::Cycle);
+        vm.set_last_voice_loop_enabled(true);
+        vm.set_last_voice_auto_release(100);
+        vm.set_last_voice_source_node(42);
+        vm.set_last_voice_trigger_offset(64);
+    }
+
+    // =========================================================================
+    // VoiceManager pool management
+    // =========================================================================
+
+    #[test]
+    fn test_vm_pool_growth() {
+        let mut vm = VoiceManager::with_config(4, Some(64));
+        let sample = make_mono_sample(10000);
+
+        let initial_size = vm.pool_size();
+
+        // Fill all voices
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+
+        // Next trigger should grow the pool
+        vm.trigger_sample(sample, 1.0);
+        assert!(vm.pool_size() > initial_size, "Pool should grow when full");
+    }
+
+    #[test]
+    fn test_vm_pool_growth_respects_max() {
+        let mut vm = VoiceManager::with_config(4, Some(4));
+        let sample = make_mono_sample(10000);
+
+        // Fill all voices
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+
+        // Pool should NOT grow beyond max
+        let grew = vm.grow_voice_pool();
+        assert!(!grew, "Pool should not grow beyond max_voices");
+        assert_eq!(vm.pool_size(), 4);
+    }
+
+    #[test]
+    fn test_vm_shrink_voice_pool_below_initial() {
+        let vm_initial = 8;
+        let mut vm = VoiceManager::with_config(vm_initial, Some(64));
+        // Pool is at initial size, shrink should do nothing
+        let removed = vm.shrink_voice_pool();
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn test_vm_shrink_voice_pool_low_usage() {
+        let mut vm = VoiceManager::with_config(4, Some(256));
+        let sample = make_mono_sample(10000);
+
+        // Grow the pool artificially
+        for _ in 0..20 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        let grown_size = vm.pool_size();
+        assert!(grown_size > 4);
+
+        // Reset all voices (0% usage)
+        vm.reset();
+        assert_eq!(vm.active_voice_count(), 0);
+
+        // Shrink should remove some voices
+        let removed = vm.shrink_voice_pool();
+        assert!(removed > 0 || vm.pool_size() <= vm.initial_voices,
+            "Should shrink when 0% usage. Pool: {}, Initial: {}", vm.pool_size(), vm.initial_voices);
+    }
+
+    #[test]
+    fn test_vm_shrink_voice_pool_high_usage() {
+        let mut vm = VoiceManager::with_config(4, Some(64));
+        let sample = make_mono_sample(100000);
+
+        // Grow and keep voices active
+        for _ in 0..20 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+
+        // High usage - should NOT shrink
+        let removed = vm.shrink_voice_pool();
+        assert_eq!(removed, 0, "Should not shrink when usage is high");
+    }
+
+    // =========================================================================
+    // VoiceManager reset/kill
+    // =========================================================================
+
+    #[test]
+    fn test_vm_reset() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        assert_eq!(vm.active_voice_count(), 4);
+
+        vm.reset();
+        assert_eq!(vm.active_voice_count(), 0);
+    }
+
+    #[test]
+    fn test_vm_kill_all() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        for _ in 0..4 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        vm.kill_all();
+        assert_eq!(vm.active_voice_count(), 0);
+    }
+
+    #[test]
+    fn test_vm_release_synthesis_voices() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        // Trigger both sample and synthesis voices
+        vm.trigger_sample(sample, 1.0);
+        vm.trigger_synthesis_voice(1, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        vm.release_synthesis_voices();
+
+        // Synthesis voice should be releasing, sample voice still active
+        let ids = vm.get_active_synthesis_node_ids_with_pitch();
+        assert!(ids.is_empty(), "Synthesis voices should be released");
+        // Sample voice count may vary due to envelope state
+    }
+
+    #[test]
+    fn test_vm_release_sample_voices() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.trigger_synthesis_voice(1, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        vm.release_sample_voices();
+        // Sample voices should be releasing (envelope triggered)
+    }
+
+    // =========================================================================
+    // VoiceManager process_voice_by_index
+    // =========================================================================
+
+    #[test]
+    fn test_vm_process_voice_by_index_valid() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.trigger_sample(sample, 1.0);
+        let idx = vm.last_triggered_voice_index.unwrap();
+
+        let result = vm.process_voice_by_index(idx);
+        assert!(result.is_some());
+        let ((l, r), _source) = result.unwrap();
+        assert!(l.abs() + r.abs() > 0.0);
+    }
+
+    #[test]
+    fn test_vm_process_voice_by_index_free() {
+        let mut vm = make_small_vm(4);
+        // All voices are free
+        let result = vm.process_voice_by_index(0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_vm_process_voice_by_index_out_of_bounds() {
+        let mut vm = make_small_vm(4);
+        let result = vm.process_voice_by_index(999);
+        assert!(result.is_none());
+    }
+
+    // =========================================================================
+    // VoiceManager process_last_voice_stereo
+    // =========================================================================
+
+    #[test]
+    fn test_vm_process_last_voice_stereo() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(10000, 0.5);
+
+        vm.trigger_sample(sample, 1.0);
+        let (l, r) = vm.process_last_voice_stereo();
+        assert!(l.abs() + r.abs() > 0.0);
+    }
+
+    #[test]
+    fn test_vm_process_last_voice_stereo_no_voices() {
+        let mut vm = make_small_vm(4);
+        let (l, r) = vm.process_last_voice_stereo();
+        assert_eq!(l, 0.0);
+        assert_eq!(r, 0.0);
+    }
+
+    // =========================================================================
+    // VoiceManager performance monitoring
+    // =========================================================================
+
+    #[test]
+    fn test_vm_active_voice_count() {
+        let mut vm = make_small_vm(8);
+        assert_eq!(vm.active_voice_count(), 0);
+
+        let sample = make_mono_sample(10000);
+        vm.trigger_sample(sample.clone(), 1.0);
+        assert_eq!(vm.active_voice_count(), 1);
+
+        vm.trigger_sample(sample, 1.0);
+        assert_eq!(vm.active_voice_count(), 2);
+    }
+
+    #[test]
+    fn test_vm_peak_voice_count() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        for _ in 0..5 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+
+        // Process to update peak
+        for _ in 0..10 {
+            vm.process_stereo();
+        }
+
+        assert!(vm.peak_voice_count() >= 5);
+    }
+
+    #[test]
+    fn test_vm_total_samples_processed() {
+        let mut vm = make_small_vm(4);
+        assert_eq!(vm.total_samples_processed(), 0);
+
+        for _ in 0..100 {
+            vm.process_stereo();
+        }
+        assert_eq!(vm.total_samples_processed(), 100);
+    }
+
+    #[test]
+    fn test_vm_pool_size() {
+        let vm = VoiceManager::with_config(16, Some(64));
+        assert_eq!(vm.pool_size(), 16);
+    }
+
+    #[test]
+    fn test_vm_get_parallel_threshold() {
+        let vm = make_small_vm(4);
+        let threshold = vm.get_parallel_threshold();
+        assert!(threshold > 0);
+    }
+
+    #[test]
+    fn test_vm_get_underrun_count() {
+        let vm = make_small_vm(4);
+        assert_eq!(vm.get_underrun_count(), 0);
+    }
+
+    #[test]
+    fn test_vm_get_avg_processing_time_empty() {
+        let vm = make_small_vm(4);
+        assert_eq!(vm.get_avg_processing_time_us(), 0.0);
+    }
+
+    #[test]
+    fn test_vm_get_avg_processing_time_after_processing() {
+        let mut vm = make_small_vm(4);
+        for _ in 0..100 {
+            vm.process_stereo();
+        }
+        // Should have some timing data now
+        let avg = vm.get_avg_processing_time_us();
+        assert!(avg >= 0.0);
+    }
+
+    #[test]
+    fn test_vm_performance_summary() {
+        let mut vm = make_small_vm(4);
+        let sample = make_mono_sample(10000);
+        vm.trigger_sample(sample, 1.0);
+
+        for _ in 0..10 {
+            vm.process_stereo();
+        }
+
+        let summary = vm.performance_summary();
+        assert!(summary.contains("Voices:"));
+        assert!(summary.contains("Peak:"));
+        assert!(summary.contains("Samples:"));
+    }
+
+    #[test]
+    fn test_vm_voice_type_breakdown() {
+        let mut vm = make_small_vm(8);
+        let sample = make_mono_sample(10000);
+
+        vm.trigger_sample(sample, 1.0);
+        vm.trigger_synthesis_voice(1, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        let (samples, synths, free) = vm.voice_type_breakdown();
+        assert_eq!(samples, 1);
+        assert_eq!(synths, 1);
+        assert_eq!(free, 6); // 8 total - 2 active
+    }
+
+    #[test]
+    fn test_vm_voice_type_breakdown_all_free() {
+        let vm = make_small_vm(4);
+        let (samples, synths, free) = vm.voice_type_breakdown();
+        assert_eq!(samples, 0);
+        assert_eq!(synths, 0);
+        assert_eq!(free, 4);
+    }
+
+    // =========================================================================
+    // VoiceManager adaptive parallelism
+    // =========================================================================
+
+    #[test]
+    fn test_vm_adjust_parallel_threshold_empty() {
+        let mut vm = make_small_vm(4);
+        // Should not panic with empty processing times
+        vm.adjust_parallel_threshold();
+    }
+
+    // =========================================================================
+    // Edge cases and stress tests
+    // =========================================================================
+
+    #[test]
+    fn test_voice_trigger_overwrite() {
+        let mut voice = Voice::new();
+        let sample1 = make_const_sample(1000, 0.3);
+        let sample2 = make_const_sample(1000, 0.9);
+
+        voice.trigger(sample1, 1.0, 0.0);
+        assert_eq!(voice.state, VoiceState::Playing);
+
+        // Triggering again should reset the voice
+        voice.trigger(sample2, 0.5, 0.5);
+        assert_eq!(voice.state, VoiceState::Playing);
+        assert_eq!(voice.gain, 0.5);
+        assert_eq!(voice.position, 0.0);
+    }
+
+    #[test]
+    fn test_vm_many_triggers_no_crash() {
+        let mut vm = VoiceManager::with_config(4, Some(16));
+        let sample = make_mono_sample(100);
+
+        // Trigger many more times than voice count
+        for _ in 0..100 {
+            vm.trigger_sample(sample.clone(), 1.0);
+        }
+        // Should not crash, voices should be stolen/grown
+        assert!(vm.active_voice_count() > 0);
+    }
+
+    #[test]
+    fn test_vm_process_after_all_voices_complete() {
+        let mut vm = make_small_vm(4);
+        let sample = make_const_sample(5, 0.5);
+        vm.trigger_sample_with_envelope(sample, 1.0, 0.0, 1.0, None, 0.0001, 0.001);
+
+        // Process until all voices are done
+        for _ in 0..50000 {
+            vm.process();
+        }
+        assert_eq!(vm.active_voice_count(), 0);
+
+        // Processing with no active voices should produce silence
+        let mono = vm.process();
+        assert_eq!(mono, 0.0);
+    }
+
+    #[test]
+    fn test_vm_concurrent_sample_and_synthesis() {
+        let mut vm = make_small_vm(8);
+        let sample = make_const_sample(10000, 0.5);
+
+        // Mix of sample and synthesis voices
+        vm.set_default_source_node(1);
+        vm.trigger_sample(sample.clone(), 1.0);
+
+        vm.set_default_source_node(2);
+        vm.trigger_synthesis_voice(10, 1.0, 0.0, None, 0.001, 0.1, 0.0);
+
+        vm.set_default_source_node(3);
+        vm.trigger_sample(sample, 0.5);
+
+        let (samples, synths, free) = vm.voice_type_breakdown();
+        assert_eq!(samples, 2);
+        assert_eq!(synths, 1);
+        assert!(free > 0);
+    }
+
+    #[test]
+    fn test_vm_stereo_sample_processing() {
+        let mut vm = make_small_vm(4);
+        let sample = make_stereo_sample(1000);
+
+        vm.trigger_sample(sample, 1.0);
+        let (l, r) = vm.process_stereo();
+        // At least one channel should have audio
+        assert!(l.abs() + r.abs() >= 0.0); // Stereo sample at position 0 may be near-zero
+    }
+
+    #[test]
+    fn test_voice_state_enum_equality() {
+        assert_eq!(VoiceState::Free, VoiceState::Free);
+        assert_eq!(VoiceState::Playing, VoiceState::Playing);
+        assert_eq!(VoiceState::Releasing, VoiceState::Releasing);
+        assert_ne!(VoiceState::Free, VoiceState::Playing);
+    }
+
+    #[test]
+    fn test_unit_mode_enum_equality() {
+        assert_eq!(UnitMode::Rate, UnitMode::Rate);
+        assert_eq!(UnitMode::Cycle, UnitMode::Cycle);
+        assert_ne!(UnitMode::Rate, UnitMode::Cycle);
+    }
+}

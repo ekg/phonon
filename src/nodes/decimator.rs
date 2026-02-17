@@ -560,7 +560,7 @@ mod tests {
 
         // Smooth version should have more intermediate values
         assert!(
-            smooth_range >= 0,
+            smooth_range > 0,
             "Smooth output should have intermediate values during transitions"
         );
     }

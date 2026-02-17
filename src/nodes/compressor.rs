@@ -647,7 +647,7 @@ mod tests {
         );
 
         // Early samples should be less compressed (attack not yet fully engaged)
-        let early_avg: f32 = output.iter().skip(0).take(10).sum::<f32>() / 10.0;
+        let early_avg: f32 = output.iter().take(10).sum::<f32>() / 10.0;
         assert!(
             early_avg > late_avg,
             "Early avg {} should be > late avg {}",

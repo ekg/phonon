@@ -266,7 +266,7 @@ mod tests {
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert!((output[0] - 0.5).abs() < 0.0001); // sqrt(0.25) ≈ 0.5
-        assert!((output[1] - 0.707107).abs() < 0.001); // sqrt(0.5) ≈ 0.707
-        assert!((output[2] - 1.414214).abs() < 0.001); // sqrt(2) ≈ 1.414
+        assert!((output[1] - std::f32::consts::FRAC_1_SQRT_2).abs() < 0.001); // sqrt(0.5) ≈ 1/√2
+        assert!((output[2] - std::f32::consts::SQRT_2).abs() < 0.001); // sqrt(2) ≈ √2
     }
 }

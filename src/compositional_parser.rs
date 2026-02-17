@@ -2563,7 +2563,7 @@ mod tests {
     #[test]
     fn test_parse_number() {
         assert_eq!(parse_number("42"), Ok(("", 42.0)));
-        assert_eq!(parse_number("3.14"), Ok(("", 3.14)));
+        assert_eq!(parse_number("3.25"), Ok(("", 3.25)));
         assert_eq!(parse_number("-1.5"), Ok(("", -1.5)));
     }
 

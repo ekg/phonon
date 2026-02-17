@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Flaky: passes sometimes, fails/times out intermittently. Needs better synchronization.
+    #[ignore = "FLAKY: thread startup race - 100ms sleep insufficient ~40% of the time"]
     fn test_dataflow_graph_pipeline() {
         let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 0.5, 44100.0);
 

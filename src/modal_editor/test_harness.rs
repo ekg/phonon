@@ -331,7 +331,7 @@ mod tests {
     /// Note: This test is ignored by default because it depends on a d.ph file
     /// that must be manually created. Run with --ignored to include it.
     #[test]
-    #[ignore]
+    #[ignore = "HARDWARE: requires d.ph file"]
     fn test_d_ph_realtime_simulation() {
         use std::time::{Duration, Instant};
         use crate::compositional_compiler::compile_program;

@@ -234,9 +234,10 @@ mod tests {
     fn test_mod_phase_wrapping() {
         let mut mod_node = ModNode::new(0, 1);
 
-        // Simulate phase wrapping 0 to 2π (approximately 6.28318)
-        let twopi = 6.28318;
-        let input_a = vec![0.0, 3.14159, 6.28318, 9.42477, 12.56636]; // 0, π, 2π, 3π, 4π
+        // Simulate phase wrapping 0 to 2π
+        let twopi = std::f32::consts::TAU;
+        let pi = std::f32::consts::PI;
+        let input_a = vec![0.0, pi, twopi, 3.0 * pi, 4.0 * pi]; // 0, π, 2π, 3π, 4π
         let input_b = vec![twopi, twopi, twopi, twopi, twopi];
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
@@ -247,9 +248,9 @@ mod tests {
 
         // All phases should wrap to [0, 2π)
         assert!((output[0] - 0.0).abs() < 0.001); // 0 % 2π = 0
-        assert!((output[1] - 3.14159).abs() < 0.001); // π % 2π = π
+        assert!((output[1] - pi).abs() < 0.001); // π % 2π = π
         assert!((output[2] - 0.0).abs() < 0.001); // 2π % 2π = 0
-        assert!((output[3] - 3.14159).abs() < 0.001); // 3π % 2π = π
+        assert!((output[3] - pi).abs() < 0.001); // 3π % 2π = π
         assert!((output[4] - 0.0).abs() < 0.001); // 4π % 2π = 0
 
         // Verify all wrapped values are in valid range [0, 2π)

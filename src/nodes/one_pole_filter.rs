@@ -594,12 +594,17 @@ mod tests {
         );
         let elapsed = start.elapsed();
 
-        // Should complete in under 2ms on any modern CPU (1 second of audio)
-        // This is extremely fast - one-pole filters are among the cheapest operations
+        // Debug builds are ~5-10x slower than release; use a generous threshold
+        #[cfg(debug_assertions)]
+        let max_us = 10_000;
+        #[cfg(not(debug_assertions))]
+        let max_us = 2_000;
+
         assert!(
-            elapsed.as_micros() < 2000,
-            "One-pole filter too slow: {} μs for 44100 samples (should be < 2000 μs)",
-            elapsed.as_micros()
+            elapsed.as_micros() < max_us,
+            "One-pole filter too slow: {} μs for 44100 samples (should be < {} μs)",
+            elapsed.as_micros(),
+            max_us,
         );
     }
 

@@ -224,7 +224,7 @@ mod tests {
         assert_eq!(output[1], 2.0); // 2^1 = 2
         assert_eq!(output[2], 4.0); // 2^2 = 4
         assert_eq!(output[3], 8.0); // 2^3 = 8
-        assert!((output[4] - 1.414213562).abs() < 0.0001); // 2^0.5 ≈ 1.414
+        assert!((output[4] - std::f32::consts::SQRT_2).abs() < 0.0001); // 2^0.5 ≈ √2
     }
 
     #[test]
