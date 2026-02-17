@@ -69,7 +69,7 @@ impl AudioNode for NoiseNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "NoiseNode requires 1 input (amplitude), got {}",
             inputs.len()
         );

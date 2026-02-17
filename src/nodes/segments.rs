@@ -175,7 +175,7 @@ impl AudioNode for SegmentsNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(inputs.len() >= 1, "SegmentsNode requires 1 input: trigger");
+        debug_assert!(!inputs.is_empty(), "SegmentsNode requires 1 input: trigger");
 
         let trigger_buffer = inputs[0];
 

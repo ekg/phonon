@@ -112,7 +112,7 @@ impl SVFNode {
     fn process_sample(&mut self, input: f32, cutoff: f32, q: f32, sample_rate: f32) -> f32 {
         // Clamp parameters to safe ranges
         let cutoff = cutoff.max(20.0).min(sample_rate * 0.49);
-        let q = q.max(0.1).min(20.0);
+        let q = q.clamp(0.1, 20.0);
 
         // Calculate filter coefficients using topology-preserving transform
         let g = (PI * cutoff / sample_rate).tan();

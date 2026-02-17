@@ -122,8 +122,8 @@ impl AudioNode for NotchFilterNode {
         debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
-            let center_freq = center_freq_buffer[i].max(20.0).min(20000.0); // Clamp to valid range
-            let q = q_buffer[i].max(0.1).min(20.0); // Clamp to valid range
+            let center_freq = center_freq_buffer[i].clamp(20.0, 20000.0); // Clamp to valid range
+            let q = q_buffer[i].clamp(0.1, 20.0); // Clamp to valid range
 
             // Update coefficients if parameters changed
             if (center_freq - self.last_center_freq).abs() > 0.1 || (q - self.last_q).abs() > 0.01 {

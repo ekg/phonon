@@ -112,7 +112,7 @@ impl AudioNode for StereoSplitterNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "StereoSplitterNode requires 1 input (stereo signal), got {}",
             inputs.len()
         );

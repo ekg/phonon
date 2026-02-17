@@ -117,7 +117,7 @@ impl AudioNode for NotNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "NotNode requires 1 input, got {}",
             inputs.len()
         );

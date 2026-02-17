@@ -1056,14 +1056,14 @@ fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                                 if hap.value {
                                     // Query inner pattern at this event's time
                                     let inner_state = crate::pattern::State {
-                                        span: hap.part.clone(),
+                                        span: hap.part,
                                         controls: query_state.controls.clone(),
                                     };
                                     pat.query(&inner_state)
                                         .into_iter()
                                         .map(|inner_hap| crate::pattern::Hap {
-                                            whole: hap.whole.clone(),
-                                            part: hap.part.clone(),
+                                            whole: hap.whole,
+                                            part: hap.part,
                                             value: inner_hap.value,
                                             context: inner_hap.context,
                                         })
@@ -1204,14 +1204,14 @@ fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                                 if hap.value {
                                     // Query inner pattern at this event's time
                                     let inner_state = crate::pattern::State {
-                                        span: hap.part.clone(),
+                                        span: hap.part,
                                         controls: query_state.controls.clone(),
                                     };
                                     pat.query(&inner_state)
                                         .into_iter()
                                         .map(|inner_hap| crate::pattern::Hap {
-                                            whole: hap.whole.clone(),
-                                            part: hap.part.clone(),
+                                            whole: hap.whole,
+                                            part: hap.part,
                                             value: inner_hap.value,
                                             context: inner_hap.context,
                                         })

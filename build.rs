@@ -120,7 +120,7 @@ fn parse_node_file(content: &str, _file_name: &str) -> Option<NodeMetadata> {
     let struct_name = struct_line
         .split("struct")
         .nth(1)?
-        .trim()
+        
         .split_whitespace()
         .next()?
         .trim();

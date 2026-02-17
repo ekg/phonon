@@ -68,7 +68,7 @@ impl AudioBuffer {
         let mut writer = WavWriter::create(path, spec)?;
         for sample in &self.data {
             // Convert float to 16-bit int with limiting
-            let sample_clamped = sample.max(-1.0).min(1.0);
+            let sample_clamped = sample.clamp(-1.0, 1.0);
             let sample_int = (sample_clamped * 32767.0) as i16;
             writer.write_sample(sample_int)?;
         }

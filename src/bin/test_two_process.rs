@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Spawn audio engine
     eprintln!("📦 Spawning audio engine...");
     let mut audio_process = Command::new("cargo")
-        .args(&["run", "--release", "--bin", "phonon-audio"])
+        .args(["run", "--release", "--bin", "phonon-audio"])
         .spawn()?;
 
     // Give audio engine time to start and bind socket

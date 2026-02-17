@@ -234,13 +234,13 @@ impl AudioNode for ParametricEQNode {
 
         for i in 0..output.len() {
             // Clamp parameters to valid ranges
-            let low_freq = low_freq_buffer[i].max(20.0).min(500.0);
-            let low_gain = low_gain_buffer[i].max(-24.0).min(24.0);
+            let low_freq = low_freq_buffer[i].clamp(20.0, 500.0);
+            let low_gain = low_gain_buffer[i].clamp(-24.0, 24.0);
             let mid_freq = mid_freq_buffer[i].max(20.0).min(sample_rate * 0.49);
-            let mid_gain = mid_gain_buffer[i].max(-24.0).min(24.0);
-            let mid_q = mid_q_buffer[i].max(0.1).min(10.0);
+            let mid_gain = mid_gain_buffer[i].clamp(-24.0, 24.0);
+            let mid_q = mid_q_buffer[i].clamp(0.1, 10.0);
             let high_freq = high_freq_buffer[i].max(2000.0).min(sample_rate * 0.49);
-            let high_gain = high_gain_buffer[i].max(-24.0).min(24.0);
+            let high_gain = high_gain_buffer[i].clamp(-24.0, 24.0);
 
             // Update low shelf coefficients if changed significantly
             if (low_freq - self.last_low_freq).abs() > 1.0

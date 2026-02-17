@@ -283,7 +283,7 @@ impl Pattern<f64> {
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
-                    hap.value = (hap.value + semitones as f64).max(0.0).min(127.0);
+                    hap.value = (hap.value + semitones as f64).clamp(0.0, 127.0);
                     hap
                 })
                 .collect()

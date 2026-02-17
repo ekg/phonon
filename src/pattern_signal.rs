@@ -97,7 +97,7 @@ pub fn perlin() -> Pattern<f64> {
             haps.push(Hap::new(
                 Some(state.span),
                 TimeSpan::new(Fraction::from_float(t), Fraction::from_float(next_t)),
-                value.max(0.0).min(1.0),
+                value.clamp(0.0, 1.0),
             ));
         }
         haps
@@ -348,7 +348,7 @@ pub fn randwalk(step_size: f64, initial: f64) -> Pattern<f64> {
             let mut rng = StdRng::seed_from_u64(seed);
 
             value += rng.gen_range(-step_size..step_size);
-            value = value.max(0.0).min(1.0);
+            value = value.clamp(0.0, 1.0);
 
             haps.push(Hap::new(
                 Some(state.span),

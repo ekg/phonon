@@ -75,7 +75,7 @@ impl AudioNode for BrownNoiseNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "BrownNoiseNode requires 1 input (amplitude), got {}",
             inputs.len()
         );

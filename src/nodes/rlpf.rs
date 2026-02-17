@@ -124,10 +124,10 @@ impl RLPFNode {
     /// - res → 1.0 → Q → ∞ (clamped to prevent instability)
     fn resonance_to_q(res: f32) -> f32 {
         // Clamp resonance to prevent division by zero and instability
-        let res_clamped = res.max(0.0).min(0.99);
+        let res_clamped = res.clamp(0.0, 0.99);
         let q = (2.0_f32).sqrt() / (2.0 - 2.0 * res_clamped);
         // Clamp Q to reasonable range (0.1 to 100)
-        q.max(0.1).min(100.0)
+        q.clamp(0.1, 100.0)
     }
 
     /// Get current cutoff frequency
@@ -189,7 +189,7 @@ impl AudioNode for RLPFNode {
             let cutoff = freq_buffer[i].max(20.0).min(sample_rate * 0.49);
 
             // Clamp resonance to valid range (0.0 to 0.99)
-            let res = res_buffer[i].max(0.0).min(0.99);
+            let res = res_buffer[i].clamp(0.0, 0.99);
 
             // Update filter coefficients if parameters changed significantly
             if (cutoff - self.last_cutoff).abs() > 0.1 || (res - self.last_res).abs() > 0.01 {

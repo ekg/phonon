@@ -575,7 +575,7 @@ impl Voice {
             // Handle looping: wrap position if it exceeds boundaries
             if self.loop_enabled {
                 if self.speed >= 0.0 && self.position >= sample_len {
-                    self.position = self.position % sample_len;
+                    self.position %= sample_len;
                 } else if self.speed < 0.0 && self.position < 0.0 {
                     // Reverse looping: wrap from end
                     self.position = sample_len - 1.0 + (self.position % sample_len);
@@ -744,7 +744,7 @@ impl VoiceManager {
     /// let vm = VoiceManager::with_config(16, None);
     /// ```
     pub fn with_config(initial_voices: usize, max_voices: Option<usize>) -> Self {
-        let initial_voices = initial_voices.max(1).min(ABSOLUTE_MAX_VOICES);
+        let initial_voices = initial_voices.clamp(1, ABSOLUTE_MAX_VOICES);
         let max_voices = max_voices.map(|m| m.min(ABSOLUTE_MAX_VOICES));
 
         let mut voices = Vec::with_capacity(initial_voices * 2); // Reserve 2x for growth
@@ -1461,7 +1461,7 @@ impl VoiceManager {
                     // Handle looping
                     if voice.loop_enabled {
                         if voice.speed >= 0.0 && voice.position >= sample_len {
-                            voice.position = voice.position % sample_len;
+                            voice.position %= sample_len;
                         } else if voice.speed < 0.0 && voice.position < 0.0 {
                             voice.position = sample_len - 1.0 + (voice.position % sample_len);
                         }

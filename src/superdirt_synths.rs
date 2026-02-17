@@ -178,7 +178,7 @@ impl SynthLibrary {
         voices: Option<usize>,
     ) -> NodeId {
         let detune = detune.unwrap_or(0.3);
-        let voices = voices.unwrap_or(7).min(7).max(2);
+        let voices = voices.unwrap_or(7).clamp(2, 7);
 
         // Create multiple detuned oscillators
         let mut oscillators = Vec::new();

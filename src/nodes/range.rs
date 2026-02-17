@@ -31,7 +31,7 @@ impl AudioNode for RangeNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(inputs.len() >= 1, "RangeNode requires 1 input");
+        debug_assert!(!inputs.is_empty(), "RangeNode requires 1 input");
 
         let input_buffer = inputs[0];
         debug_assert_eq!(

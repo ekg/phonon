@@ -62,7 +62,7 @@ impl ResonzState {
         // Q = 1 / rq
         // Clamp to reasonable range to prevent instability
         let q = 1.0 / rq.max(0.001); // Prevent divide by zero
-        q.max(0.1).min(100.0) // Clamp Q to safe range
+        q.clamp(0.1, 100.0) // Clamp Q to safe range
     }
 }
 
@@ -176,11 +176,11 @@ impl AudioNode for ResonzNode {
             let input_sample = input_buffer[i];
 
             // Clamp frequency to valid range (20 Hz to 20 kHz)
-            let freq = freq_buffer[i].max(20.0).min(20000.0);
+            let freq = freq_buffer[i].clamp(20.0, 20000.0);
 
             // Clamp rq to valid range (0.001 to 1.0)
             // Small rq = narrow bandwidth = high resonance
-            let rq = rq_buffer[i].max(0.001).min(1.0);
+            let rq = rq_buffer[i].clamp(0.001, 1.0);
 
             // Update coefficients if parameters changed significantly
             if (freq - self.state.last_freq).abs() > 0.5 || (rq - self.state.last_rq).abs() > 0.0001

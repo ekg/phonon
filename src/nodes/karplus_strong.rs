@@ -153,7 +153,7 @@ impl AudioNode for KarplusStrongNode {
 
         for i in 0..output.len() {
             let trigger = trigger_buffer[i];
-            let freq = freq_buffer[i].max(27.5).min(20000.0); // Clamp to reasonable range
+            let freq = freq_buffer[i].clamp(27.5, 20000.0); // Clamp to reasonable range
             let decay = decay_buffer[i].clamp(0.0, 0.9999); // Prevent infinite feedback
 
             // Detect trigger (rising edge: was < 0.5, now >= 0.5)

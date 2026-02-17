@@ -211,7 +211,7 @@ impl AudioNodeGraph {
         if USE_DATAFLOW {
             // Create DataflowGraph - continuous message-passing architecture
             let context = ProcessContext::new(
-                self.cycle_position.clone(),
+                self.cycle_position,
                 0,
                 self.buffer_size,
                 self.tempo,
@@ -250,7 +250,7 @@ impl AudioNodeGraph {
 
             // Create processing context with updated cycle position
             let context = ProcessContext::new(
-                self.cycle_position.clone(),
+                self.cycle_position,
                 0,
                 buffer.len(),
                 self.tempo,
@@ -268,7 +268,7 @@ impl AudioNodeGraph {
 
             // Create processing context
             let context = ProcessContext::new(
-                self.cycle_position.clone(),
+                self.cycle_position,
                 0,
                 buffer.len(),
                 self.tempo,

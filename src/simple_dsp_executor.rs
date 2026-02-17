@@ -162,7 +162,7 @@ impl NodeProcessor {
                 // Brown noise (integrated white noise)
                 let white = self.process_node(&DspNode::Noise { seed: 42 }, 0.0);
                 self.filter_state.prev_out += 0.02 * white;
-                self.filter_state.prev_out = self.filter_state.prev_out.max(-1.0).min(1.0);
+                self.filter_state.prev_out = self.filter_state.prev_out.clamp(-1.0, 1.0);
                 self.filter_state.prev_out
             }
 

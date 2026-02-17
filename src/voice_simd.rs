@@ -32,7 +32,6 @@
 //! - **SSE4.2**: Fallback (4× f32 SIMD) - not yet implemented
 //! - **Scalar**: Automatic fallback if SIMD unavailable
 
-#![cfg(target_arch = "x86_64")]
 
 use std::arch::x86_64::*;
 

@@ -26,18 +26,18 @@ fn main() {
 
     if args.len() < 2 {
         eprintln!("Usage: phonon-perf <file.ph> [duration_secs]");
-        eprintln!("");
+        eprintln!();
         eprintln!("Runs the EXACT same code path as phonon-edit:");
         eprintln!("  1. Parse and compile the .ph file");
         eprintln!("  2. Enable wall-clock timing (realtime mode)");
         eprintln!("  3. Preload samples");
         eprintln!("  4. Process audio buffers at realtime pace");
-        eprintln!("");
+        eprintln!();
         eprintln!("Outputs detailed performance metrics including:");
         eprintln!("  - Min/Max/Avg/Median/P95 buffer processing times");
         eprintln!("  - Underrun count and percentage");
         eprintln!("  - Voice count tracking");
-        eprintln!("");
+        eprintln!();
         eprintln!("Example: phonon-perf l.ph 30");
         std::process::exit(1);
     }
@@ -57,7 +57,7 @@ fn main() {
     println!("\n=== Phonon Performance Profiler ===");
     println!("File: {}", file_path);
     println!("Duration: {}s", duration_secs);
-    println!("");
+    println!();
 
     // === STEP 1: Parse ===
     println!("Step 1: Parsing...");
@@ -106,12 +106,12 @@ fn main() {
     let buffer_duration = Duration::from_secs_f64(BUFFER_SIZE as f64 / SAMPLE_RATE as f64);
     let budget_us = buffer_duration.as_micros();
 
-    println!("");
+    println!();
     println!("=== Starting Realtime Simulation ===");
     println!("Total buffers: {}", total_buffers);
     println!("Buffer size: {} samples", BUFFER_SIZE);
     println!("Budget per buffer: {:?} ({} µs)", buffer_duration, budget_us);
-    println!("");
+    println!();
 
     let start = Instant::now();
     let mut buffer = [0.0f32; BUFFER_SIZE];
@@ -232,9 +232,9 @@ fn main() {
     };
     let max_voices = voice_counts.iter().max().copied().unwrap_or(0);
 
-    println!("");
+    println!();
     println!("=== RESULTS ===");
-    println!("");
+    println!();
     println!("Duration: {:?}", total_elapsed);
     println!("Buffers processed: {}/{}", processed, total_buffers);
     println!(
@@ -242,11 +242,11 @@ fn main() {
         underruns,
         underruns as f64 * 100.0 / total_buffers as f64
     );
-    println!("");
+    println!();
     println!("Voice counts:");
     println!("  Average: {} voices", avg_voices);
     println!("  Peak:    {} voices", max_voices);
-    println!("");
+    println!();
     println!("Buffer timing (budget: {} µs = {:.2}ms):", budget_us, budget_us as f64 / 1000.0);
     println!(
         "  Min:    {:>6} µs ({:>5.1}% of budget)",
@@ -278,7 +278,7 @@ fn main() {
         max_time_us,
         max_time_us as f64 * 100.0 / budget_us as f64
     );
-    println!("");
+    println!();
 
     // CPU utilization estimate
     let cpu_percent = avg_us as f64 * 100.0 / budget_us as f64;

@@ -201,7 +201,7 @@ impl AudioNode for WaveguideNode {
 
         for i in 0..output.len() {
             let excitation = excitation_buffer[i];
-            let freq = freq_buffer[i].max(27.5).min(20000.0); // Clamp to reasonable range
+            let freq = freq_buffer[i].clamp(27.5, 20000.0); // Clamp to reasonable range
             let decay = decay_buffer[i].clamp(0.0, 0.9999); // Prevent infinite feedback
             let brightness = brightness_buffer[i].clamp(0.0, 1.0);
 

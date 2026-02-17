@@ -22,7 +22,7 @@ impl AudioNode for UnipolarNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(inputs.len() >= 1, "UnipolarNode requires 1 input");
+        debug_assert!(!inputs.is_empty(), "UnipolarNode requires 1 input");
 
         let input_buffer = inputs[0];
         debug_assert_eq!(

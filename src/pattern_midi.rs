@@ -78,7 +78,7 @@ impl MidiMessage {
                 vec![0xC0 | (channel & 0x0F), *program & 0x7F]
             }
             MidiMessage::PitchBend { channel, value } => {
-                let value = (*value + 8192).max(0).min(16383) as u16;
+                let value = (*value + 8192).clamp(0, 16383) as u16;
                 vec![
                     0xE0 | (channel & 0x0F),
                     (value & 0x7F) as u8,
@@ -172,7 +172,7 @@ impl Pattern<f64> {
             let haps = self.query(state);
             haps.into_iter()
                 .map(|hap| {
-                    let value = (hap.value * 127.0).max(0.0).min(127.0) as u8;
+                    let value = (hap.value * 127.0).clamp(0.0, 127.0) as u8;
                     Hap::new(
                         hap.whole,
                         hap.part,
@@ -233,7 +233,7 @@ impl Pattern<f64> {
             let haps = self.query(state);
             haps.into_iter()
                 .map(|hap| {
-                    let value = (hap.value * 16383.0).max(0.0).min(16383.0) as u16;
+                    let value = (hap.value * 16383.0).clamp(0.0, 16383.0) as u16;
                     let value_msb = (value >> 7) as u8;
                     let value_lsb = (value & 0x7F) as u8;
 
@@ -284,7 +284,7 @@ impl Pattern<f64> {
             let haps = self.query(state);
             haps.into_iter()
                 .map(|hap| {
-                    let program = (hap.value * 127.0).max(0.0).min(127.0) as u8;
+                    let program = (hap.value * 127.0).clamp(0.0, 127.0) as u8;
                     Hap::new(
                         hap.whole,
                         hap.part,
@@ -319,7 +319,7 @@ impl Pattern<f64> {
             let haps = self.query(state);
             haps.into_iter()
                 .map(|hap| {
-                    let pressure = (hap.value * 127.0).max(0.0).min(127.0) as u8;
+                    let pressure = (hap.value * 127.0).clamp(0.0, 127.0) as u8;
                     Hap::new(
                         hap.whole,
                         hap.part,

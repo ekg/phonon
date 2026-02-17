@@ -516,8 +516,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let value = (phase * 2.0 * PI).sin();
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -534,8 +534,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let value = (phase * 2.0 * PI).cos();
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -549,8 +549,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let value = phase; // Linear ramp 0->1
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -569,8 +569,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             };
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -584,8 +584,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let value = if phase < 0.5 { 0.0 } else { 1.0 };
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -603,8 +603,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let value = if cycle % n == 0 { on_val } else { off_val };
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -630,8 +630,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             };
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -649,8 +649,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             };
 
             vec![Hap::new(
-                Some(state.span.clone()),
-                state.span.clone(),
+                Some(state.span),
+                state.span,
                 value,
             )]
         })
@@ -1458,7 +1458,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// The first pattern occupies `ratio` portion of each cycle, the second gets (1-ratio)
     /// Example: wedge(0.25, pat1, pat2) gives 25% to pat1, 75% to pat2
     pub fn wedge(ratio: f64, pat1: Pattern<T>, pat2: Pattern<T>) -> Pattern<T> {
-        let ratio = ratio.max(0.0).min(1.0); // Clamp to [0, 1]
+        let ratio = ratio.clamp(0.0, 1.0); // Clamp to [0, 1]
 
         Pattern::new(move |state| {
             let mut all_haps = Vec::new();
@@ -2023,7 +2023,7 @@ impl Pattern<f64> {
                     let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
 
                     // Combine: self's value + other's value
-                    hap.value = hap.value + other_value;
+                    hap.value += other_value;
                     hap
                 })
                 .collect()
@@ -2045,7 +2045,7 @@ impl Pattern<f64> {
                     let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
 
                     // Combine: self's value + other's (structure) value
-                    hap.value = self_value + hap.value;
+                    hap.value += self_value;
                     hap
                 })
                 .collect()
@@ -2064,7 +2064,7 @@ impl Pattern<f64> {
                     let other_haps = other.query(&query_state);
                     let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
 
-                    hap.value = hap.value - other_value;
+                    hap.value -= other_value;
                     hap
                 })
                 .collect()
@@ -2104,7 +2104,7 @@ impl Pattern<f64> {
                     let other_haps = other.query(&query_state);
                     let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                    hap.value = hap.value * other_value;
+                    hap.value *= other_value;
                     hap
                 })
                 .collect()
@@ -2123,7 +2123,7 @@ impl Pattern<f64> {
                     let self_haps = self.query(&query_state);
                     let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                    hap.value = self_value * hap.value;
+                    hap.value *= self_value;
                     hap
                 })
                 .collect()
@@ -2244,7 +2244,7 @@ impl Pattern<f64> {
                 let query_state = Self::onset_query_state(&hap, state.controls.clone());
                 let other_haps = other.query(&query_state);
                 let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
-                hap.value = hap.value + other_value;
+                hap.value += other_value;
                 result.push(hap);
             }
 
@@ -2253,7 +2253,7 @@ impl Pattern<f64> {
                 let query_state = Self::onset_query_state(&hap, state.controls.clone());
                 let self_haps = self.query(&query_state);
                 let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
-                hap.value = self_value + hap.value;
+                hap.value += self_value;
                 result.push(hap);
             }
 
@@ -2275,7 +2275,7 @@ impl Pattern<f64> {
                 let query_state = Self::onset_query_state(&hap, state.controls.clone());
                 let other_haps = other.query(&query_state);
                 let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
-                hap.value = hap.value - other_value;
+                hap.value -= other_value;
                 result.push(hap);
             }
 
@@ -2306,7 +2306,7 @@ impl Pattern<f64> {
                 let query_state = Self::onset_query_state(&hap, state.controls.clone());
                 let other_haps = other.query(&query_state);
                 let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
-                hap.value = hap.value * other_value;
+                hap.value *= other_value;
                 result.push(hap);
             }
 
@@ -2315,7 +2315,7 @@ impl Pattern<f64> {
                 let query_state = Self::onset_query_state(&hap, state.controls.clone());
                 let self_haps = self.query(&query_state);
                 let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
-                hap.value = self_value * hap.value;
+                hap.value *= self_value;
                 result.push(hap);
             }
 

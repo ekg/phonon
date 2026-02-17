@@ -25,7 +25,7 @@ pub fn pattern_to_ascii<T: std::fmt::Display + Clone + Send + Sync + 'static>(
         let end = Fraction::new((cycle + 1) as i64, 1);
         let span = TimeSpan::new(begin, end);
         let state = State {
-            span: span,
+            span,
             controls: HashMap::new(),
         };
 
@@ -77,7 +77,7 @@ pub fn describe_pattern<T: std::fmt::Display + Clone + Send + Sync + 'static>(
         let end = Fraction::new((cycle + 1) as i64, 1);
         let span = TimeSpan::new(begin, end);
         let state = State {
-            span: span,
+            span,
             controls: HashMap::new(),
         };
 

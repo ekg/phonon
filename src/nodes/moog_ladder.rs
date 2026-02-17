@@ -154,10 +154,10 @@ impl AudioNode for MoogLadderNode {
             let input_sample = input_buffer[i];
 
             // Clamp cutoff to valid range (20 Hz to 20 kHz)
-            let cutoff = cutoff_buffer[i].max(20.0).min(20000.0);
+            let cutoff = cutoff_buffer[i].clamp(20.0, 20000.0);
 
             // Clamp resonance to prevent instability (0.0 to 4.0)
-            let resonance = resonance_buffer[i].max(0.0).min(4.0);
+            let resonance = resonance_buffer[i].clamp(0.0, 4.0);
 
             // Calculate one-pole coefficient from cutoff frequency
             // g = 1 - e^(-2π * fc / fs)

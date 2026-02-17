@@ -116,10 +116,10 @@ impl DJFilterNode {
     /// - res → 1.0 → Q → ∞ (clamped to prevent instability)
     fn resonance_to_q(res: f32) -> f32 {
         // Clamp resonance to prevent division by zero
-        let res_clamped = res.max(0.0).min(0.99);
+        let res_clamped = res.clamp(0.0, 0.99);
         let q = (2.0_f32).sqrt() / (2.0 - 2.0 * res_clamped);
         // Clamp Q to reasonable range
-        q.max(0.1).min(100.0)
+        q.clamp(0.1, 100.0)
     }
 
     /// Calculate filter frequencies and mix amounts from position
@@ -127,7 +127,7 @@ impl DJFilterNode {
     /// Returns: (lp_freq, hp_freq, lp_mix, hp_mix)
     fn calculate_filter_params(position: f32) -> (f32, f32, f32, f32) {
         // Clamp position to valid range
-        let pos = position.max(-1.0).min(1.0);
+        let pos = position.clamp(-1.0, 1.0);
 
         if pos < 0.0 {
             // Lowpass side: -1.0 to 0.0
@@ -207,8 +207,8 @@ impl AudioNode for DJFilterNode {
         );
 
         for i in 0..output.len() {
-            let position = position_buffer[i].max(-1.0).min(1.0);
-            let resonance = resonance_buffer[i].max(0.0).min(0.99);
+            let position = position_buffer[i].clamp(-1.0, 1.0);
+            let resonance = resonance_buffer[i].clamp(0.0, 0.99);
 
             // Update filter coefficients if parameters changed significantly
             if (position - self.last_position).abs() > 0.01

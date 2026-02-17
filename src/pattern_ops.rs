@@ -527,14 +527,14 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         let n_val = n
             .query(&default_state)
             .first()
-            .map(|h| h.value.clone())
+            .map(|h| h.value)
             .unwrap_or(1.0)
             .max(1.0) as usize;
 
         let decay_val = decay
             .query(&default_state)
             .first()
-            .map(|h| h.value.clone())
+            .map(|h| h.value)
             .unwrap_or(0.7);
 
         if n_val == 1 {
@@ -552,7 +552,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 let time_val = time_clone
                     .query(state)
                     .first()
-                    .map(|h| h.value.clone())
+                    .map(|h| h.value)
                     .unwrap_or(0.125);
 
                 let delay = time_val * i as f64;
@@ -748,8 +748,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     if sample_time >= phap_start && sample_time < phap_end {
                         // Create a new event at the euclidean position with the pattern value
                         result.push(Hap {
-                            whole: ehap.whole.clone(),
-                            part: ehap.part.clone(),
+                            whole: ehap.whole,
+                            part: ehap.part,
                             value: phap.value.clone(),
                             context: phap.context.clone(),
                         });

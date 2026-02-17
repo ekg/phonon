@@ -25,7 +25,6 @@ use std::sync::Arc;
 ///
 /// All scales are defined relative to the root note (0 semitones).
 /// These are standard Western music theory scales.
-
 /// Major scale (Ionian mode): W-W-H-W-W-W-H
 /// Example: C Major = C D E F G A B
 pub const MAJOR_SCALE: &[f32] = &[0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 11.0];

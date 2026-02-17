@@ -51,7 +51,7 @@ impl AudioNode for InvertNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "InvertNode requires 1 input, got {}",
             inputs.len()
         );

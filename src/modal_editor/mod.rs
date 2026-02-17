@@ -3752,7 +3752,7 @@ impl ModalEditor {
 
         // Check if GUI is already open
         if self.vst3_guis.contains_key(&plugin_name) {
-            self.plugin_browser.set_status(&format!("{} GUI already open", plugin_name));
+            self.plugin_browser.set_status(format!("{} GUI already open", plugin_name));
             return;
         }
 
@@ -3761,18 +3761,18 @@ impl ModalEditor {
 
         if !has_preview {
             // Load the plugin for preview
-            self.plugin_browser.set_status(&format!("Loading {}...", plugin_name));
+            self.plugin_browser.set_status(format!("Loading {}...", plugin_name));
             match create_real_plugin_by_name(&plugin_name) {
                 Ok(mut plugin) => {
                     // Initialize plugin
                     if let Err(e) = plugin.initialize(48000.0, 512) {
-                        self.plugin_browser.set_status(&format!("Init failed: {}", e));
+                        self.plugin_browser.set_status(format!("Init failed: {}", e));
                         return;
                     }
                     self.preview_plugins.insert(plugin_name.clone(), plugin);
                 }
                 Err(e) => {
-                    self.plugin_browser.set_status(&format!("Load failed: {}", e));
+                    self.plugin_browser.set_status(format!("Load failed: {}", e));
                     return;
                 }
             }
@@ -3783,14 +3783,14 @@ impl ModalEditor {
             match plugin.create_gui() {
                 Ok(mut gui) => {
                     if let Err(e) = gui.show(Some(&plugin_name)) {
-                        self.plugin_browser.set_status(&format!("Show failed: {}", e));
+                        self.plugin_browser.set_status(format!("Show failed: {}", e));
                         return;
                     }
                     self.vst3_guis.insert(plugin_name.clone(), gui);
-                    self.plugin_browser.set_status(&format!("Opened {} GUI", plugin_name));
+                    self.plugin_browser.set_status(format!("Opened {} GUI", plugin_name));
                 }
                 Err(e) => {
-                    self.plugin_browser.set_status(&format!("GUI failed: {}", e));
+                    self.plugin_browser.set_status(format!("GUI failed: {}", e));
                 }
             }
         }

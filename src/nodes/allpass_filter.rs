@@ -138,7 +138,7 @@ impl AudioNode for AllPassFilterNode {
 
         for i in 0..output.len() {
             let freq = freq_buffer[i].max(10.0).min(sample_rate * 0.49); // Clamp to valid range
-            let q = q_buffer[i].max(0.01).min(20.0); // Clamp Q to reasonable range
+            let q = q_buffer[i].clamp(0.01, 20.0); // Clamp Q to reasonable range
 
             // Update filter coefficients if parameters changed significantly
             if (freq - self.last_freq).abs() > 0.1 || (q - self.last_q).abs() > 0.01 {

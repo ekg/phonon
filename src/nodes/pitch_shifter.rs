@@ -186,10 +186,10 @@ impl AudioNode for PitchShifterNode {
             if len > 0.0 {
                 // When read_pos1 wraps, reset to start and swap roles
                 if self.read_pos1 >= len {
-                    self.read_pos1 = self.read_pos1 % len;
+                    self.read_pos1 %= len;
                 }
                 if self.read_pos2 >= len {
-                    self.read_pos2 = self.read_pos2 % len;
+                    self.read_pos2 %= len;
                 }
             }
 

@@ -70,7 +70,7 @@ impl VocoderBand {
         sample_rate: f32,
     ) -> DirectForm2Transposed<f32> {
         // Calculate Q from bandwidth: Q = fc / BW
-        let q = (center_freq / bandwidth).max(0.5).min(50.0);
+        let q = (center_freq / bandwidth).clamp(0.5, 50.0);
 
         let coeffs = Coefficients::<f32>::from_params(
             biquad::Type::BandPass,
@@ -85,7 +85,7 @@ impl VocoderBand {
 
     /// Update filter coefficients for new center frequency and bandwidth
     fn update_filters(&mut self, center_freq: f32, bandwidth: f32, sample_rate: f32) {
-        let q = (center_freq / bandwidth).max(0.5).min(50.0);
+        let q = (center_freq / bandwidth).clamp(0.5, 50.0);
 
         let coeffs = Coefficients::<f32>::from_params(
             biquad::Type::BandPass,
@@ -95,7 +95,7 @@ impl VocoderBand {
         )
         .unwrap();
 
-        self.carrier_filter.update_coefficients(coeffs.clone());
+        self.carrier_filter.update_coefficients(coeffs);
         self.modulator_filter.update_coefficients(coeffs);
     }
 }

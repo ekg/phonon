@@ -180,7 +180,7 @@ impl AudioNode for ResampleNode {
             // Wrap phase when it exceeds buffer length
             let len = self.input_buffer.len() as f32;
             if len > 0.0 && self.phase >= len {
-                self.phase = self.phase % len;
+                self.phase %= len;
             }
         }
     }

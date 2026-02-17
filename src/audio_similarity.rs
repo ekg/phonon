@@ -478,7 +478,7 @@ impl EnvelopeFeatures {
         }
 
         if var_a > 0.0 && var_b > 0.0 {
-            (cov / (var_a.sqrt() * var_b.sqrt())).max(0.0).min(1.0)
+            (cov / (var_a.sqrt() * var_b.sqrt())).clamp(0.0, 1.0)
         } else {
             0.0
         }
@@ -627,7 +627,7 @@ impl SpectralFeatures {
         // Average normalized similarity
         let avg_diff = (centroid_diff + spread_diff + flatness_diff + rolloff_diff) / 4.0;
 
-        (1.0 - avg_diff).max(0.0).min(1.0)
+        (1.0 - avg_diff).clamp(0.0, 1.0)
     }
 }
 

@@ -105,7 +105,7 @@ impl FormantState {
     ) -> DirectForm2Transposed<f32> {
         // Convert bandwidth to Q factor: Q = freq / bandwidth
         let q = freq / bandwidth;
-        let q = q.max(0.5).min(50.0); // Clamp to safe range
+        let q = q.clamp(0.5, 50.0); // Clamp to safe range
 
         let coeffs = Coefficients::<f32>::from_params(
             biquad::Type::BandPass,
@@ -121,7 +121,7 @@ impl FormantState {
     /// Interpolate formant frequencies between vowels
     fn interpolate_formants(formant: f32) -> [f32; 3] {
         // Clamp formant to valid range [0.0, 4.0]
-        let formant = formant.max(0.0).min(4.0);
+        let formant = formant.clamp(0.0, 4.0);
 
         // Get lower and upper vowel indices
         let lower_idx = formant.floor() as usize;
@@ -289,7 +289,7 @@ impl AudioNode for FormantNode {
         for i in 0..output.len() {
             let input_sample = input_buffer[i];
             let formant = formant_buffer[i];
-            let intensity = intensity_buffer[i].max(0.0).min(1.0);
+            let intensity = intensity_buffer[i].clamp(0.0, 1.0);
 
             // Update filter coefficients if formant changed significantly
             if (formant - self.state.last_formant).abs() > 0.01 {

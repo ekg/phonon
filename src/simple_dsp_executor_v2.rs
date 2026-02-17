@@ -151,7 +151,7 @@ impl NodeProcessor {
                     .eval_param(cutoff, cycle_pos, references)
                     .max(20.0)
                     .min(20000.0);
-                let resonance = self.eval_param(q, cycle_pos, references).max(0.1).min(10.0);
+                let resonance = self.eval_param(q, cycle_pos, references).clamp(0.1, 10.0);
 
                 let filter = self.filter_states.entry(node_id).or_insert(FilterState {
                     prev_in: 0.0,
@@ -176,7 +176,7 @@ impl NodeProcessor {
                     .eval_param(cutoff, cycle_pos, references)
                     .max(20.0)
                     .min(20000.0);
-                let _resonance = self.eval_param(q, cycle_pos, references).max(0.1).min(10.0);
+                let _resonance = self.eval_param(q, cycle_pos, references).clamp(0.1, 10.0);
 
                 let filter = self.filter_states.entry(node_id).or_insert(FilterState {
                     prev_in: 0.0,

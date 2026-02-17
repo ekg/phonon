@@ -102,7 +102,7 @@ impl AudioNode for TimerNode {
         _context: &ProcessContext,
     ) {
         debug_assert!(
-            inputs.len() >= 1,
+            !inputs.is_empty(),
             "TimerNode requires 1 input, got {}",
             inputs.len()
         );
