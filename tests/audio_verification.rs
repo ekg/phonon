@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Audio verification helpers for E2E testing
 ///
 /// We are "deaf" - we can only verify audio through analysis tools.

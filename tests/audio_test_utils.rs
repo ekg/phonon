@@ -1,7 +1,8 @@
-//! Shared audio testing utilities for FFT-based signal analysis
-//!
-//! This module provides reusable functions for analyzing audio signals in tests,
-//! particularly for verifying frequency-related DSP parameters.
+#![allow(dead_code)]
+// Shared audio testing utilities for FFT-based signal analysis
+//
+// This module provides reusable functions for analyzing audio signals in tests,
+// particularly for verifying frequency-related DSP parameters.
 
 use rustfft::{num_complex::Complex, FftPlanner};
 

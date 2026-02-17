@@ -3,6 +3,7 @@ use phonon::compositional_parser::parse_program;
 
 const SAMPLE_RATE: f32 = 44100.0;
 
+#[allow(dead_code)]
 fn render_dsl(code: &str, duration_sec: f32) -> Vec<f32> {
     let num_samples = (duration_sec * SAMPLE_RATE) as usize;
     let (rest, statements) = parse_program(code).expect("Failed to parse");

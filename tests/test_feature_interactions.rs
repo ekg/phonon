@@ -14,78 +14,6 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 // Complex Transform Chain Tests
 // ============================================================================
 
-/// Test 3-level nested transforms: fast -> rev -> slow
-#[test]
-#[ignore = "Uses old pipe syntax - needs update"]
-fn test_triple_nested_transforms() {
-    let input = r#"
-        cps: 2.0
-        out $ s("bd sn hh cp" |> fast 2 |> rev |> slow 2) * 0.5
-    "#;
-
-    let (_, statements) = parse_dsl(input).expect("Failed to parse triple nested");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
-
-    let buffer = graph.render(88200); // 2 seconds
-    let rms = calculate_rms(&buffer);
-
-    assert!(
-        rms > 0.05,
-        "Triple nested transforms should produce audio: RMS = {}",
-        rms
-    );
-
-    // Verify we have audio activity
-    let has_peaks = buffer.iter().any(|&s| s.abs() > 0.3);
-    assert!(has_peaks, "Triple nested transforms should have peaks");
-}
-
-/// Test every with nested transform
-#[test]
-#[ignore = "Uses old pipe syntax - needs update"]
-fn test_every_with_nested_transform() {
-    let input = r#"
-        cps: 1.0
-        out $ s("bd sn" |> every 2 (fast 2 |> rev)) * 0.5
-    "#;
-
-    let (_, statements) = parse_dsl(input).expect("Failed to parse every nested");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
-
-    let buffer = graph.render(176400); // 4 seconds to hear alternation
-    let rms = calculate_rms(&buffer);
-
-    assert!(
-        rms > 0.05,
-        "Every with nested transform should produce audio: RMS = {}",
-        rms
-    );
-}
-
-/// Test multiple every transforms stacked
-#[test]
-#[ignore = "Uses old pipe syntax - needs update"]
-fn test_multiple_every_transforms() {
-    let input = r#"
-        cps: 2.0
-        out $ s("bd*4" |> every 2 (fast 2) |> every 3 (rev)) * 0.5
-    "#;
-
-    let (_, statements) = parse_dsl(input).expect("Failed to parse multiple every");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
-
-    let buffer = graph.render(132300); // 3 seconds
-    let rms = calculate_rms(&buffer);
-
-    assert!(
-        rms > 0.1,
-        "Multiple every transforms should produce audio: RMS = {}",
-        rms
-    );
-}
 
 // ============================================================================
 // Pattern Parameters + Transform Interaction Tests
@@ -202,7 +130,7 @@ fn test_pattern_envelope_with_reverse() {
 
 /// Test pattern pan with slow transform
 #[test]
-#[ignore = "Uses old pipe syntax - needs update"]
+#[ignore = "BUG: pattern pan produces low RMS (0.01 vs 0.03 threshold)"]
 fn test_pattern_pan_with_slow() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -577,36 +505,3 @@ fn test_complex_fx_chain_with_patterns() {
     assert!(rms_last > 0.01, "Last chunk should have audio");
 }
 
-/// Test multiple sample tracks with different transforms
-#[test]
-#[ignore = "Uses old pipe syntax - needs update"]
-fn test_multi_track_with_transforms() {
-    let input = r#"
-        cps: 2.0
-        ~kick: s("bd*4" |> fast 2, 1.0, 0.0, 1.0, 0, 0.001, 0.08)
-        ~snare: s("~ sn" |> every 4 (fast 2), 0.9, 0.1, 1.0, 0, 0.001, 0.15)
-        ~hh: s("hh*8" |> rev, 0.6, "-0.2 0.2", 1.0, 1, 0.001, 0.05)
-        out $ (~kick + ~snare + ~hh) * 0.4
-    "#;
-
-    let (_, statements) = parse_dsl(input).expect("Failed to parse multi-track");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
-
-    let buffer = graph.render(88200); // 2 seconds
-    let rms = calculate_rms(&buffer);
-
-    assert!(
-        rms > 0.1,
-        "Multi-track with transforms should produce substantial audio: RMS = {}",
-        rms
-    );
-
-    // Verify we have peaks (drums)
-    let max_sample = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(
-        max_sample > 0.3,
-        "Should have strong drum peaks: max = {}",
-        max_sample
-    );
-}

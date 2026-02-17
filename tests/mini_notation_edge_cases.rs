@@ -137,7 +137,7 @@ fn test_alternation_in_polyrhythm() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
+#[ignore = "UNIMPLEMENTED: mini-notation edge case"]
 fn test_elongate_with_silence() {
     let pattern = parse_mini_notation("bd ~ sn_");
     let state = State {
@@ -160,7 +160,7 @@ fn test_elongate_with_silence() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
+#[ignore = "UNIMPLEMENTED: mini-notation edge case"]
 fn test_random_choice_consistency() {
     // Random choice should be consistent within a cycle
     let pattern = parse_mini_notation("[bd|sn|cp]");
@@ -179,7 +179,7 @@ fn test_random_choice_consistency() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
+#[ignore = "UNIMPLEMENTED: mini-notation edge case"]
 fn test_euclidean_edge_cases() {
     // Test euclidean with 0 pulses
     let pattern = parse_mini_notation("{bd}%0");
@@ -206,7 +206,7 @@ fn test_euclidean_edge_cases() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
+#[ignore = "UNIMPLEMENTED: mini-notation edge case"]
 fn test_division_edge_cases() {
     // Division by large number (sparse pattern)
     let pattern = parse_mini_notation("bd/100");
@@ -243,7 +243,6 @@ fn test_multiple_operators_on_element() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
 fn test_alternation_with_different_lengths() {
     let pattern = parse_mini_notation("<bd [sn sn] cp>");
 

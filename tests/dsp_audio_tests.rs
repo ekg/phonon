@@ -95,7 +95,7 @@ fn test_reverb_effect() {
 }
 
 #[test]
-#[ignore] // TODO: Fix multiline parsing
+#[ignore = "BUG: multiline DSL parsing fails"]
 fn test_complex_patch() {
     // Test a complex synthesizer patch
     let code = r#"~lfo1: sin 0.2 >> mul 0.5 >> add 0.5

@@ -27,6 +27,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 }
 
 /// Detect zero crossings (rising edges) in a buffer
+#[allow(dead_code)]
 fn detect_zero_crossings(buffer: &[f32]) -> Vec<usize> {
     buffer
         .windows(2)
@@ -42,6 +43,7 @@ fn detect_zero_crossings(buffer: &[f32]) -> Vec<usize> {
 }
 
 /// Measure fundamental frequency from zero crossings
+#[allow(dead_code)]
 fn measure_frequency(buffer: &[f32], sample_rate: f32) -> Option<f32> {
     let crossings = detect_zero_crossings(buffer);
     if crossings.len() < 2 {
@@ -54,6 +56,7 @@ fn measure_frequency(buffer: &[f32], sample_rate: f32) -> Option<f32> {
 }
 
 /// Calculate peak amplitude in a buffer
+#[allow(dead_code)]
 fn peak_amplitude(buffer: &[f32]) -> f32 {
     buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max)
 }

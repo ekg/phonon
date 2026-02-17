@@ -59,7 +59,7 @@ fn test_chunk_at_pattern_level() {
 }
 
 #[test]
-#[ignore] // Jux requires stereo pattern support in DSL
+#[ignore = "UNIMPLEMENTED: jux requires stereo pattern support"]
 fn test_jux_transform() {
     // jux should create stereo effect
     // jux (rev) plays original on left, reversed on right
@@ -136,7 +136,7 @@ fn test_chunk_with_chained_transforms() {
 }
 
 #[test]
-#[ignore] // Jux requires stereo pattern support in DSL
+#[ignore = "UNIMPLEMENTED: jux requires stereo pattern support"]
 fn test_jux_with_chained_transforms() {
     // jux should work with other transforms
     let input = r#"

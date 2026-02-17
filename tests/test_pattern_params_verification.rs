@@ -2,7 +2,7 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 mod audio_test_utils;
-use audio_test_utils::{find_frequency_peaks, measure_frequency_spread};
+use audio_test_utils::find_frequency_peaks;
 
 /// Helper function to measure the spread of fundamental frequencies
 /// (filters peaks to only the fundamental range to avoid harmonics)
@@ -139,80 +139,6 @@ fn test_supersaw_detune_fundamental_frequency_distribution() {
     );
 }
 
-#[test]
-#[ignore = "Old test using wrong methodology - kept for reference"]
-fn test_if_pattern_detune_actually_works() {
-    // Detune spreads frequency content - need FFT to verify, not RMS!
-    // CURRENT STATUS: Test reveals detune parameter has no effect
-    // Both detune=0.1 and detune=0.9 produce ~22kHz spread (full spectrum)
-    // Test with low detune (tight frequency spread)
-    let input1 = "out $ supersaw(220, 0.1, 5) * 0.3";
-    let (_, statements1) = parse_dsl(input1).unwrap();
-    let compiler1 = DslCompiler::new(44100.0);
-    let mut graph1 = compiler1.compile(statements1);
-    let buffer1 = graph1.render(44100);
-    let spread1 = measure_frequency_spread(&buffer1, 44100.0);
-
-    // Test with high detune (wide frequency spread)
-    let input2 = "out $ supersaw(220, 0.9, 5) * 0.3";
-    let (_, statements2) = parse_dsl(input2).unwrap();
-    let compiler2 = DslCompiler::new(44100.0);
-    let mut graph2 = compiler2.compile(statements2);
-    let buffer2 = graph2.render(44100);
-    let spread2 = measure_frequency_spread(&buffer2, 44100.0);
-
-    // Test with pattern detune (should cycle between 0.1 and 0.9)
-    let input3 = r#"
-        cps: 2.0
-        out $ supersaw(220, "0.1 0.9", 5) * 0.3
-    "#;
-    let (_, statements3) = parse_dsl(input3).unwrap();
-    let compiler3 = DslCompiler::new(44100.0);
-    let mut graph3 = compiler3.compile(statements3);
-
-    // Render 1 second at 2 cps = 2 cycles
-    // Each cycle has "0.1 0.9" so we get: 0.1 (0.25s), 0.9 (0.25s), 0.1 (0.25s), 0.9 (0.25s)
-    let buffer3 = graph3.render(44100);
-
-    // Analyze first segment (0.1 detune)
-    let segment1 = &buffer3[0..11025];
-    let spread_seg1 = measure_frequency_spread(segment1, 44100.0);
-
-    // Analyze second segment (0.9 detune)
-    let segment2 = &buffer3[11025..22050];
-    let spread_seg2 = measure_frequency_spread(segment2, 44100.0);
-
-    println!("Detune 0.1: frequency spread = {} Hz", spread1);
-    println!("Detune 0.9: frequency spread = {} Hz", spread2);
-    println!("Pattern segment 1 (0.1): spread = {} Hz", spread_seg1);
-    println!("Pattern segment 2 (0.9): spread = {} Hz", spread_seg2);
-
-    // Higher detune should produce wider frequency spread
-    assert!(
-        spread2 > spread1 * 1.5,
-        "High detune (0.9) should have >1.5x wider spread than low detune (0.1). Got {} Hz vs {} Hz",
-        spread2,
-        spread1
-    );
-
-    // Pattern segment 1 should have narrow spread (similar to detune 0.1)
-    assert!(
-        (spread_seg1 - spread1).abs() < spread1 * 0.5,
-        "Pattern segment 1 should have spread similar to detune 0.1. Got {} Hz, expected ~{} Hz",
-        spread_seg1,
-        spread1
-    );
-
-    // Pattern segment 2 should have wide spread (similar to detune 0.9)
-    assert!(
-        spread_seg2 > spread1 * 1.3,
-        "Pattern segment 2 should have wider spread (detune 0.9). Got {} Hz vs baseline {} Hz",
-        spread_seg2,
-        spread1
-    );
-
-    println!("✅ Pattern detune works correctly - verified with FFT frequency spread analysis");
-}
 
 // Test removed: s() function DOES exist in Phonon and works correctly
 // It's a documented feature for sample triggering (see FEATURE_REVIEW_AND_GAP_ANALYSIS.md)

@@ -363,6 +363,7 @@ fn test_sometimes_by_val_level1_custom_probability() {
             off_count += 1;
         }
     }
+    let _ = off_count;
 
     let on_percentage = (on_count as f64 / 200.0) * 100.0;
     assert!(
@@ -528,7 +529,7 @@ fn test_whenmod_val_different_modulos() {
 // ============================================================================
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in every_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in every_effect"]
 fn test_every_effect_level1_conditional_application() {
     // Test that every_effect applies filter on correct cycles
     // We'll use spectral analysis to detect when filter is applied
@@ -584,7 +585,7 @@ out $ sine 440 # every_effect 2 (lpf 500 0.8)
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in every_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in every_effect"]
 fn test_every_effect_different_intervals() {
     // Test every_effect with interval 3
     let code = r#"
@@ -636,7 +637,7 @@ out $ sine 880 # every_effect 3 (lpf 400 0.8)
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in every_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in every_effect"]
 fn test_every_effect_level2_maintains_amplitude() {
     // Test that every_effect doesn't significantly change overall amplitude
     let code_normal = r#"
@@ -674,7 +675,7 @@ out $ sine 440 # every_effect 2 (lpf 500 0.8)
 // ============================================================================
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in sometimes_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in sometimes_effect"]
 fn test_sometimes_effect_level1_probabilistic_application() {
     // Test that sometimes_effect applies filter with ~50% probability
     // Run multiple times and check distribution
@@ -731,7 +732,7 @@ out $ sine 880 # sometimes_effect (lpf 400 0.8)
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in sometimes_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in sometimes_effect"]
 fn test_sometimes_effect_deterministic_per_cycle() {
     // Test that the same cycle always gets the same effect application
     // (deterministic RNG based on cycle number)
@@ -771,7 +772,7 @@ out $ sine 440 # sometimes_effect (lpf 300 0.8)
 // ============================================================================
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in whenmod_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in whenmod_effect"]
 fn test_whenmod_effect_level1_modulo_application() {
     // Test whenmod_effect 3 0 (lpf 500 0.8) - every 3rd cycle starting at 0
     let code = r#"
@@ -823,7 +824,7 @@ out $ sine 880 # whenmod_effect 3 0 (lpf 400 0.8)
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in whenmod_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in whenmod_effect"]
 fn test_whenmod_effect_with_offset() {
     // Test whenmod_effect 3 1 (lpf 500 0.8) - every 3rd cycle with offset 1
     let code = r#"
@@ -873,7 +874,7 @@ out $ sine 880 # whenmod_effect 3 1 (lpf 400 0.8)
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in whenmod_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in whenmod_effect"]
 fn test_whenmod_effect_different_modulos() {
     // Test whenmod_effect 4 0 (lpf 500 0.8) - every 4th cycle
     let code = r#"
@@ -952,7 +953,7 @@ fn test_every_val_and_sometimes_val_combined() {
 }
 
 #[test]
-#[ignore = "DSL compiler doesn't properly handle ChainInput in every_effect"]
+#[ignore = "BUG: DSL compiler ChainInput in every_effect"]
 fn test_nested_effects() {
     // Test that effects can be nested/chained
     let code = r#"

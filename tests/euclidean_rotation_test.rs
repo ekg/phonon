@@ -103,7 +103,7 @@ fn test_euclidean_negative_rotation() {
 // }
 
 #[test]
-#[ignore] // Single argument euclidean not standard in TidalCycles - requires bd(3,8)
+#[ignore = "KNOWN_LIMITATION: single-arg euclidean not standard syntax"]
 fn test_euclidean_default_steps() {
     // bd(3) with default steps is not standard TidalCycles syntax
     // Must use bd(3,8) explicitly

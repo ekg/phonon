@@ -480,6 +480,7 @@ fn extract_rms(analysis: &str) -> f32 {
     0.0
 }
 
+#[allow(dead_code)]
 fn extract_onset_count(analysis: &str) -> usize {
     for line in analysis.lines() {
         if line.contains("Onset Events:") {

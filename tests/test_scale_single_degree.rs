@@ -97,7 +97,7 @@ fn test_single_degree_2() {
 }
 
 #[test]
-#[ignore = "Scale pattern evaluation not cycling correctly - both cycles produce 260Hz instead of 261.63Hz and 293.66Hz"]
+#[ignore = "BUG: scale pattern evaluation not cycling correctly"]
 fn test_alternating_degrees() {
     // Test "0 1" pattern - 2 cycles
     let input = r#"

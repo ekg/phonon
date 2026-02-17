@@ -129,7 +129,6 @@ fn test_every_transform_produces_audio() {
 }
 
 #[test]
-#[ignore = "Chained pattern transforms not yet implemented - see PATTERN_TRANSFORM_DEBUG_SESSION.md"]
 fn test_chained_transforms() {
     // Test: Multiple transforms can be chained
     // NOTE: This is a known limitation - chained transforms (a $ f $ g) don't work yet
@@ -166,7 +165,7 @@ fn test_chained_transforms() {
 }
 
 #[test]
-#[ignore = "Pattern transforms on bus references not yet implemented - see PATTERN_TRANSFORM_DEBUG_SESSION.md"]
+#[ignore = "UNIMPLEMENTED: pattern transforms on bus references"]
 fn test_bus_reference_with_transform() {
     // Test: Bus references work with transforms
     // NOTE: This is a known limitation - pattern transforms on bus references (~drums $ fast 2) don't work yet

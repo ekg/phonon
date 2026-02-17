@@ -16,6 +16,7 @@ fn compile_dsl(
 }
 
 /// Helper to count pattern events over multiple cycles
+#[allow(dead_code)]
 fn count_pattern_events<T: Clone + Send + Sync + 'static>(
     pattern: &Pattern<T>,
     num_cycles: usize,
@@ -231,7 +232,7 @@ fn test_pattern_assignment_from_number() {
 }
 
 #[test]
-#[ignore] // Feature not fully implemented: audio signal -> pattern conversion
+#[ignore = "UNIMPLEMENTED: audio signal to pattern conversion"]
 fn test_pattern_assignment_from_bus() {
     // Test pattern assignment from audio signal (LFO)
     let code = r#"

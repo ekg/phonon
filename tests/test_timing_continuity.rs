@@ -77,7 +77,7 @@ fn detect_timing_discontinuities(
 }
 
 #[test]
-#[ignore] // Ignore by default (requires audio device)
+#[ignore = "HARDWARE: requires audio device"]
 fn test_no_beat_drops_during_rapid_reloads() {
     println!("🧪 Testing timing continuity during rapid code reloads...");
     println!("This simulates pressing Ctrl-X multiple times rapidly in phonon edit");
@@ -287,7 +287,7 @@ o1 $ s "bd bd bd bd"
 }
 
 #[test]
-#[ignore] // Ignore by default (requires audio device)
+#[ignore = "HARDWARE: requires audio device"]
 fn test_detect_timing_discontinuities_function() {
     println!("🧪 Testing timing discontinuity detection algorithm...");
     println!();

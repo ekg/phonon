@@ -65,7 +65,7 @@ out $ pluck 440 0.5
 }
 
 #[test]
-#[ignore] // Karplus-Strong has inherent pitch instability due to noise initialization
+#[ignore = "KNOWN_LIMITATION: inherent pitch instability from noise init"]
 fn test_karplus_strong_frequency_accuracy() {
     // Verify Karplus-Strong plays at approximately the correct frequency
     let code = r#"

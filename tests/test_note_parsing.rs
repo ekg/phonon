@@ -3,7 +3,7 @@
 use phonon::pattern_tonal::{midi_to_freq, note_to_midi};
 
 #[test]
-#[ignore = "Note parsing incorrectly interprets '0' and '1' as notes - needs investigation"]
+#[ignore = "BUG: note parsing incorrectly interprets 0 and 1 as notes"]
 fn test_numeric_strings_as_notes() {
     let result_1 = note_to_midi("1");
     let result_0 = note_to_midi("0");

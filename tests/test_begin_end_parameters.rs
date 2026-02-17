@@ -39,7 +39,6 @@ fn count_events_in_cycle(pattern: &Pattern<String>, cycle: i32) -> usize {
 // to be available. Run with `cargo test -- --ignored` when samples are installed.
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_start_at_beginning() {
     // LEVEL 1: Pattern query verification
     let pattern = parse_mini_notation("bd");
@@ -68,7 +67,6 @@ out $ s "bd" # begin 0.0
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_skip_start() {
     // Test that begin 0.5 skips first half of sample and still produces audio
     let begin_half_code = r#"
@@ -92,7 +90,6 @@ out $ s "bd" # begin 0.5
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_end_full_sample() {
     // Test that end 1.0 plays full sample
     let code = r#"
@@ -109,7 +106,6 @@ out $ s "bd" # end 1.0
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_end_truncate_sample() {
     // Test that end 0.5 plays only first half and produces audio
     let end_half_code = r#"
@@ -133,7 +129,6 @@ out $ s "bd" # end 0.5
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_and_end_combined() {
     // Test slicing middle portion of sample with both begin and end
     let code = r#"
@@ -154,7 +149,6 @@ out $ s "bd" # begin 0.25 # end 0.75
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_end_pattern_based() {
     // Test pattern-based begin/end values
     let code = r#"
@@ -175,7 +169,6 @@ out $ s "bd*4" # begin "0 0.25 0.5 0.75"
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_end_extremes() {
     // Test that begin/end values are clamped properly
     let code = r#"

@@ -35,7 +35,7 @@ fn test_vst3_plugin_scan() {
 /// Test plugin loading - ignored due to segfault on cleanup
 /// Use test_vst3_gui_headless binary instead
 #[test]
-#[ignore]
+#[ignore = "HARDWARE: requires VST3 plugins"]
 fn test_vst3_plugin_load_and_initialize() {
 
     let scanner = Scanner::new().expect("Scanner creation failed");
@@ -71,7 +71,7 @@ fn test_vst3_plugin_load_and_initialize() {
 /// Test GUI creation - ignored due to segfault on cleanup
 /// Use test_vst3_gui_headless binary instead
 #[test]
-#[ignore]
+#[ignore = "HARDWARE: requires VST3 plugins"]
 fn test_vst3_gui_creation() {
 
     let scanner = Scanner::new().expect("Scanner creation failed");
@@ -120,7 +120,7 @@ fn test_vst3_gui_creation() {
 /// Test parameter access - ignored due to segfault on cleanup
 /// Use test_vst3_gui_headless binary instead
 #[test]
-#[ignore]
+#[ignore = "HARDWARE: requires VST3 plugins"]
 fn test_vst3_parameter_access() {
 
     let scanner = Scanner::new().expect("Scanner creation failed");
@@ -167,7 +167,7 @@ fn test_vst3_parameter_access() {
 /// Test audio processing - ignored due to segfault on cleanup
 /// Use test_vst3_gui_headless binary instead
 #[test]
-#[ignore]
+#[ignore = "HARDWARE: requires VST3 plugins"]
 fn test_vst3_audio_processing() {
 
     let scanner = Scanner::new().expect("Scanner creation failed");

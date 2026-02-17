@@ -207,7 +207,6 @@ fn test_octave_c3_vs_c4() {
 }
 
 #[test]
-#[ignore] // Enable this once pattern iteration is working with note conversion
 fn test_note_sequence() {
     // Test a sequence of notes: c4 e4 g4 (C major chord as melody)
     let buffer = render_note_pattern("c4 e4 g4");
@@ -222,7 +221,6 @@ fn test_note_sequence() {
 }
 
 #[test]
-#[ignore] // Enable once UnifiedSignalGraph can handle note names
 fn test_cli_note_parsing() {
     // Test that the CLI parser can handle note names in oscillator contexts
     // This will require updating the CLI parser to recognize note names
@@ -294,20 +292,3 @@ fn test_frequency_accuracy_tolerance() {
     );
 }
 
-#[test]
-#[ignore] // Enable once scale quantization is integrated
-fn test_scale_quantization() {
-    // Test scale("major") with numeric degrees
-    // Input: 0 1 2 3 4 5 6 7 (scale degrees)
-    // Output in C major: C D E F G A B C (60 62 64 65 67 69 71 72)
-
-    // This will require implementing scale quantization in the pattern system
-    // and integrating it with UnifiedSignalGraph
-}
-
-#[test]
-#[ignore] // Enable once chord parsing is integrated
-fn test_chord_notation() {
-    // Test chord notation: c4'maj should produce C E G (60 64 67)
-    // This requires implementing chord expansion in the pattern system
-}

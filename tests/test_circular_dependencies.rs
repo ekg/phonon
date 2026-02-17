@@ -73,7 +73,6 @@ fn test_self_referential_with_processing() {
 }
 
 #[test]
-#[ignore = "reverb node produces NaN in tight feedback loops - numerical stability issue"]
 fn test_self_referential_reverb_injection() {
     // The exact pattern from the original question:
     // "we have a reverb or delay in a hard self loop and then
@@ -277,7 +276,6 @@ fn test_karplus_strong_feedback() {
 }
 
 #[test]
-#[ignore = "mix function with bus reference as param not yet supported"]
 fn test_mix_function_in_circular_feedback() {
     // Mix function used in circular feedback
     let code = r#"

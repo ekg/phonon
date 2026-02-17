@@ -801,7 +801,7 @@ fn test_zoom_small_range() {
     let zoom_haps = zoom_pattern.query(&state);
 
     // May have fewer events but should still work
-    assert!(zoom_haps.len() >= 0, "zoom to small range should work");
+    let _ = zoom_haps; // Verify zoom to small range works without crashing
 
     println!(
         "✅ zoom edge case: Small range handled ({} events)",

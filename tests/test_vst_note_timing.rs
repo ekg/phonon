@@ -12,7 +12,7 @@
 //! These tests use MockPluginInstance with instrumentation, so they can run
 //! in CI without external VST3 plugin dependencies.
 
-use phonon::plugin_host::{MockPluginInstance, RecordedMidiEvent};
+use phonon::plugin_host::MockPluginInstance;
 use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::pattern::Pattern;
 use std::collections::HashMap;

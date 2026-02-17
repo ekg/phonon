@@ -4,6 +4,7 @@ use phonon::pattern::{Fraction, State, TimeSpan};
 use phonon::simple_dsp_executor::SimpleDspExecutor;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 /// Analyze frequency content in a window using zero-crossing
 fn detect_primary_frequency(samples: &[f32], sample_rate: f32) -> Option<f32> {
     if samples.len() < 100 {
@@ -205,7 +206,6 @@ fn test_polyrhythm_with_alternation() {
 }
 
 #[test]
-#[ignore] // Requires synth triggering
 fn test_alternation_audio_generation() {
     println!("\n=== Testing Alternation Audio Generation ===");
 

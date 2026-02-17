@@ -247,7 +247,7 @@ out $ vocoder ~modulator ~carrier 8
 }
 
 #[test]
-#[ignore] // Test takes too long even with pre-calculated coefficients - vocoder needs further optimization
+#[ignore = "BENCHMARK: vocoder noise carrier too slow in debug mode"]
 fn test_vocoder_noise_carrier() {
     // Vocoder with noise carrier (whisper effect)
     // Use 8 bands instead of 16 to avoid excessive computation time

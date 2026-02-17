@@ -66,7 +66,7 @@ out $ waveguide 440 0.5 0.5
 }
 
 #[test]
-#[ignore] // Waveguide has inherent pitch instability similar to Karplus-Strong
+#[ignore = "KNOWN_LIMITATION: inherent pitch instability"]
 fn test_waveguide_frequency_accuracy() {
     // Verify waveguide plays at approximately the correct frequency
     let code = r#"

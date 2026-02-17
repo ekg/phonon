@@ -35,6 +35,7 @@ fn measure_tail_length(buffer: &[f32], sample_rate: f32, threshold: f32) -> f32 
     0.0
 }
 
+#[allow(dead_code)]
 /// Helper to count zero crossings (useful for detecting echoes/repetitions)
 fn count_zero_crossings(buffer: &[f32]) -> usize {
     buffer

@@ -211,8 +211,8 @@ fn test_commands_work_together() {
     graph.reset_cycles();
     assert!(graph.get_cycle_position() < 0.01);
 
-    graph.set_cycle(3.14159);
-    assert!((graph.get_cycle_position() - 3.14159).abs() < 0.001);
+    graph.set_cycle(3.25);
+    assert!((graph.get_cycle_position() - 3.25).abs() < 0.001);
 }
 
 #[test]

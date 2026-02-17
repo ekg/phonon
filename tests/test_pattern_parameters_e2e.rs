@@ -8,6 +8,7 @@ use phonon::dsp_parameter::DspParameter;
 use phonon::glicol_parser_v2::parse_glicol_v2;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 /// Analyze frequency content of audio using zero-crossing detection
 fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
     let mut zero_crossings = 0;
@@ -25,12 +26,14 @@ fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
     (zero_crossings as f32 / 2.0) / duration
 }
 
+#[allow(dead_code)]
 /// Get RMS amplitude of a signal
 fn get_rms(samples: &[f32]) -> f32 {
     let sum: f32 = samples.iter().map(|x| x * x).sum();
     (sum / samples.len() as f32).sqrt()
 }
 
+#[allow(dead_code)]
 /// Analyze spectral brightness (high frequency content)
 fn get_spectral_brightness(samples: &[f32]) -> f32 {
     // Simple high-frequency energy estimation

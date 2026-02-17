@@ -679,9 +679,9 @@ fn test_special_transforms_over_cycles() {
         let wait_haps = wait_p.query(&state);
 
         // Just verify they all execute without crashing
-        assert!(reset_haps.len() >= 0);
-        assert!(binary_haps.len() >= 0);
-        assert!(wait_haps.len() >= 0);
+        let _ = reset_haps;
+        let _ = binary_haps;
+        let _ = wait_haps;
     }
 
     println!("✅ Special transforms consistent over multiple cycles");

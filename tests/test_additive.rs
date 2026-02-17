@@ -207,7 +207,7 @@ out $ additive "220 330 440 330" "1.0 0.5 0.25"
 }
 
 #[test]
-#[ignore] // Pattern-modulated amplitudes not yet supported
+#[ignore = "UNIMPLEMENTED: pattern-modulated harmonic amplitudes"]
 fn test_additive_pattern_amplitudes() {
     // Pattern-modulated partial amplitudes (timbre modulation)
     let code = r#"

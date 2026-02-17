@@ -170,7 +170,7 @@ out $ ~trig
 
 /// Test the exact user case: clicking synth with pattern
 #[test]
-#[ignore = "bus triggering via s pattern has clicking issues - needs investigation"]
+#[ignore = "BUG: bus triggering via s pattern has clicking issues"]
 fn test_user_case_no_clicking() {
     let sample_rate = 44100.0;
 

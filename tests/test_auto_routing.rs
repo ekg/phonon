@@ -11,7 +11,7 @@ fn analyze_wav(path: &str) -> String {
 }
 
 #[test]
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 fn test_d_pattern_auto_routing() {
     // Test that d1, d2, d3 auto-route to master (TidalCycles style)
     let phonon_code = r#"
@@ -54,7 +54,7 @@ cps: 2.0
 }
 
 #[test]
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 fn test_out_pattern_auto_routing() {
     // Test that out1, out2, out3 auto-route to master
     let phonon_code = r#"
@@ -95,7 +95,7 @@ cps: 2.0
     );
 }
 
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 #[test]
 fn test_mixed_d_and_out_pattern() {
     // Test that both d and out patterns can coexist
@@ -138,7 +138,7 @@ cps: 2.0
 }
 
 #[test]
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 fn test_explicit_master_overrides_auto_routing() {
     // Test that explicit ~master definition overrides auto-routing
     let phonon_code = r#"
@@ -182,7 +182,7 @@ cps: 2.0
 }
 
 #[test]
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 fn test_non_matching_buses_dont_auto_route() {
     // Test that buses not matching the pattern don't auto-route
     let phonon_code = r#"
@@ -226,7 +226,7 @@ cps: 2.0
 }
 
 #[test]
-#[ignore] // TODO: Implement auto-routing feature in compositional compiler
+#[ignore = "UNIMPLEMENTED: auto-routing in compositional compiler"]
 fn test_backwards_compatibility_out_bus() {
     // Test backwards compatibility with plain "out" bus
     let phonon_code = r#"

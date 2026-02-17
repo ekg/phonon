@@ -22,6 +22,7 @@ fn find_max(buffer: &[f32]) -> f32 {
     buffer.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
 }
 
+#[allow(dead_code)]
 /// Helper: Find minimum value in buffer
 fn find_min(buffer: &[f32]) -> f32 {
     buffer.iter().fold(f32::INFINITY, |a, &b| a.min(b))

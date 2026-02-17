@@ -317,7 +317,7 @@ out $ ~pattern
 }
 
 #[test]
-#[ignore = "nested bus triggering not yet supported - ~inner inside s pattern can't trigger ~osc"]
+#[ignore = "UNIMPLEMENTED: nested bus triggering"]
 fn test_bus_reference_nested() {
     // Test bus references in nested patterns
     let code = r#"

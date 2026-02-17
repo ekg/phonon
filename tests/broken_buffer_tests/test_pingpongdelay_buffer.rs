@@ -103,7 +103,7 @@ fn test_pingpong_zero_width() {
 }
 
 #[test]
-#[ignore] // FIXME: Full width with 100% wet and mono output creates edge case
+#[ignore = "BUG: full width with 100% wet and mono output creates edge case"]
 fn test_pingpong_full_width() {
     // Test full stereo width: strong ping-pong effect
     let mut graph = create_graph();
@@ -433,7 +433,7 @@ fn test_pingpong_multiple_buffers_performance() {
 }
 
 #[test]
-#[ignore] // FIXME: Full feedback cross feed with high width needs stereo output
+#[ignore = "BUG: full feedback cross feed with high width needs stereo output"]
 fn test_pingpong_crossfeed_symmetry() {
     // Test that left and right channels feed each other symmetrically
     let mut graph = create_graph();

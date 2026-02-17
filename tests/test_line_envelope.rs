@@ -242,7 +242,7 @@ out $ ~ramp * sine 440
 /// Test negative values
 /// TODO: Fix negative number parsing in DSL
 #[test]
-#[ignore]
+#[ignore = "UNIMPLEMENTED: negative number literals in DSL"]
 fn test_line_negative_range() {
     let dsl = r#"
 tempo: 1.0

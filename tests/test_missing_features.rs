@@ -2,7 +2,7 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
-#[ignore] // This SHOULD work but let's verify
+#[ignore = "UNIMPLEMENTED: supersaw freq pattern"]
 fn test_pattern_freq_on_supersaw() {
     let input = r#"out $ supersaw("110 220 330", 0.5, 5) * 0.2"#;
 
@@ -25,7 +25,7 @@ fn test_pattern_freq_on_supersaw() {
 }
 
 #[test]
-#[ignore] // This probably DOESN'T work
+#[ignore = "UNIMPLEMENTED: supersaw detune pattern"]
 fn test_pattern_detune_on_supersaw() {
     let input = r#"out $ supersaw(110, "0.3 0.5 0.7", 5) * 0.2"#;
 
@@ -45,7 +45,7 @@ fn test_pattern_detune_on_supersaw() {
 }
 
 #[test]
-#[ignore] // This definitely doesn't exist
+#[ignore = "UNIMPLEMENTED: sample pattern from language"]
 fn test_sample_pattern_from_language() {
     let input = r#"
         cps: 2.0
@@ -59,7 +59,7 @@ fn test_sample_pattern_from_language() {
 }
 
 #[test]
-#[ignore] // Verify synths are continuous, not triggered
+#[ignore = "UNIMPLEMENTED: continuous synth verification"]
 fn test_synth_is_continuous_not_triggered() {
     let input = "out $ superkick(60, 0.5, 0.3, 0.1) * 0.3";
 

@@ -273,7 +273,7 @@ fn test_bpf_attenuates_high_frequencies() {
 }
 
 #[test]
-#[ignore = "BPF Q-factor test expectation may be incorrect - needs investigation"]
+#[ignore = "BUG: BPF Q-factor test expectation may be wrong"]
 fn test_bpf_q_factor_width() {
     // Wide BPF (low Q) should pass more frequencies
     let narrow = render_dsl("tempo: 0.5\nout $ white_noise # bpf 1000 10.0", 1.0);
@@ -372,7 +372,7 @@ fn test_notch_q_factor_width() {
 // envelope node for oscillators.
 
 #[test]
-#[ignore = "attack modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_shapes_onset() {
     let fast = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.001", 0.2);
     let slow = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.1", 0.2);
@@ -395,7 +395,7 @@ fn test_attack_shapes_onset() {
 }
 
 #[test]
-#[ignore = "attack modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_reaches_full_amplitude() {
     let code = r#"
         tempo: 0.5
@@ -420,7 +420,7 @@ fn test_attack_reaches_full_amplitude() {
 }
 
 #[test]
-#[ignore = "attack modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_attack_different_times() {
     let attack_10ms = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.01", 0.1);
     let attack_50ms = render_dsl("tempo: 0.5\nout $ sine 440 # attack 0.05", 0.1);
@@ -445,7 +445,7 @@ fn test_attack_different_times() {
 // ========== RELEASE Envelope Tests ==========
 
 #[test]
-#[ignore = "release modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_release_shapes_decay() {
     // Note: release affects how quickly sound fades when events end
     // For continuous signals, release creates a fade-out tail
@@ -471,7 +471,7 @@ fn test_release_shapes_decay() {
 }
 
 #[test]
-#[ignore = "release modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_release_different_times() {
     let release_10ms = render_dsl("tempo: 0.5\nout $ sine 440 # release 0.01", 0.3);
     let release_100ms = render_dsl("tempo: 0.5\nout $ sine 440 # release 0.1", 0.3);
@@ -498,7 +498,7 @@ fn test_release_different_times() {
 // DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
 // To apply envelopes to synthesis, use a separate envelope node (ADSR, etc.)
 #[test]
-#[ignore]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_combines_attack_release() {
     let code = r#"
         tempo: 0.5
@@ -520,7 +520,7 @@ fn test_ar_combines_attack_release() {
 
 // DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
 #[test]
-#[ignore]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_attack_affects_onset() {
     let fast_attack = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.001 0.05", 0.2);
     let slow_attack = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.1 0.05", 0.2);
@@ -544,7 +544,7 @@ fn test_ar_attack_affects_onset() {
 
 // DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
 #[test]
-#[ignore]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_ar_different_parameters() {
     let short = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.01 0.01", 0.2);
     let long = render_dsl("tempo: 0.5\nout $ sine 440 # ar 0.1 0.1", 0.2);
@@ -574,7 +574,7 @@ fn test_ar_different_parameters() {
 // NOTE: wedge function is not yet implemented
 
 #[test]
-#[ignore = "wedge function not implemented"]
+#[ignore = "UNIMPLEMENTED: wedge function"]
 fn test_wedge_creates_ramp() {
     let code = r#"
         tempo: 1.0
@@ -609,7 +609,7 @@ fn test_wedge_creates_ramp() {
 }
 
 #[test]
-#[ignore = "wedge function not implemented"]
+#[ignore = "UNIMPLEMENTED: wedge function"]
 fn test_wedge_produces_audio() {
     let code = r#"
         tempo: 1.0
@@ -634,7 +634,6 @@ fn test_wedge_produces_audio() {
 // These tests use wrong signature (irand min max) - needs API review
 
 #[test]
-#[ignore = "irand takes 1 argument (n), not 2 (min, max)"]
 fn test_irand_generates_random_values() {
     // irand should generate random integers in range
     let code = r#"
@@ -672,7 +671,6 @@ fn test_irand_generates_random_values() {
 }
 
 #[test]
-#[ignore = "irand takes 1 argument (n), not 2 (min, max)"]
 fn test_irand_produces_audio() {
     let code = r#"
         tempo: 1.0
@@ -692,7 +690,6 @@ fn test_irand_produces_audio() {
 }
 
 #[test]
-#[ignore = "irand takes 1 argument (n), not 2 (min, max)"]
 fn test_irand_range_affects_output() {
     // Different ranges should produce different frequency content
     let low = render_dsl("tempo: 1.0\nout $ sine (irand 100 200)", 0.2);
@@ -719,7 +716,7 @@ fn test_irand_range_affects_output() {
 // ============================================================================
 
 #[test]
-#[ignore = "attack modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_filter_with_envelope() {
     let code = r#"
         tempo: 0.5
@@ -739,7 +736,7 @@ fn test_filter_with_envelope() {
 }
 
 #[test]
-#[ignore = "ar modifier only works with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_envelope_with_filter() {
     let code = r#"
         tempo: 0.5
@@ -759,7 +756,7 @@ fn test_envelope_with_filter() {
 }
 
 #[test]
-#[ignore = "wedge function not implemented"]
+#[ignore = "UNIMPLEMENTED: wedge function"]
 fn test_wedge_modulates_filter_cutoff() {
     let code = r#"
         tempo: 1.0
@@ -790,7 +787,6 @@ fn test_wedge_modulates_filter_cutoff() {
 }
 
 #[test]
-#[ignore = "irand takes 1 argument (n), not 2 (min, max)"]
 fn test_irand_modulates_filter() {
     let code = r#"
         tempo: 1.0
@@ -836,7 +832,7 @@ fn test_all_filters_produce_audio() {
 }
 
 #[test]
-#[ignore = "envelope modifiers only work with sample patterns, not oscillators"]
+#[ignore = "UNIMPLEMENTED: envelope modifiers for oscillators"]
 fn test_all_envelopes_produce_audio() {
     // Test that all envelope functions compile and produce audio
     let envelopes = vec![
@@ -862,7 +858,7 @@ fn test_all_envelopes_produce_audio() {
 }
 
 #[test]
-#[ignore = "wedge not implemented, irand has wrong signature"]
+#[ignore = "UNIMPLEMENTED: wedge and irand wrong signature"]
 fn test_all_utils_produce_audio() {
     // Test that all utility functions compile and produce audio
     let utils = vec![

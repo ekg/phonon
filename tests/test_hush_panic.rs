@@ -109,7 +109,7 @@ fn test_hush_silences_single_output() {
     let hush_input = "hush";
     let (_, hush_statements) = parse_dsl(hush_input).unwrap();
     let hush_compiler = DslCompiler::new(44100.0);
-    graph = hush_compiler.compile(hush_statements);
+    let _graph = hush_compiler.compile(hush_statements);
 
     // Actually, we need to apply hush to the existing graph
     // The hush statement should be applied to the same graph

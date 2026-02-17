@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 /// Tests for pattern-based loopAt transform
 /// loopAt can take either a constant number or a pattern of numbers,
 /// allowing the loop duration to change over time.

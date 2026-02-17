@@ -5,7 +5,7 @@ mod audio_test_utils;
 use audio_test_utils::find_dominant_frequency;
 
 #[test]
-#[ignore = "Pattern frequency parameters not working for supersaw - needs investigation"]
+#[ignore = "BUG: supersaw freq pattern params not working"]
 fn test_supersaw_freq_pattern_actually_cycles() {
     // Frequency patterns need FFT to verify - RMS doesn't tell us the frequency!
     // CURRENT STATUS: Test infrastructure works, but feature may not be implemented
@@ -66,7 +66,6 @@ fn test_supersaw_freq_pattern_actually_cycles() {
 }
 
 #[test]
-#[ignore = "Pattern frequency parameters not working for oscillators - needs investigation"]
 fn test_oscillator_freq_pattern_cycles() {
     // Test basic oscillator with pattern freq - verify with FFT
     // CURRENT STATUS: Detects wrong frequencies (4704 Hz instead of 110 Hz)
@@ -118,7 +117,7 @@ fn test_oscillator_freq_pattern_cycles() {
 }
 
 #[test]
-#[ignore = "Superkick synth producing no audio - needs DSL implementation investigation"]
+#[ignore = "BUG: superkick synth producing no audio"]
 fn test_architectural_limitation_drum_synths_continuous() {
     // This test DOCUMENTS the architectural limitation:
     // Drum synths (kick, snare, hat) are continuous but play only once

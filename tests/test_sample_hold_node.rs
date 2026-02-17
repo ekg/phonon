@@ -164,7 +164,7 @@ fn test_sample_hold_dependencies() {
 #[test]
 fn test_sample_hold_with_constant_nodes() {
     // Integration test with actual ConstantNodes
-    let mut const_input = ConstantNode::new(3.14);
+    let mut const_input = ConstantNode::new(3.25);
     let mut const_trigger = ConstantNode::new(0.5); // Always positive (crossing on first sample from initial state)
     let mut sample_hold = SampleAndHoldNode::new(0, 1);
 
@@ -186,7 +186,7 @@ fn test_sample_hold_with_constant_nodes() {
     // First sample should trigger (last_trigger starts at 0.0, trigger[0] = 0.5)
     // So it should capture 3.14 and hold it
     for sample in &output {
-        assert_eq!(*sample, 3.14);
+        assert_eq!(*sample, 3.25);
     }
 }
 

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Enhanced Audio Verification Module
 /// Uses spectrum-analyzer for professional FFT with Hann windowing
 ///

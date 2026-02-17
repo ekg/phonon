@@ -13,7 +13,6 @@ use phonon::simple_dsp_executor::SimpleDspExecutor;
 use std::collections::HashMap;
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_feature_channel_references_work() {
     // ✓ Channel references parse correctly in patterns
     let pattern = parse_mini_notation("~bass ~lead ~drums");

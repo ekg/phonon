@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 // Test every pattern transform
 //
 // The every operation applies a transform every n cycles:

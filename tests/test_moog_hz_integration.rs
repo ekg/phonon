@@ -205,7 +205,7 @@ fn test_moog_hz_level3_high_resonance() {
 // NOTE: These tests are ignored because custom moogLadder doesn't exist yet
 
 #[test]
-#[ignore = "custom moogLadder not implemented yet"]
+#[ignore = "UNIMPLEMENTED: custom moogLadder function"]
 fn test_moog_hz_level4_vs_custom_moog_ladder() {
     // Compare fundsp moog_hz to our custom moogLadder implementation
     // This validates both implementations!
@@ -243,7 +243,7 @@ fn test_moog_hz_level4_vs_custom_moog_ladder() {
 }
 
 #[test]
-#[ignore = "custom moogLadder not implemented yet"]
+#[ignore = "UNIMPLEMENTED: custom moogLadder function"]
 fn test_moog_hz_level4_cutoff_comparison() {
     // Compare behavior across different cutoff frequencies
     let cutoffs = vec![500, 1000, 2000, 4000];
@@ -276,7 +276,7 @@ fn test_moog_hz_level4_cutoff_comparison() {
 }
 
 #[test]
-#[ignore = "custom moogLadder not implemented yet"]
+#[ignore = "UNIMPLEMENTED: custom moogLadder function"]
 fn test_moog_hz_level4_resonance_comparison() {
     // Compare behavior across different resonance values
     let resonances = vec![0.1, 0.3, 0.5, 0.7, 0.9];
@@ -313,7 +313,7 @@ fn test_moog_hz_level4_resonance_comparison() {
 }
 
 #[test]
-#[ignore = "custom moogLadder not implemented yet"]
+#[ignore = "UNIMPLEMENTED: custom moogLadder function"]
 fn test_moog_hz_level4_pattern_modulation_comparison() {
     // Compare pattern modulation behavior
     let code_fundsp = "

@@ -61,7 +61,7 @@ out $ s "bd ~ ~ ~" * 0.5 # reverb 0.8 0.7 0.5"#; // With reverb
 }
 
 #[test]
-#[ignore] // TODO: Reverb actually reduces RMS (0.53x) - needs investigation
+#[ignore = "BUG: reverb reduces RMS (0.53x) instead of increasing"]
 fn test_reverb_increases_overall_amplitude() {
     // Test: Reverb adds energy, so RMS should increase
     let dry = r#"tempo: 0.5
@@ -345,7 +345,7 @@ out $ s "bd bd bd bd" * 0.5 # compressor 0.5 2.0 0.01 0.1 1.0"#;
 // ============================================================================
 
 #[test]
-#[ignore] // TODO: gate() not implemented in compositional_compiler yet
+#[ignore = "UNIMPLEMENTED: gate() in compositional compiler"]
 fn test_gate_reduces_quiet_signals() {
     // Test: Gate should reduce or eliminate quiet sections
     let ungated = r#"tempo: 0.5

@@ -97,7 +97,7 @@ fn test_osc_server_panic() {
 }
 
 #[test]
-#[ignore = "Parser issue with multi-line strings in apply_command_to_graph - needs investigation"]
+#[ignore = "BUG: parser issue with multi-line strings"]
 fn test_eval_creates_working_graph() {
     // Test that /eval actually creates a functional audio graph
     // Use auto-routing pattern: ~d1 should route to master automatically
@@ -215,7 +215,7 @@ fn test_multiple_eval_commands() {
 }
 
 #[test]
-#[ignore = "Requires actual audio device and extended testing"]
+#[ignore = "HARDWARE: requires audio device"]
 fn test_osc_live_coding_session() {
     // This would test a full live coding session
     // - Start OSC server

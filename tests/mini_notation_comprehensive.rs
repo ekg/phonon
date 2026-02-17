@@ -127,7 +127,7 @@ fn test_alternation_cycles_properly() {
 }
 
 #[test]
-#[ignore] // TODO: Fix alternation implementation
+#[ignore = "BUG: alternation cycle counter not advancing in sequence"]
 fn test_alternation_in_sequence() {
     let pattern = parse_mini_notation("<bd sn cp> hh");
 
@@ -259,7 +259,7 @@ fn test_nested_groups() {
 }
 
 #[test]
-#[ignore] // TODO: Fix complex alternation
+#[ignore = "BUG: complex alternation counter bug"]
 fn test_complex_pattern_with_alternation() {
     let pattern = parse_mini_notation("<bd sn cp> hh*4");
 
@@ -280,7 +280,7 @@ fn test_complex_pattern_with_alternation() {
 }
 
 #[test]
-#[ignore] // TODO: Fix elongate operator
+#[ignore = "UNIMPLEMENTED: elongate operator _"]
 fn test_elongate_operator() {
     let pattern = parse_mini_notation("bd_");
 

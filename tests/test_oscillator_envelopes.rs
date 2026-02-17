@@ -318,7 +318,6 @@ out $ ~lead * 0.4 + ~pad * 0.3
 // ========== Noise with Envelope ==========
 
 #[test]
-#[ignore = "Hangs indefinitely - fundsp noise() issue"]
 fn test_noise_with_envelope() {
     // Noise with short envelope (hi-hat style)
     let code = r#"

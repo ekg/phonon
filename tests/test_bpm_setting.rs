@@ -2,7 +2,6 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
-#[ignore = "uses DslCompiler path which has pre-existing issues with sample loading"]
 fn test_bpm_120_equals_cps_2() {
     // bpm 120 should equal cps 2.0 (120 / 60 = 2)
     let input_bpm = r#"
@@ -57,7 +56,6 @@ fn test_bpm_120_equals_cps_2() {
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_various_bpm_values() {
     // Test common BPM values
     let test_cases = vec![
@@ -97,7 +95,6 @@ fn test_various_bpm_values() {
 }
 
 #[test]
-#[ignore = "uses DslCompiler path which has pre-existing issues with sample loading"]
 fn test_bpm_without_colon() {
     // bpm should work without colon (unlike cps/tempo which require colon)
     let input = r#"
@@ -118,7 +115,6 @@ fn test_bpm_without_colon() {
 }
 
 #[test]
-#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_tempo_alias_still_works() {
     // Make sure tempo: still works as alias for cps:
     let input = r#"

@@ -329,13 +329,8 @@ fn test_every_with_every_1() {
             controls: HashMap::new(),
         };
 
-        // every 1 (fast 2)
-        if cycle % 1 == 0 {
-            // Always true
-            total_every_1 += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();
-        } else {
-            total_every_1 += pattern.query(&state).len();
-        }
+        // every 1 (fast 2) — always applies since every cycle matches
+        total_every_1 += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();
 
         // Always fast 2
         total_always_fast += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();

@@ -433,8 +433,8 @@ fn test_noise_gate_reset() {
     gate.process_block(&inputs, &mut output2, 44100.0, &context);
 
     // First few samples should be similar (envelope starts from zero both times)
-    let early1: f32 = output.iter().skip(0).take(10).sum::<f32>() / 10.0;
-    let early2: f32 = output2.iter().skip(0).take(10).sum::<f32>() / 10.0;
+    let early1: f32 = output.iter().take(10).sum::<f32>() / 10.0;
+    let early2: f32 = output2.iter().take(10).sum::<f32>() / 10.0;
 
     assert!((early1 - early2).abs() < 0.01, "Reset should clear state");
 }

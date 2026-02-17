@@ -1,7 +1,6 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
-#[ignore = "Space-separated syntax for s function not yet implemented - parser needs update"]
 fn test_space_sep_sample_pattern() {
     // Test: s "bd sn" (space-separated)
     let input = r#"out $ s "bd sn" * 0.5"#;
@@ -171,7 +170,6 @@ fn test_traditional_delay() {
 }
 
 #[test]
-#[ignore = "Space-separated syntax for s function not yet implemented - parser needs update"]
 fn test_render_space_sep_samples() {
     // Integration test: render audio with space-separated syntax
     let input = r#"
@@ -216,7 +214,6 @@ fn test_render_traditional_samples() {
 }
 
 #[test]
-#[ignore = "Space-separated syntax for s function not yet implemented - parser needs update"]
 fn test_both_syntaxes_produce_same_audio() {
     // Verify both syntaxes produce identical audio
     let space_sep = r#"

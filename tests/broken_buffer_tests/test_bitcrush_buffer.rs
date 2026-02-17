@@ -363,7 +363,7 @@ fn test_bitcrush_state_continuity() {
 // TODO: Fix after buffer evaluation is complete for all node types
 
 #[test]
-#[ignore]
+#[ignore = "BUG: recursive signal evaluation causes stack overflow"]
 fn test_bitcrush_pattern_controlled_bits() {
     let mut graph = create_test_graph();
 
@@ -410,7 +410,7 @@ fn test_bitcrush_pattern_controlled_bits() {
 // TODO: Fix after buffer evaluation is complete for all node types
 
 #[test]
-#[ignore]
+#[ignore = "BUG: recursive signal evaluation causes stack overflow"]
 fn test_bitcrush_pattern_controlled_rate() {
     let mut graph = create_test_graph();
 

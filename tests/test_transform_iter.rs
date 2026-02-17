@@ -30,6 +30,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
     graph.render(total_samples)
 }
 
+#[allow(dead_code)]
 /// Helper: Count events in pattern over multiple cycles
 fn count_pattern_events(pattern_str: &str, cycles: usize) -> usize {
     let pattern = parse_mini_notation(pattern_str);

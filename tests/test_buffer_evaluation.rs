@@ -11,6 +11,7 @@ fn create_test_graph() -> UnifiedSignalGraph {
 }
 
 /// Helper: Compare two buffers with floating point tolerance
+#[allow(dead_code)]
 fn assert_buffers_match(actual: &[f32], expected: &[f32], tolerance: f32) {
     assert_eq!(actual.len(), expected.len(), "Buffer sizes don't match");
 

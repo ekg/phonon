@@ -469,7 +469,6 @@ fn test_pattern_based_note() {
 }
 
 #[test]
-#[ignore] // Enable once cut groups are fully verified
 fn test_cut_group_voice_stealing() {
     // Test that samples with the same cut group stop each other
     // This is tricky to test without access to voice internals

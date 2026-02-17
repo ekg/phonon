@@ -166,7 +166,6 @@ fn test_allpass_unity_gain() {
 }
 
 #[test]
-#[ignore = "flaky due to white_noise randomness in spectrum comparison"]
 fn test_allpass_flat_magnitude_response() {
     // Allpass should pass all frequencies equally
     let code = r#"

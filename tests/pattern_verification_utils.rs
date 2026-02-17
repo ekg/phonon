@@ -1,11 +1,12 @@
-//! Utilities for verifying that audio output matches pattern specifications
-//!
-//! This module provides tools to:
-//! 1. Query patterns to get expected event times
-//! 2. Detect events/onsets in rendered audio
-//! 3. Compare expected vs actual events
-//! 4. Spectral analysis for verifying modulation effects
-//! 5. Audio characteristics analysis (RMS, peak, SNR, etc.)
+#![allow(dead_code)]
+// Utilities for verifying that audio output matches pattern specifications
+//
+// This module provides tools to:
+// 1. Query patterns to get expected event times
+// 2. Detect events/onsets in rendered audio
+// 3. Compare expected vs actual events
+// 4. Spectral analysis for verifying modulation effects
+// 5. Audio characteristics analysis (RMS, peak, SNR, etc.)
 
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use rustfft::{num_complex::Complex, FftPlanner};

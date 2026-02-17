@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 /// Combined tests for `degrade` (50% removal) and `degradeBy` (custom % removal)
 /// Both use per-event probabilistic removal with deterministic RNG
 use phonon::compositional_compiler::compile_program;

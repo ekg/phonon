@@ -570,7 +570,7 @@ fn test_sn_sample_one_cycle() {
 }
 
 #[test]
-#[ignore] // TODO: Fix multi-event timing - playback positions don't reset properly between events
+#[ignore = "BUG: playback positions don't reset between events"]
 fn test_euclidean_rhythm_signal_verification() {
     // Test that euclidean patterns actually place samples at the correct positions
     // by manually constructing the expected signal and comparing

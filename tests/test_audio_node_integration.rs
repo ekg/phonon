@@ -3,6 +3,7 @@
 // See docs/CLAUDE.md for details on this planned refactor.
 // To enable these tests, run: cargo test --features audio_node
 
+#![allow(unexpected_cfgs)]
 #![cfg(feature = "audio_node")] // Disable entire file until AudioNode architecture is implemented
 
 /// Integration tests for AudioNode-based DAW architecture

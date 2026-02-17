@@ -7,7 +7,7 @@
 //! - Multi-cycle recording
 //! - Integration with pattern playback
 
-use phonon::midi_input::{MidiRecorder, RecordedPattern};
+use phonon::midi_input::MidiRecorder;
 
 /// Test velocity capture preserves dynamics
 #[test]
@@ -54,7 +54,7 @@ fn test_velocity_capture_soft_to_loud() {
 /// Test velocity with chords - each note can have different velocity
 /// TODO: Implement per-note velocity in chords
 #[test]
-#[ignore] // Not yet implemented: chord velocities need individual tracking
+#[ignore = "UNIMPLEMENTED: per-note chord velocities"]
 fn test_velocity_chord_different_dynamics() {
     let mut recorder = MidiRecorder::new(120.0);
     recorder.set_quantize(4);

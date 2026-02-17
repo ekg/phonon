@@ -164,7 +164,7 @@ fn test_osc_server_panic_message() {
 }
 
 #[test]
-#[ignore = "Integration test - requires full server implementation"]
+#[ignore = "UNIMPLEMENTED: full OSC server"]
 fn test_osc_eval_compiles_code() {
     // This test verifies that /eval actually compiles and updates the audio graph
     // Will implement after basic message handling works
@@ -172,7 +172,7 @@ fn test_osc_eval_compiles_code() {
 }
 
 #[test]
-#[ignore = "Integration test - requires full server implementation"]
+#[ignore = "UNIMPLEMENTED: full OSC server"]
 fn test_osc_hush_stops_audio() {
     // This test verifies that /hush actually stops audio output
     // Will implement after basic message handling works
@@ -180,7 +180,7 @@ fn test_osc_hush_stops_audio() {
 }
 
 #[test]
-#[ignore = "Integration test - requires full server implementation"]
+#[ignore = "UNIMPLEMENTED: full OSC server"]
 fn test_osc_panic_kills_audio() {
     // This test verifies that /panic immediately kills all audio
     // Will implement after basic message handling works

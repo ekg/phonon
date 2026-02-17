@@ -15,6 +15,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
     (sum_squares / buffer.len() as f32).sqrt()
 }
 
+#[allow(dead_code)]
 /// Helper: Calculate peak value in a buffer
 fn calculate_peak(buffer: &[f32]) -> f32 {
     buffer.iter().map(|&x| x.abs()).fold(0.0, f32::max)

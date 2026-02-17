@@ -29,6 +29,7 @@ fn calculate_rms(samples: &[f32]) -> f32 {
     (sum_sq / samples.len() as f32).sqrt()
 }
 
+#[allow(dead_code)]
 /// Find dominant frequency using zero-crossing method (simple but effective for sine-ish waves)
 fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
     let mut zero_crossings = 0;

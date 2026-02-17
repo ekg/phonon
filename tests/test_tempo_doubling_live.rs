@@ -6,7 +6,7 @@ use phonon::modal_editor::test_harness::EditorTestHarness;
 use std::time::Duration;
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_tempo_stability_100_presses() {
     eprintln!("\n🧪 Testing tempo stability with 100 C-x presses...\n");
 
@@ -68,7 +68,7 @@ fn test_tempo_stability_100_presses() {
 }
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_rapid_fire_c_x_200() {
     eprintln!("\n🧪 Testing rapid-fire C-x (200 presses, every 10ms)...\n");
 
@@ -118,7 +118,7 @@ fn test_rapid_fire_c_x_200() {
 }
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_wall_clock_stays_enabled() {
     eprintln!("\n🧪 Testing wall-clock timing stays enabled...\n");
 
@@ -182,7 +182,7 @@ fn test_wall_clock_stays_enabled() {
 }
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_cycle_position_advances_correctly() {
     eprintln!("\n🧪 Testing cycle position advancement rate...\n");
 
@@ -230,7 +230,7 @@ out $ s "bd sn""#;
 }
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_note_chord_plus_offset_syntax() {
     eprintln!("\n🧪 Testing note chord + offset syntax in editor...\n");
 
@@ -243,7 +243,7 @@ o2 $ s "~synth" # note "c3'maj" + "0 3 7" # gain 0.3"#;
     use phonon::compositional_compiler::compile_program;
     use phonon::compositional_parser::parse_program;
 
-    let (rest, stmts) = match parse_program(code) {
+    let (_rest, stmts) = match parse_program(code) {
         Ok((rest, stmts)) => {
             eprintln!("✅ Parser succeeded: {} statements", stmts.len());
             eprintln!("   Remaining: {:?}", rest.trim());
@@ -303,7 +303,7 @@ o2 $ s "~synth" # note "c3'maj" + "0 3 7" # gain 0.3"#;
 }
 
 #[test]
-#[ignore] // Requires audio device
+#[ignore = "HARDWARE: requires audio device"]
 fn test_stress_500_varied_timing() {
     eprintln!("\n🧪 Stress test: 500 C-x with varied timing...\n");
 
