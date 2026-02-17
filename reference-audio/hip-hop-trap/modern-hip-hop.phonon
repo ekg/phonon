@@ -1,0 +1,16 @@
+-- Hip-hop: Modern hip-hop pattern
+-- Contemporary sound with swing
+-- BPM ~85, tempo 1.42 CPS
+tempo: 1.42
+
+-- Sparse kick pattern
+~kick $ s "bd ~ ~ bd ~ ~ bd ~"
+
+-- Rim and snare combo
+~snare $ s "~ ~ sn ~ ~ rim sn ~"
+
+-- Swung hi-hats
+~hh $ s "hh ~ [hh hh] ~ hh ~ [hh hh] ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.85 + ~hh * 0.5

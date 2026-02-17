@@ -1,0 +1,16 @@
+-- Minimal Techno: Basic minimal pattern
+-- Stripped down, hypnotic
+-- BPM ~125, tempo 2.08 CPS
+tempo: 2.08
+
+-- Four-on-floor kick
+~kick $ s "bd bd bd bd"
+
+-- Minimal hi-hat
+~hh $ s "~ hh ~ hh"
+
+-- Subtle rim
+~rim $ s "~ ~ rim ~"
+
+-- Combined output (clean, minimal)
+out $ ~kick + ~hh * 0.45 + ~rim * 0.35

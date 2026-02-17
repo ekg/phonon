@@ -1,0 +1,19 @@
+-- Ambient/IDM: Polyrhythmic pattern
+-- Euclidean rhythms for complexity
+-- BPM ~95, tempo 1.58 CPS
+tempo: 1.58
+
+-- Euclidean kick pattern (5 hits in 8)
+~kick $ s "bd(5,8)"
+
+-- Euclidean snare (3 hits in 8)
+~snare $ s "sn(3,8)"
+
+-- Hi-hats (7 in 16 for complexity)
+~hh $ s "hh(7,16)"
+
+-- Rim (5 in 12 for polyrhythm)
+~rim $ s "rim(5,12)"
+
+-- Combined output
+out $ ~kick * 0.8 + ~snare * 0.7 + ~hh * 0.4 + ~rim * 0.35

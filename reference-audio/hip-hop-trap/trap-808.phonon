@@ -1,0 +1,19 @@
+-- Hip-hop: Trap 808 pattern
+-- Heavy 808s with hi-hat rolls
+-- BPM ~140, tempo 2.33 CPS
+tempo: 2.33
+
+-- 808-style kick (using bd samples)
+~kick $ s "bd ~ ~ ~ ~ ~ bd ~"
+
+-- Snare hits
+~snare $ s "~ ~ ~ ~ sn ~ ~ ~"
+
+-- Hi-hat rolls (trap signature)
+~hh $ s "[hh hh hh hh] [hh hh] [hh hh hh hh] [hh hh hh]"
+
+-- Clap on snare
+~clap $ s "~ ~ ~ ~ cp ~ ~ ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.7 + ~hh * 0.45 + ~clap * 0.65

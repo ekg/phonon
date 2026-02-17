@@ -1,0 +1,16 @@
+-- Breakbeat: Jungle-influenced pattern
+-- Fast, chopped feel with syncopation
+-- BPM ~160, tempo 2.67 CPS
+tempo: 2.67
+
+-- Chopped kick pattern
+~kick $ s "bd ~ ~ bd bd ~ ~ ~"
+
+-- Snare with fast rolls feel
+~snare $ s "~ sn ~ ~ ~ sn sn ~"
+
+-- Fast hi-hats
+~hh $ s "hh hh oh hh hh hh oh hh"
+
+-- Combined output
+out $ ~kick + ~snare * 0.85 + ~hh * 0.45

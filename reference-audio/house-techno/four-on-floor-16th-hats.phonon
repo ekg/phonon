@@ -1,0 +1,16 @@
+-- House/Techno: Four-on-the-floor with 16th note hi-hats
+-- More driving energy with subdivided hats
+-- BPM ~128, tempo 2.13 CPS
+tempo: 2.13
+
+-- Four-on-the-floor kick
+~kick $ s "bd bd bd bd"
+
+-- 16th note hi-hats (classic techno drive)
+~hh $ s "hh*16"
+
+-- Snare/clap on 2 and 4
+~snare $ s "~ sn ~ sn"
+
+-- Combined output with balanced mix
+out $ ~kick + ~hh * 0.4 + ~snare * 0.7

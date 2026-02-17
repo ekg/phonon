@@ -208,6 +208,7 @@ fn test_pattern_operations() {
     assert_eq!(euclid_events, 8); // 8 events total (5 true, 3 false)
 }
 
+#[allow(dead_code)]
 fn query_pattern_count<T: Clone + Send + Sync + 'static>(
     pattern: &Pattern<T>,
     cycles: f64,

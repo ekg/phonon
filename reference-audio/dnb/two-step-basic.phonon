@@ -1,0 +1,16 @@
+-- DnB: Basic two-step pattern
+-- Classic drum & bass foundation with offbeat snare
+-- BPM ~170, tempo 2.83 CPS
+tempo: 2.83
+
+-- Classic DnB kick pattern (on 1, slight variation)
+~kick $ s "bd ~ ~ ~ bd ~ ~ ~"
+
+-- Snare on the offbeat (classic 2-step feel)
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- Fast hi-hats for energy
+~hh $ s "hh*8"
+
+-- Combined output
+out $ ~kick + ~snare * 0.9 + ~hh * 0.5

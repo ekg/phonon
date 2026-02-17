@@ -1,0 +1,19 @@
+-- Minimal Techno: Dub techno pattern
+-- Deep, spacious, delay-friendly
+-- BPM ~120, tempo 2.0 CPS
+tempo: 2.0
+
+-- Deep kick
+~kick $ s "bd bd bd bd"
+
+-- Chord stab positions (using rim)
+~stab $ s "rim ~ ~ ~ ~ ~ rim ~"
+
+-- Offbeat hats
+~hh $ s "~ hh ~ hh ~ hh ~ hh"
+
+-- Subtle percussion
+~perc $ s "~ ~ ~ rim ~ ~ ~ ~"
+
+-- Combined output
+out $ ~kick + ~stab * 0.5 + ~hh * 0.4 + ~perc * 0.25

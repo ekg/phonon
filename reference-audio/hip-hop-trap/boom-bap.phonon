@@ -1,0 +1,16 @@
+-- Hip-hop: Boom bap pattern
+-- Classic 90s hip-hop foundation
+-- BPM ~90, tempo 1.5 CPS
+tempo: 1.5
+
+-- Classic kick on 1 and syncopated
+~kick $ s "bd ~ ~ ~ bd ~ ~ bd"
+
+-- Snare on 2 and 4
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- Subtle hi-hats
+~hh $ s "hh ~ hh ~ hh ~ hh ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.9 + ~hh * 0.4

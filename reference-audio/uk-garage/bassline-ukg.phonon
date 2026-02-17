@@ -1,0 +1,19 @@
+-- UK Garage: Bassline UKG pattern
+-- Minimal with emphasis on groove
+-- BPM ~138, tempo 2.3 CPS
+tempo: 2.3
+
+-- Sparse kick
+~kick $ s "bd ~ ~ ~ bd ~ ~ ~"
+
+-- Snare on 2 and 4
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- Percussive rim pattern
+~rim $ s "~ rim ~ rim ~ rim ~ rim"
+
+-- Light hats
+~hh $ s "hh ~ hh ~ hh ~ hh ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.8 + ~rim * 0.4 + ~hh * 0.45

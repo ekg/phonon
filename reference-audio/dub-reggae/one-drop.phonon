@@ -1,0 +1,19 @@
+-- Dub/Reggae: One drop pattern
+-- Classic reggae foundation - drop the one
+-- BPM ~70, tempo 1.17 CPS
+tempo: 1.17
+
+-- One drop - kick on 3 (drop the 1)
+~kick $ s "~ ~ ~ ~ bd ~ ~ ~"
+
+-- Snare on 3 with kick
+~snare $ s "~ ~ ~ ~ sn ~ ~ ~"
+
+-- Offbeat rhythm (ska/reggae signature)
+~hh $ s "~ hh ~ hh ~ hh ~ hh"
+
+-- Rim for texture
+~rim $ s "~ ~ rim ~ ~ ~ rim ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.8 + ~hh * 0.55 + ~rim * 0.4

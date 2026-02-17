@@ -1,0 +1,16 @@
+-- UK Garage: 2-step classic pattern
+-- Shuffled feel with syncopated kick
+-- BPM ~130, tempo 2.17 CPS
+tempo: 2.17
+
+-- 2-step kick (skip the downbeat sometimes)
+~kick $ s "~ bd ~ ~ bd ~ ~ bd"
+
+-- Snare on 2 and 4
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- Shuffled hi-hats
+~hh $ s "hh ~ [hh hh] ~ hh ~ [hh hh] ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.85 + ~hh * 0.55

@@ -1,0 +1,19 @@
+-- House/Techno: Tech house groove with syncopation
+-- More complex pattern with groove elements
+-- BPM ~124, tempo 2.07 CPS
+tempo: 2.07
+
+-- Syncopated kick with extra hit
+~kick $ s "bd ~ bd ~ bd ~ ~ bd"
+
+-- Open/closed hat pattern
+~hh $ s "[hh oh] [hh hh] [hh oh] [hh hh]"
+
+-- Rim shot groove
+~rim $ s "~ rim ~ [~ rim]"
+
+-- Snare on 2 and 4
+~snare $ s "~ sn ~ sn"
+
+-- Combined
+out $ ~kick + ~hh * 0.5 + ~rim * 0.4 + ~snare * 0.7

@@ -1,0 +1,19 @@
+-- UK Garage: Speed garage pattern
+-- Heavier, more driving feel
+-- BPM ~135, tempo 2.25 CPS
+tempo: 2.25
+
+-- Four-on-floor with variation
+~kick $ s "bd bd bd [bd bd]"
+
+-- Snare shuffle
+~snare $ s "~ ~ sn ~ ~ sn ~ ~"
+
+-- Swung hats
+~hh $ s "[hh ~] [hh hh] [hh ~] [hh hh]"
+
+-- Clap accent
+~clap $ s "~ ~ cp ~ ~ ~ cp ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.75 + ~hh * 0.5 + ~clap * 0.6

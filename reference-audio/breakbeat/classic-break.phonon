@@ -1,0 +1,16 @@
+-- Breakbeat: Classic break pattern
+-- Syncopated funk-derived rhythm
+-- BPM ~130, tempo 2.17 CPS
+tempo: 2.17
+
+-- Syncopated kick pattern
+~kick $ s "bd ~ ~ bd ~ ~ bd ~"
+
+-- Snare on 2 and 4 with ghost hits
+~snare $ s "~ ~ sn ~ ~ sn ~ sn"
+
+-- Funky hi-hat pattern
+~hh $ s "hh [hh hh] hh [hh hh]"
+
+-- Combined output
+out $ ~kick + ~snare * 0.85 + ~hh * 0.5

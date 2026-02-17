@@ -1,0 +1,19 @@
+-- Dub/Reggae: Steppers pattern
+-- Four-on-floor reggae for dance
+-- BPM ~75, tempo 1.25 CPS
+tempo: 1.25
+
+-- Four-on-floor kick
+~kick $ s "bd bd bd bd"
+
+-- Snare on 2 and 4
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- Offbeat hi-hat
+~hh $ s "~ hh ~ hh ~ hh ~ hh"
+
+-- Rim accent
+~rim $ s "rim ~ ~ ~ rim ~ ~ ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.75 + ~hh * 0.5 + ~rim * 0.35

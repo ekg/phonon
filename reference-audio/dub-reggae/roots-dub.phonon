@@ -1,0 +1,19 @@
+-- Dub/Reggae: Roots dub pattern
+-- Spacious, delay-friendly foundation
+-- BPM ~68, tempo 1.13 CPS
+tempo: 1.13
+
+-- Sparse kick
+~kick $ s "bd ~ ~ ~ ~ ~ bd ~"
+
+-- Heavy snare/rim on 3
+~snare $ s "~ ~ ~ ~ sn ~ ~ ~"
+
+-- Minimal hi-hat
+~hh $ s "~ hh ~ ~ ~ hh ~ ~"
+
+-- Percussion fills
+~perc $ s "~ ~ ~ rim ~ ~ ~ ~"
+
+-- Combined output (spacious mix)
+out $ ~kick + ~snare * 0.9 + ~hh * 0.4 + ~perc * 0.35

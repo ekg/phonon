@@ -68,6 +68,7 @@ fn create_patch(sample_rate: f32) -> UnifiedSignalGraph {
     graph
 }
 
+#[allow(dead_code)]
 /// Patch 1: Basic LFO modulating filter
 fn patch_1_basic_lfo(graph: &mut UnifiedSignalGraph) {
     graph.set_cps(0.5);
@@ -122,6 +123,7 @@ fn patch_1_basic_lfo(graph: &mut UnifiedSignalGraph) {
     graph.set_output(output);
 }
 
+#[allow(dead_code)]
 /// Patch 2: Pattern-driven drums
 fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
     graph.set_cps(2.0); // Tempo
@@ -299,6 +301,7 @@ fn patch_3_bass_sidechain(graph: &mut UnifiedSignalGraph) {
     graph.set_output(output);
 }
 
+#[allow(dead_code)]
 /// Patch 4: FM Synthesis
 fn patch_4_fm_synthesis(graph: &mut UnifiedSignalGraph) {
     graph.set_cps(0.5);
@@ -346,6 +349,7 @@ fn patch_4_fm_synthesis(graph: &mut UnifiedSignalGraph) {
     graph.set_output(output);
 }
 
+#[allow(dead_code)]
 /// Patch 5: Ambient pad
 fn patch_5_ambient_pad(graph: &mut UnifiedSignalGraph) {
     graph.set_cps(0.25);

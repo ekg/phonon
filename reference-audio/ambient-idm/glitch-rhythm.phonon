@@ -1,0 +1,16 @@
+-- Ambient/IDM: Glitch rhythm pattern
+-- Irregular, electronic feel
+-- BPM ~110, tempo 1.83 CPS
+tempo: 1.83
+
+-- Glitchy kick pattern
+~kick $ s "bd ~ bd ~ ~ ~ bd ~ ~ bd ~ ~ ~ ~ bd ~"
+
+-- Snare hits scattered
+~snare $ s "~ ~ ~ sn ~ ~ ~ ~ sn ~ ~ ~ ~ sn ~ ~"
+
+-- Fast hi-hat with gaps
+~hh $ s "hh hh ~ hh ~ hh hh ~ ~ hh hh ~ hh ~ ~ hh"
+
+-- Combined output
+out $ ~kick * 0.75 + ~snare * 0.7 + ~hh * 0.45

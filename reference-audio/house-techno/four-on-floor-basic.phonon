@@ -1,0 +1,16 @@
+-- House/Techno: Basic four-on-the-floor pattern
+-- Classic 4/4 kick drum foundation
+-- BPM ~125, tempo 2.08 CPS
+tempo: 2.08
+
+-- Four-on-the-floor kick: one per beat
+~kick $ s "bd bd bd bd"
+
+-- Offbeat hi-hats (classic house sound)
+~hh $ s "~ hh ~ hh"
+
+-- Clap on 2 and 4
+~clap $ s "~ cp ~ cp"
+
+-- Combined output
+out $ ~kick + ~hh * 0.6 + ~clap * 0.8

@@ -1,0 +1,19 @@
+-- Breakbeat: Nu-skool breaks
+-- More aggressive, compressed feel
+-- BPM ~135, tempo 2.25 CPS
+tempo: 2.25
+
+-- Punchy kick pattern
+~kick $ s "bd ~ bd ~ ~ bd ~ bd"
+
+-- Snare with emphasis
+~snare $ s "~ ~ sn ~ ~ ~ sn ~"
+
+-- 16th hat pattern for drive
+~hh $ s "hh*16"
+
+-- Clap accent
+~clap $ s "~ ~ cp ~ ~ ~ cp ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.8 + ~hh * 0.35 + ~clap * 0.6

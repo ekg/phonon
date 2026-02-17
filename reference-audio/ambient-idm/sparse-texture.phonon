@@ -1,0 +1,19 @@
+-- Ambient/IDM: Sparse texture pattern
+-- Irregular timing, textural focus
+-- BPM ~80, tempo 1.33 CPS
+tempo: 1.33
+
+-- Sparse irregular kicks
+~kick $ s "bd ~ ~ ~ ~ ~ ~ ~ bd ~ ~ ~ ~ ~ ~ ~"
+
+-- Occasional snare
+~snare $ s "~ ~ ~ ~ ~ ~ sn ~ ~ ~ ~ ~ ~ ~ ~ ~"
+
+-- Textural hi-hats with variation
+~hh $ s "hh ~ ~ hh ~ ~ ~ ~ ~ hh ~ ~ hh ~ ~ ~"
+
+-- Rim accents
+~rim $ s "~ ~ rim ~ ~ ~ ~ ~ ~ ~ ~ rim ~ ~ ~ ~"
+
+-- Combined output (quiet, textural)
+out $ ~kick * 0.7 + ~snare * 0.6 + ~hh * 0.4 + ~rim * 0.35

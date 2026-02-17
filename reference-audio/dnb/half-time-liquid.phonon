@@ -1,0 +1,19 @@
+-- DnB: Half-time/liquid style pattern
+-- Slower feel within fast tempo, more space
+-- BPM ~175, tempo 2.92 CPS
+tempo: 2.92
+
+-- Half-time kick feel
+~kick $ s "bd ~ ~ ~ ~ ~ ~ ~"
+
+-- Snare on 3 for half-time feel
+~snare $ s "~ ~ ~ ~ sn ~ ~ ~"
+
+-- Gentle hi-hats
+~hh $ s "hh ~ hh ~ hh ~ hh ~"
+
+-- Subtle percussion
+~perc $ s "~ ~ ~ rim ~ ~ ~ ~"
+
+-- Combined output (spacious mix)
+out $ ~kick + ~snare * 0.8 + ~hh * 0.4 + ~perc * 0.3

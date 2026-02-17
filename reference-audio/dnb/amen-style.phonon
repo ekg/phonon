@@ -1,0 +1,16 @@
+-- DnB: Amen-style break pattern
+-- Syncopated funk-influenced pattern
+-- BPM ~170, tempo 2.83 CPS
+tempo: 2.83
+
+-- Syncopated kick like amen break
+~kick $ s "bd ~ ~ bd ~ bd ~ ~"
+
+-- Snare pattern with ghost notes feel
+~snare $ s "~ ~ sn ~ ~ sn ~ sn"
+
+-- Ride cymbal for texture
+~ride $ s "~ hh ~ hh hh ~ hh ~"
+
+-- Combined output
+out $ ~kick + ~snare * 0.85 + ~ride * 0.45

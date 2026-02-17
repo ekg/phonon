@@ -1,0 +1,16 @@
+-- Minimal Techno: Microhouse pattern
+-- Tiny clicks and subtle grooves
+-- BPM ~122, tempo 2.03 CPS
+tempo: 2.03
+
+-- Kick with variation
+~kick $ s "bd ~ bd ~ bd ~ ~ bd"
+
+-- Subtle hat pattern
+~hh $ s "hh ~ [hh ~] ~ hh ~ [~ hh] ~"
+
+-- Click/rim texture
+~rim $ s "rim ~ ~ rim ~ rim ~ ~"
+
+-- Combined output
+out $ ~kick + ~hh * 0.4 + ~rim * 0.3
