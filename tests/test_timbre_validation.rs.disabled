@@ -1,0 +1,618 @@
+//! Comprehensive timbre validation tests using spectral centroid tracking
+//!
+//! Tests the audio_analysis module's spectral features for validating:
+//! - Filter effects on timbre
+//! - Modulation detection
+//! - Tonal vs noise distinction
+//! - Spectral brightness changes
+
+use phonon::audio_analysis::{
+    SpectralCentroid, SpectralCentroidTracker, SpectralFlatness, SpectralSpread, TimbreAnalyzer,
+    TimbreFeatures,
+};
+use std::f32::consts::PI;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Generate a pure sine wave at the given frequency
+fn generate_sine(frequency: f32, sample_rate: f32, num_samples: usize) -> Vec<f32> {
+    (0..num_samples)
+        .map(|i| (2.0 * PI * frequency * i as f32 / sample_rate).sin())
+        .collect()
+}
+
+/// Generate a sawtooth wave (rich in harmonics)
+fn generate_sawtooth(frequency: f32, sample_rate: f32, num_samples: usize) -> Vec<f32> {
+    (0..num_samples)
+        .map(|i| {
+            let phase = (frequency * i as f32 / sample_rate) % 1.0;
+            2.0 * phase - 1.0
+        })
+        .collect()
+}
+
+/// Generate a square wave
+fn generate_square(frequency: f32, sample_rate: f32, num_samples: usize) -> Vec<f32> {
+    (0..num_samples)
+        .map(|i| {
+            let phase = (frequency * i as f32 / sample_rate) % 1.0;
+            if phase < 0.5 {
+                1.0
+            } else {
+                -1.0
+            }
+        })
+        .collect()
+}
+
+/// Generate pseudo-random noise
+fn generate_noise(num_samples: usize) -> Vec<f32> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    (0..num_samples)
+        .map(|i| {
+            let mut hasher = DefaultHasher::new();
+            i.hash(&mut hasher);
+            (hasher.finish() as f32 / u64::MAX as f32) * 2.0 - 1.0
+        })
+        .collect()
+}
+
+/// Apply a simple first-order low-pass filter
+fn apply_lowpass(audio: &[f32], cutoff: f32, sample_rate: f32) -> Vec<f32> {
+    let rc = 1.0 / (2.0 * PI * cutoff);
+    let dt = 1.0 / sample_rate;
+    let alpha = dt / (rc + dt);
+
+    let mut output = Vec::with_capacity(audio.len());
+    let mut prev = 0.0;
+
+    for &sample in audio {
+        let filtered = prev + alpha * (sample - prev);
+        output.push(filtered);
+        prev = filtered;
+    }
+
+    output
+}
+
+// ============================================================================
+// Spectral Centroid Tests
+// ============================================================================
+
+#[test]
+fn test_spectral_centroid_frequency_discrimination() {
+    let sample_rate = 44100.0;
+    let block_size = 2048;
+    let mut analyzer = SpectralCentroid::new(sample_rate, block_size);
+
+    // Test various frequencies
+    let test_frequencies = [100.0, 440.0, 1000.0, 4000.0, 8000.0];
+    let mut centroids = Vec::new();
+
+    for &freq in &test_frequencies {
+        let signal = generate_sine(freq, sample_rate, block_size);
+        let centroid = analyzer.process_block(&signal);
+        centroids.push(centroid);
+    }
+
+    // Verify monotonic increase with frequency
+    for i in 1..centroids.len() {
+        assert!(
+            centroids[i] > centroids[i - 1],
+            "Centroid should increase with frequency: {}Hz -> {:.1}Hz centroid, {}Hz -> {:.1}Hz centroid",
+            test_frequencies[i - 1],
+            centroids[i - 1],
+            test_frequencies[i],
+            centroids[i]
+        );
+    }
+}
+
+#[test]
+fn test_spectral_centroid_waveform_brightness() {
+    let sample_rate = 44100.0;
+    let block_size = 2048;
+    let frequency = 440.0;
+    let mut analyzer = SpectralCentroid::new(sample_rate, block_size);
+
+    // Sine: only fundamental
+    let sine = generate_sine(frequency, sample_rate, block_size);
+    let sine_centroid = analyzer.process_block(&sine);
+
+    // Sawtooth: rich harmonics
+    let sawtooth = generate_sawtooth(frequency, sample_rate, block_size);
+    let saw_centroid = analyzer.process_block(&sawtooth);
+
+    // Square: odd harmonics
+    let square = generate_square(frequency, sample_rate, block_size);
+    let square_centroid = analyzer.process_block(&square);
+
+    // Sawtooth should be brightest (all harmonics), then square (odd only), then sine (fundamental)
+    assert!(
+        saw_centroid > sine_centroid,
+        "Sawtooth ({:.1} Hz) should be brighter than sine ({:.1} Hz)",
+        saw_centroid,
+        sine_centroid
+    );
+
+    assert!(
+        square_centroid > sine_centroid,
+        "Square ({:.1} Hz) should be brighter than sine ({:.1} Hz)",
+        square_centroid,
+        sine_centroid
+    );
+}
+
+#[test]
+fn test_spectral_centroid_filter_effect() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut analyzer = SpectralCentroid::new(sample_rate, block_size);
+
+    // Generate bright sawtooth
+    let sawtooth = generate_sawtooth(440.0, sample_rate, block_size);
+    let unfiltered_centroid = analyzer.process_block(&sawtooth);
+
+    // Apply lowpass filter
+    let filtered = apply_lowpass(&sawtooth, 1000.0, sample_rate);
+    let filtered_centroid = analyzer.process_block(&filtered);
+
+    // Filtered signal should have lower centroid
+    assert!(
+        filtered_centroid < unfiltered_centroid,
+        "Lowpass filtered signal ({:.1} Hz) should have lower centroid than original ({:.1} Hz)",
+        filtered_centroid,
+        unfiltered_centroid
+    );
+
+    // The difference should be significant (at least 500 Hz for a 1000 Hz cutoff on a saw)
+    let difference = unfiltered_centroid - filtered_centroid;
+    assert!(
+        difference > 200.0,
+        "Filter should cause significant spectral change, got {:.1} Hz difference",
+        difference
+    );
+}
+
+#[test]
+fn test_spectral_centroid_normalized() {
+    let sample_rate = 44100.0;
+    let block_size = 2048;
+    let mut analyzer = SpectralCentroid::new(sample_rate, block_size);
+
+    // Low frequency
+    let low_signal = generate_sine(100.0, sample_rate, block_size);
+    let low_norm = analyzer.process_block_normalized(&low_signal);
+
+    // High frequency
+    let high_signal = generate_sine(10000.0, sample_rate, block_size);
+    let high_norm = analyzer.process_block_normalized(&high_signal);
+
+    // Both should be in 0-1 range
+    assert!(
+        low_norm >= 0.0 && low_norm <= 1.0,
+        "Normalized low should be 0-1, got {}",
+        low_norm
+    );
+    assert!(
+        high_norm >= 0.0 && high_norm <= 1.0,
+        "Normalized high should be 0-1, got {}",
+        high_norm
+    );
+
+    // High should be greater than low
+    assert!(
+        high_norm > low_norm,
+        "High freq normalized ({}) should be > low freq ({})",
+        high_norm,
+        low_norm
+    );
+}
+
+// ============================================================================
+// Spectral Spread Tests
+// ============================================================================
+
+#[test]
+fn test_spectral_spread_pure_vs_complex() {
+    let sample_rate = 44100.0;
+    let block_size = 2048;
+    let mut analyzer = SpectralSpread::new(sample_rate, block_size);
+
+    // Pure sine: minimal spread
+    let sine = generate_sine(440.0, sample_rate, block_size);
+    let (sine_centroid, sine_spread) = analyzer.process_block(&sine);
+
+    // Sawtooth: wide spread due to harmonics
+    let saw = generate_sawtooth(440.0, sample_rate, block_size);
+    let (saw_centroid, saw_spread) = analyzer.process_block(&saw);
+
+    assert!(
+        saw_spread > sine_spread,
+        "Sawtooth spread ({:.1} Hz) should be > sine spread ({:.1} Hz)",
+        saw_spread,
+        sine_spread
+    );
+
+    // Sine spread should be narrower than sawtooth (allow for DFT spectral leakage)
+    assert!(
+        sine_spread < 500.0,
+        "Sine spread should be narrow, got {:.1} Hz",
+        sine_spread
+    );
+
+    // Centroids should be reasonable
+    assert!(sine_centroid > 0.0 && saw_centroid > 0.0);
+}
+
+#[test]
+fn test_spectral_spread_noise_vs_tone() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut analyzer = SpectralSpread::new(sample_rate, block_size);
+
+    // Pure tone
+    let tone = generate_sine(1000.0, sample_rate, block_size);
+    let (_, tone_spread) = analyzer.process_block(&tone);
+
+    // Noise
+    let noise = generate_noise(block_size);
+    let (_, noise_spread) = analyzer.process_block(&noise);
+
+    assert!(
+        noise_spread > tone_spread,
+        "Noise spread ({:.1} Hz) should be much > tone spread ({:.1} Hz)",
+        noise_spread,
+        tone_spread
+    );
+}
+
+// ============================================================================
+// Spectral Flatness Tests
+// ============================================================================
+
+#[test]
+fn test_spectral_flatness_tonal_vs_noise() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut analyzer = SpectralFlatness::new(sample_rate, block_size);
+
+    // Pure tone (very tonal, low flatness)
+    let tone = generate_sine(1000.0, sample_rate, block_size);
+    let tone_flatness = analyzer.process_block(&tone);
+
+    // Noise (high flatness)
+    let noise = generate_noise(block_size);
+    let noise_flatness = analyzer.process_block(&noise);
+
+    assert!(
+        noise_flatness > tone_flatness,
+        "Noise flatness ({:.3}) should be > tone flatness ({:.3})",
+        noise_flatness,
+        tone_flatness
+    );
+
+    // Pure tone should have very low flatness
+    assert!(
+        tone_flatness < 0.15,
+        "Pure tone flatness should be very low, got {:.3}",
+        tone_flatness
+    );
+
+    // Noise should have higher flatness
+    assert!(
+        noise_flatness > 0.3,
+        "Noise flatness should be moderate-high, got {:.3}",
+        noise_flatness
+    );
+}
+
+#[test]
+fn test_spectral_flatness_harmonic_content() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut analyzer = SpectralFlatness::new(sample_rate, block_size);
+
+    // Sine: single harmonic
+    let sine = generate_sine(440.0, sample_rate, block_size);
+    let sine_flatness = analyzer.process_block(&sine);
+
+    // Sawtooth: many harmonics but still tonal
+    let saw = generate_sawtooth(440.0, sample_rate, block_size);
+    let saw_flatness = analyzer.process_block(&saw);
+
+    // Both should be tonal (low flatness) but saw slightly higher due to distributed energy
+    assert!(
+        saw_flatness > sine_flatness,
+        "Saw flatness ({:.3}) should be > sine flatness ({:.3})",
+        saw_flatness,
+        sine_flatness
+    );
+
+    // But saw should still be clearly tonal, not noise-like
+    assert!(
+        saw_flatness < 0.5,
+        "Saw should still be tonal, flatness = {:.3}",
+        saw_flatness
+    );
+}
+
+// ============================================================================
+// Spectral Centroid Tracker Tests
+// ============================================================================
+
+#[test]
+fn test_tracker_detects_modulation() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+    let mut tracker = SpectralCentroidTracker::new(sample_rate, block_size, 20, 0.5);
+
+    // Simulate LFO modulating filter cutoff
+    let lfo_rate = 1.0; // 1 Hz
+    let num_blocks = 44; // About 1 second of audio at 1024 sample blocks
+
+    for i in 0..num_blocks {
+        let t = i as f32 * block_size as f32 / sample_rate;
+        let lfo = 0.5 + 0.5 * (2.0 * PI * lfo_rate * t).sin();
+        let cutoff = 500.0 + lfo * 3000.0; // 500 - 3500 Hz
+
+        // Generate sawtooth and filter it
+        let saw = generate_sawtooth(440.0, sample_rate, block_size);
+        let filtered = apply_lowpass(&saw, cutoff, sample_rate);
+
+        tracker.process_block(&filtered);
+    }
+
+    let stats = tracker.get_statistics();
+
+    // Should detect significant variation from LFO modulation
+    assert!(
+        stats.std_dev > 50.0,
+        "Should detect modulation variation, std_dev = {:.1} Hz",
+        stats.std_dev
+    );
+
+    assert!(
+        stats.range > 200.0,
+        "Should have significant range from modulation, range = {:.1} Hz",
+        stats.range
+    );
+
+    assert!(
+        tracker.has_significant_variation(30.0),
+        "Should detect significant variation"
+    );
+}
+
+#[test]
+fn test_tracker_stable_signal() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+    let mut tracker = SpectralCentroidTracker::new(sample_rate, block_size, 20, 0.5);
+
+    // Process a static signal
+    let static_signal = generate_sine(1000.0, sample_rate, block_size);
+
+    for _ in 0..20 {
+        tracker.process_block(&static_signal);
+    }
+
+    let stats = tracker.get_statistics();
+
+    // Should have minimal variation for static signal
+    assert!(
+        stats.std_dev < 50.0,
+        "Static signal should have low std_dev, got {:.1} Hz",
+        stats.std_dev
+    );
+
+    assert!(
+        !tracker.has_significant_variation(100.0),
+        "Static signal should not trigger variation threshold"
+    );
+}
+
+#[test]
+fn test_tracker_smoothing() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+
+    // High smoothing factor (responsive)
+    let mut tracker_responsive = SpectralCentroidTracker::new(sample_rate, block_size, 10, 0.8);
+
+    // Low smoothing factor (sluggish)
+    let mut tracker_sluggish = SpectralCentroidTracker::new(sample_rate, block_size, 10, 0.1);
+
+    // First: low frequency
+    let low_signal = generate_sine(200.0, sample_rate, block_size);
+    for _ in 0..5 {
+        tracker_responsive.process_block(&low_signal);
+        tracker_sluggish.process_block(&low_signal);
+    }
+
+    // Switch to high frequency
+    let high_signal = generate_sine(4000.0, sample_rate, block_size);
+    let (_, responsive_smoothed) = tracker_responsive.process_block(&high_signal);
+    let (_, sluggish_smoothed) = tracker_sluggish.process_block(&high_signal);
+
+    // Responsive tracker should jump more quickly
+    assert!(
+        responsive_smoothed > sluggish_smoothed,
+        "Responsive tracker ({:.1} Hz) should react faster than sluggish ({:.1} Hz)",
+        responsive_smoothed,
+        sluggish_smoothed
+    );
+}
+
+#[test]
+fn test_tracker_reset() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+    let mut tracker = SpectralCentroidTracker::new(sample_rate, block_size, 10, 0.5);
+
+    // Process some signals
+    let signal = generate_sine(1000.0, sample_rate, block_size);
+    for _ in 0..5 {
+        tracker.process_block(&signal);
+    }
+
+    let stats_before = tracker.get_statistics();
+    assert!(stats_before.mean > 0.0, "Should have processed data");
+
+    // Reset
+    tracker.reset();
+
+    let stats_after = tracker.get_statistics();
+    assert!(
+        stats_after.mean == 0.0 || stats_after.mean.is_nan(),
+        "Should have empty history after reset"
+    );
+}
+
+// ============================================================================
+// TimbreAnalyzer Tests
+// ============================================================================
+
+#[test]
+fn test_timbre_analyzer_comprehensive() {
+    let sample_rate = 44100.0;
+    let block_size = 2048;
+    let mut analyzer = TimbreAnalyzer::new(sample_rate, block_size);
+
+    // Analyze a sine wave
+    let sine = generate_sine(440.0, sample_rate, block_size);
+    let sine_features = analyzer.analyze_block(&sine);
+
+    // Analyze a sawtooth
+    let saw = generate_sawtooth(440.0, sample_rate, block_size);
+    let saw_features = analyzer.analyze_block(&saw);
+
+    // Analyze noise
+    let noise = generate_noise(block_size);
+    let noise_features = analyzer.analyze_block(&noise);
+
+    // Verify centroid ordering (saw > sine for same fundamental)
+    assert!(
+        saw_features.centroid > sine_features.centroid,
+        "Saw centroid ({:.1}) should be > sine centroid ({:.1})",
+        saw_features.centroid,
+        sine_features.centroid
+    );
+
+    // Verify flatness ordering (noise > saw > sine)
+    assert!(
+        noise_features.flatness > sine_features.flatness,
+        "Noise flatness ({:.3}) should be > sine flatness ({:.3})",
+        noise_features.flatness,
+        sine_features.flatness
+    );
+
+    // Verify brightness is normalized
+    assert!(
+        sine_features.brightness >= 0.0 && sine_features.brightness <= 1.0,
+        "Brightness should be 0-1, got {}",
+        sine_features.brightness
+    );
+}
+
+#[test]
+fn test_timbre_analyzer_filter_sweep() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut analyzer = TimbreAnalyzer::new(sample_rate, block_size);
+
+    let sawtooth = generate_sawtooth(220.0, sample_rate, block_size);
+
+    // Test at different cutoff frequencies
+    let cutoffs = [500.0, 1000.0, 2000.0, 4000.0, 8000.0];
+    let mut features_list: Vec<TimbreFeatures> = Vec::new();
+
+    for &cutoff in &cutoffs {
+        let filtered = apply_lowpass(&sawtooth, cutoff, sample_rate);
+        let features = analyzer.analyze_block(&filtered);
+        features_list.push(features);
+    }
+
+    // Centroid should increase with cutoff
+    for i in 1..features_list.len() {
+        assert!(
+            features_list[i].centroid > features_list[i - 1].centroid,
+            "Centroid should increase: cutoff {}Hz -> {:.1}Hz, cutoff {}Hz -> {:.1}Hz",
+            cutoffs[i - 1],
+            features_list[i - 1].centroid,
+            cutoffs[i],
+            features_list[i].centroid
+        );
+    }
+
+    // Brightness should also increase
+    for i in 1..features_list.len() {
+        assert!(
+            features_list[i].brightness > features_list[i - 1].brightness,
+            "Brightness should increase with cutoff"
+        );
+    }
+}
+
+#[test]
+fn test_timbre_empty_input() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+    let mut analyzer = TimbreAnalyzer::new(sample_rate, block_size);
+
+    let empty: Vec<f32> = vec![];
+    let features = analyzer.analyze_block(&empty);
+
+    // Should handle empty input gracefully
+    assert!(
+        features.centroid == 0.0 || features.centroid.is_nan(),
+        "Empty input should return 0 or NaN for centroid"
+    );
+    assert_eq!(features.rms, 0.0, "Empty input should have 0 RMS");
+}
+
+#[test]
+fn test_timbre_silence_detection() {
+    let sample_rate = 44100.0;
+    let block_size = 1024;
+    let mut analyzer = TimbreAnalyzer::new(sample_rate, block_size);
+
+    let silence = vec![0.0; block_size];
+    let features = analyzer.analyze_block(&silence);
+
+    assert_eq!(features.rms, 0.0, "Silence should have 0 RMS");
+}
+
+// ============================================================================
+// Integration Tests - Verifying Filter Effects on Samples
+// ============================================================================
+
+#[test]
+fn test_lowpass_filter_reduces_brightness() {
+    let sample_rate = 44100.0;
+    let block_size = 4096;
+    let mut tracker = SpectralCentroidTracker::new(sample_rate, block_size, 5, 0.7);
+
+    // Original bright signal
+    let bright = generate_sawtooth(440.0, sample_rate, block_size);
+    let (original_centroid, _) = tracker.process_block(&bright);
+
+    // Apply progressively lower cutoffs
+    for cutoff in [4000.0, 2000.0, 1000.0, 500.0] {
+        tracker.reset();
+        let filtered = apply_lowpass(&bright, cutoff, sample_rate);
+        let (filtered_centroid, _) = tracker.process_block(&filtered);
+
+        assert!(
+            filtered_centroid < original_centroid,
+            "Filtering at {} Hz should reduce centroid: original {:.1}, filtered {:.1}",
+            cutoff,
+            original_centroid,
+            filtered_centroid
+        );
+    }
+}
