@@ -47,3 +47,4 @@ rust-examples/
 test_circular
 test_*_buffer
 libtest_*.rlib
+.workgraph
