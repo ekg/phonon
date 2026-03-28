@@ -315,7 +315,7 @@ fn test_bpf_multiple_buffers() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: modulated cutoff assertion
+#[ignore = "BUG: bandpass modulated cutoff RMS below threshold"]
 fn test_bpf_modulated_cutoff() {
     let mut graph = create_test_graph();
 

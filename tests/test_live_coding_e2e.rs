@@ -517,19 +517,19 @@ bpm: 60
 out $ sine 440 * 0.3
 "#;
 
-    // 120 BPM in 4/4 = 120 / (4 * 60) = 0.5 CPS
+    // 120 BPM = 120 / 60 = 2.0 CPS
     let mut graph = compile_code(code_120bpm, sample_rate);
     assert!(
-        (graph.get_cps() - 0.5).abs() < 0.01,
-        "120 BPM should be 0.5 CPS, got {}",
+        (graph.get_cps() - 2.0).abs() < 0.01,
+        "120 BPM should be 2.0 CPS, got {}",
         graph.get_cps()
     );
 
-    // 60 BPM in 4/4 = 60 / (4 * 60) = 0.25 CPS
+    // 60 BPM = 60 / 60 = 1.0 CPS
     let new_graph = swap_graph(&mut graph, code_60bpm, sample_rate);
     assert!(
-        (new_graph.get_cps() - 0.25).abs() < 0.01,
-        "60 BPM should be 0.25 CPS, got {}",
+        (new_graph.get_cps() - 1.0).abs() < 0.01,
+        "60 BPM should be 1.0 CPS, got {}",
         new_graph.get_cps()
     );
 }

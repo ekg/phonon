@@ -224,7 +224,7 @@ fn test_whitenoise_long_term_stats() {
 }
 
 #[test]
-#[ignore] // pre-existing failure: amplitude scaling assertion
+#[ignore = "BUG: white noise amplitude scaling produces zero RMS after multiply node"]
 fn test_whitenoise_amplitude_scaling() {
     let mut graph = create_test_graph();
 

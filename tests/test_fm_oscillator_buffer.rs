@@ -148,7 +148,7 @@ fn test_fm_buffer_multiple_buffers_consistent() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: varying mod index assertion
+#[ignore = "BUG: FM oscillator with mod index 0 produces too few zero crossings"]
 fn test_fm_buffer_varying_mod_index() {
     let mut graph = create_test_graph();
     let buffer_size = 512;
@@ -295,7 +295,6 @@ fn test_fm_buffer_high_mod_index() {
 // ============================================================================
 
 #[test]
-#[ignore] // performance benchmark - too slow in debug builds
 fn test_fm_buffer_performance() {
     let mut graph = create_test_graph();
 

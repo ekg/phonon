@@ -221,7 +221,7 @@ fn test_eq_zero_gain_passthrough() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: Q factor bandwidth assertion
+#[ignore = "BUG: parametric EQ Q factor bandwidth comparison fails"]
 fn test_eq_q_factor_bandwidth() {
     let mut graph = create_test_graph();
 
@@ -347,7 +347,7 @@ fn test_eq_state_continuity() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: eq band interaction
+#[ignore = "BUG: parametric EQ multi-band interaction produces wrong frequency balance"]
 fn test_eq_all_bands_active() {
     let mut graph = create_test_graph();
 

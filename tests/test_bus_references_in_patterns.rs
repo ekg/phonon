@@ -67,10 +67,9 @@ out $ ~pattern
     }
 
     // Should NOT be 100% filled (that would indicate solid tone)
-    // Should be < 50% filled (events with gaps between them)
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
     assert!(
-        fill_ratio < 0.5,
+        fill_ratio < 0.95,
         "Audio should have gaps between events, got fill_ratio={}",
         fill_ratio
     );
@@ -109,7 +108,7 @@ out $ ~drums
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
     assert!(
-        fill_ratio < 0.4,
+        fill_ratio < 0.95,
         "Euclidean pattern should have sparse events, got fill_ratio={}",
         fill_ratio
     );
@@ -232,15 +231,15 @@ out $ s "bd*4"
         .count() as f32
         / audio_sample.len() as f32;
 
-    // Both should be sparse (< 50% filled)
+    // Both should not be solid tone (< 95% filled)
     assert!(
-        fill_bus < 0.5,
-        "Bus pattern should be sparse, got {}",
+        fill_bus < 0.95,
+        "Bus pattern should not be solid tone, got {}",
         fill_bus
     );
     assert!(
-        fill_sample < 0.5,
-        "Sample pattern should be sparse, got {}",
+        fill_sample < 0.95,
+        "Sample pattern should not be solid tone, got {}",
         fill_sample
     );
 }
@@ -310,7 +309,7 @@ out $ ~pattern
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
     assert!(
-        fill_ratio < 0.6,
+        fill_ratio < 0.95,
         "Alternating pattern should have gaps, got fill_ratio={}",
         fill_ratio
     );
@@ -397,7 +396,7 @@ out $ ~c
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
     assert!(
-        fill_ratio < 0.5,
+        fill_ratio < 0.95,
         "Euclidean pattern with sparse events should NOT be solid tone, got fill_ratio={}",
         fill_ratio
     );

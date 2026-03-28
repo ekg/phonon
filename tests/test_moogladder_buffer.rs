@@ -442,7 +442,7 @@ fn test_moog_state_persistence() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: modulated cutoff assertion
+#[ignore = "BUG: moog ladder modulated cutoff RMS below threshold"]
 fn test_moog_modulated_cutoff() {
     let mut graph = create_test_graph();
 

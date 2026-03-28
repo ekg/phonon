@@ -103,6 +103,10 @@ fn test_probability_operator() {
     assert_eq!(sn_count, 100, "sn should appear in every cycle");
     assert_eq!(hh_count, 100, "hh should appear in every cycle");
 
-    // TODO: Fix degradation in sequences - bd should be ~50, not 100
-    assert_eq!(bd_count, 100, "bd currently appears always (known issue)");
+    // bd? has 50% probability - should be roughly 50 out of 100
+    assert!(
+        bd_count > 20 && bd_count < 80,
+        "bd? should appear ~50% of the time, got {}/100",
+        bd_count
+    );
 }

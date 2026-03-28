@@ -163,7 +163,6 @@ fn test_xfade_modulated_lfo() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_xfade_oscillators_constant_mix() {
     let mut graph = create_test_graph();
 
@@ -172,7 +171,9 @@ fn test_xfade_oscillators_constant_mix() {
     let osc_b = graph.add_oscillator(Signal::Value(200.0), Waveform::Sine);
 
     // Test at 0%, 50%, and 100%
-    for (mix, expected_rms_range) in [(0.0, (0.6, 0.8)), (0.5, (0.6, 0.8)), (1.0, (0.6, 0.8))] {
+    // At mix=0 or 1: pure sine, RMS ≈ 0.707
+    // At mix=0.5: two uncorrelated sines each scaled by 0.5, RMS ≈ 0.5
+    for (mix, expected_rms_range) in [(0.0, (0.6, 0.8)), (0.5, (0.4, 0.6)), (1.0, (0.6, 0.8))] {
         let xfade_id = graph.add_node(SignalNode::XFade {
             signal_a: Signal::Node(osc_a),
             signal_b: Signal::Node(osc_b),
@@ -349,7 +350,6 @@ fn test_xfade_silence_to_sound() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_xfade_inverted_signals() {
     let mut graph = create_test_graph();
 

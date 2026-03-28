@@ -271,7 +271,7 @@ fn test_lpf_multiple_buffers() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: modulated cutoff assertion
+#[ignore = "BUG: lowpass modulated cutoff RMS below threshold"]
 fn test_lpf_modulated_cutoff() {
     let mut graph = create_test_graph();
 

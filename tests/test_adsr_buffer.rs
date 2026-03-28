@@ -309,7 +309,7 @@ fn test_adsr_multiple_buffers() {
 }
 
 #[test]
-#[ignore] // pre-existing failure: continuity check across buffers
+#[ignore = "BUG: ADSR state not preserved across buffer boundaries"]
 fn test_adsr_continuity_across_buffers() {
     let mut graph = create_test_graph();
 

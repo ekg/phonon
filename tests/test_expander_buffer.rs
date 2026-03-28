@@ -506,7 +506,7 @@ fn test_expander_no_input() {
 // ============================================================================
 
 #[test]
-#[ignore] // pre-existing failure: performance benchmark
+#[ignore = "BENCHMARK: expander buffer eval too slow in debug builds"]
 fn test_expander_buffer_performance() {
     let mut graph = create_test_graph();
 

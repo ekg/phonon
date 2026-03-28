@@ -104,7 +104,6 @@ fn find_dominant_frequency(buffer: &[f32], sample_rate: f32) -> Option<(f32, f32
 // ========== LEVEL 1: BASIC FUNCTIONALITY ==========
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_produces_sound() {
     let mut graph = create_test_graph();
 
@@ -127,7 +126,6 @@ fn test_waveguide_buffer_produces_sound() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_vs_sample() {
     // Compare buffer evaluation to sample-by-sample
     let mut graph1 = create_test_graph();
@@ -168,7 +166,6 @@ fn test_waveguide_buffer_vs_sample() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_resonance() {
     let mut graph = create_test_graph();
 
@@ -227,7 +224,6 @@ fn test_waveguide_buffer_decay() {
 // ========== LEVEL 2: PARAMETER VARIATION ==========
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_damping_variation() {
     let mut graph_low = create_test_graph();
     let mut graph_high = create_test_graph();
@@ -267,7 +263,6 @@ fn test_waveguide_buffer_damping_variation() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_pickup_position() {
     let mut graph_center = create_test_graph();
     let mut graph_off = create_test_graph();
@@ -308,7 +303,6 @@ fn test_waveguide_buffer_pickup_position() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_frequency_range() {
     // Test waveguide at various frequencies
     let frequencies = [55.0, 110.0, 220.0, 440.0, 880.0];
@@ -371,7 +365,6 @@ fn test_waveguide_buffer_state_continuity() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_long_sequence() {
     // Test that waveguide maintains coherent state over long sequences
     let mut graph = create_test_graph();
@@ -396,7 +389,6 @@ fn test_waveguide_buffer_long_sequence() {
 // ========== LEVEL 4: IMPULSE RESPONSE ==========
 
 #[test]
-#[ignore] // flaky: initial excitation not always present
 fn test_waveguide_buffer_impulse_response() {
     let mut graph = create_test_graph();
 
@@ -425,7 +417,6 @@ fn test_waveguide_buffer_impulse_response() {
 // ========== LEVEL 5: COMPARISON WITH DELAY-BASED SYNTHESIS ==========
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_vs_simple_delay() {
     // Waveguide should produce richer sound than simple delay-based synthesis
     let mut graph_wg = create_test_graph();
@@ -466,7 +457,6 @@ fn test_waveguide_vs_simple_delay() {
 // ========== LEVEL 6: BUFFER SIZE INDEPENDENCE ==========
 
 #[test]
-#[ignore] // pre-existing failure
 fn test_waveguide_buffer_size_independence() {
     // Results should be identical regardless of buffer size
     let buffer_sizes = [64, 256, 1024, 4096];

@@ -86,7 +86,7 @@ fn calculate_difference(a: &[f32], b: &[f32]) -> f32 {
 }
 
 #[test]
-#[ignore] // pre-existing failure
+#[ignore = "BUG: spectral freeze passthrough produces silence"]
 fn test_spectralfreeze_passthrough() {
     // Test that with trigger=0, spectral freeze passes signal through
     let mut graph = create_graph();
@@ -116,7 +116,7 @@ fn test_spectralfreeze_passthrough() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
+#[ignore = "BUG: spectral freeze trigger produces silence"]
 fn test_spectralfreeze_triggers() {
     // Test that trigger=1 causes freeze to capture spectrum
     let mut graph = create_graph();
@@ -191,7 +191,7 @@ fn test_spectralfreeze_freeze_stability() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
+#[ignore = "BUG: spectral freeze produces silence with different waveform inputs"]
 fn test_spectralfreeze_different_inputs() {
     // Test freezing different waveforms
     let mut graph = create_graph();
@@ -232,7 +232,7 @@ fn test_spectralfreeze_different_inputs() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
+#[ignore = "BUG: spectral freeze state not maintained across buffer boundaries"]
 fn test_spectralfreeze_state_continuity() {
     // Test that state is maintained across buffer boundaries
     let mut graph = create_graph();
@@ -321,7 +321,7 @@ fn test_spectralfreeze_sustained_output() {
 }
 
 #[test]
-#[ignore] // pre-existing failure
+#[ignore = "BUG: spectral freeze produces silence at multiple frequencies"]
 fn test_spectralfreeze_multiple_frequencies() {
     // Test freezing different frequencies
     let frequencies = vec![110.0, 220.0, 440.0, 880.0];
