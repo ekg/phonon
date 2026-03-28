@@ -2240,6 +2240,11 @@ impl VoiceManager {
         }
     }
 
+    /// Check if a voice at the given index is a synthesis voice
+    pub fn is_synthesis_voice(&self, index: usize) -> bool {
+        self.voices.get(index).is_some_and(|v| v.synthesis_node_id.is_some())
+    }
+
     /// Process a specific voice by index and return (stereo output, source_node)
     /// Returns None if voice index is invalid or voice is free
     pub fn process_voice_by_index(&mut self, index: usize) -> Option<((f32, f32), usize)> {

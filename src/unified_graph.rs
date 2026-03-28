@@ -7777,7 +7777,15 @@ impl UnifiedSignalGraph {
 
             // Process all newly triggered voices for this sample
             // This runs BEFORE eval_node, processing voices triggered in PREVIOUS samples
+            // NOTE: Skip synthesis voices — they can't produce audio per-sample
+            // (synthesis_sample_cache is 0). Processing them here would advance
+            // the envelope during silence, causing onset clicks when real audio
+            // starts in the next buffer's process_synthesis_buffers().
             for &voice_idx in &newly_triggered_voices {
+                let is_synth = self.voice_manager.borrow().is_synthesis_voice(voice_idx);
+                if is_synth {
+                    continue;
+                }
                 if let Some(((left, right), source_node)) = self
                     .voice_manager
                     .borrow_mut()
@@ -7805,27 +7813,36 @@ impl UnifiedSignalGraph {
                 if std::env::var("DEBUG_VOICE_DAG").is_ok() {
                     eprintln!("[VOICE_DAG] sample {} triggered voice_idx={}", i, voice_idx);
                 }
-                // Process the newly triggered voice IMMEDIATELY for this sample
-                // This ensures the first sample of audio goes into the current output
-                let voice_output = self
-                    .voice_manager
-                    .borrow_mut()
-                    .process_voice_by_index(voice_idx);
 
-                if let Some(((left, right), source_node)) = voice_output {
-                    let mono = (left + right) / std::f32::consts::SQRT_2;
-                    if std::env::var("DEBUG_VOICE_DAG").is_ok() {
-                        eprintln!("[VOICE_DAG] voice_idx={} produced mono={:.6}, source_node={}", voice_idx, mono, source_node);
+                // Check if this is a synthesis voice — if so, skip per-sample processing.
+                // Synthesis voices produce audio via process_synthesis_buffers() in the next
+                // buffer. Processing them here would advance the envelope during silence,
+                // causing onset clicks.
+                let is_synth = self.voice_manager.borrow().is_synthesis_voice(voice_idx);
+
+                if !is_synth {
+                    // Process the newly triggered SAMPLE voice IMMEDIATELY for this sample
+                    // This ensures the first sample of audio goes into the current output
+                    let voice_output = self
+                        .voice_manager
+                        .borrow_mut()
+                        .process_voice_by_index(voice_idx);
+
+                    if let Some(((left, right), source_node)) = voice_output {
+                        let mono = (left + right) / std::f32::consts::SQRT_2;
+                        if std::env::var("DEBUG_VOICE_DAG").is_ok() {
+                            eprintln!("[VOICE_DAG] voice_idx={} produced mono={:.6}, source_node={}", voice_idx, mono, source_node);
+                        }
+                        self.voice_output_cache
+                            .entry(source_node)
+                            .and_modify(|v| *v += mono)
+                            .or_insert(mono);
+
+                        // Update output with newly triggered voice
+                        // The Sample node already returned from voice_buffers (which was 0)
+                        // so we need to add the new voice's output
+                        output[i] += mono;
                     }
-                    self.voice_output_cache
-                        .entry(source_node)
-                        .and_modify(|v| *v += mono)
-                        .or_insert(mono);
-
-                    // Update output with newly triggered voice
-                    // The Sample node already returned from voice_buffers (which was 0)
-                    // so we need to add the new voice's output
-                    output[i] += mono;
                 }
 
                 // Add to tracking list for subsequent samples
