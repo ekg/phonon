@@ -766,16 +766,16 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             time_signature,
         } => {
             // bpm: value sets beats per minute
-            // Convert to cycles per second based on time signature
-            // Default time signature is 4/4 (4 beats per bar/cycle)
+            // Convert to cycles per second: cps = bpm / 60
+            // Time signature is parsed but not used in CPS calculation
+            // (consistent with unified_graph_parser and Tidal convention)
 
-            let (numerator, _denominator) = time_signature.unwrap_or((4, 4));
-            let beats_per_bar = numerator as f64;
+            let _ = time_signature; // Parsed but not used in CPS calc
 
-            // Formula: cps = bpm / (beats_per_bar × 60)
-            // Example: 120 BPM in 4/4 → 120 / (4 × 60) = 0.5 cps
-            // Example: 120 BPM in 3/4 → 120 / (3 × 60) = 0.67 cps
-            let cps = bpm / (beats_per_bar * 60.0);
+            // Formula: cps = bpm / 60
+            // Example: 120 BPM → 120 / 60 = 2.0 cps
+            // Example: 60 BPM → 60 / 60 = 1.0 cps
+            let cps = bpm / 60.0;
 
             ctx.set_cps(cps);
             Ok(())
@@ -1024,6 +1024,9 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             }
             if name == "white_noise" {
                 return compile_white_noise(ctx, vec![]);
+            }
+            if name == "wedge" {
+                return compile_wedge(ctx, vec![]);
             }
             if name == "pink_noise" {
                 return compile_pink_noise(ctx, vec![]);
@@ -3459,8 +3462,14 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
 /// Usage: wedge 0.25 (s "bd*4") (s "hh*8") -> first pattern gets 25%, second gets 75%
 /// Also supports: wedge 0.5 "bd*4" "hh*8" for convenience
 fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // 0 args: wedge signal generator (ramp 0→1 over each cycle)
+    if args.is_empty() {
+        let node = SignalNode::Wedge;
+        return Ok(ctx.graph.add_node(node));
+    }
+
     if args.len() < 3 {
-        return Err("wedge requires 3 arguments: ratio pat1 pat2".to_string());
+        return Err("wedge requires 0 arguments (signal) or 3 arguments: ratio pat1 pat2".to_string());
     }
 
     // First argument is the ratio

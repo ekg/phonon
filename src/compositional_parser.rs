@@ -510,36 +510,49 @@ fn preprocess_multiline(input: &str) -> String {
         // Check if this line starts a new definition
         // A definition line has the pattern: identifier followed by $, #, or : (for tempo/bpm/outmix)
         // Examples: tempo:, out $, o1 $, d1 #, ~bus $, fn name = ..., etc.
-        let is_definition = if let Some(dollar_pos) = trimmed.find('$') {
-            let before_dollar = trimmed[..dollar_pos].trim();
-            // Check if what's before $ looks like an identifier (bus/output)
-            // It should be alphanumeric, possibly starting with ~ or o/d followed by digits
-            let is_valid_identifier = before_dollar
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_dollar.is_empty();
-            is_valid_identifier
-        } else if let Some(hash_pos) = trimmed.find('#') {
-            let before_hash = trimmed[..hash_pos].trim();
-            // Check if what's before # looks like an identifier (bus/output with chaining)
-            let is_valid_identifier = before_hash
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_hash.is_empty();
-            is_valid_identifier
-        } else if let Some(colon_pos) = trimmed.find(':') {
-            let before_colon = &trimmed[..colon_pos];
-            // Check if what's before : looks like an identifier (tempo, bpm, outmix)
-            let is_valid_identifier = before_colon
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_colon.is_empty();
-            is_valid_identifier
-        } else if trimmed.starts_with("fn ") {
-            // Function definitions also start a new statement
-            true
-        } else {
-            false
+        let is_definition = {
+            let mut found = false;
+
+            // Check for $ separator: ~bus $ expr, out $ expr
+            if let Some(dollar_pos) = trimmed.find('$') {
+                let before = trimmed[..dollar_pos].trim();
+                if !before.is_empty()
+                    && before.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                {
+                    found = true;
+                }
+            }
+
+            // Check for # separator: ~bus # expr (modifier bus)
+            if !found {
+                if let Some(hash_pos) = trimmed.find('#') {
+                    let before = trimmed[..hash_pos].trim();
+                    if !before.is_empty()
+                        && before.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                    {
+                        found = true;
+                    }
+                }
+            }
+
+            // Check for : separator: ~bus: expr, tempo: val, cps: val
+            if !found {
+                if let Some(colon_pos) = trimmed.find(':') {
+                    let before = &trimmed[..colon_pos];
+                    if !before.is_empty()
+                        && before.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                    {
+                        found = true;
+                    }
+                }
+            }
+
+            // Function definitions
+            if !found && trimmed.starts_with("fn ") {
+                found = true;
+            }
+
+            found
         };
 
         if is_definition {
@@ -2749,6 +2762,27 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_bus_assignment_colon_syntax() {
+        let result = parse_statement("~d1: saw 110");
+        assert!(result.is_ok(), "Colon syntax should work: {:?}", result);
+        if let Ok((_, Statement::BusAssignment { name, bus_type, .. })) = result {
+            assert_eq!(name, "d1");
+            assert_eq!(bus_type, BusType::Signal);
+        }
+    }
+
+    #[test]
+    fn test_parse_bus_assignment_colon_with_chain() {
+        let result = parse_statement("~wet: ~dry # reverb 0.9 0.9");
+        assert!(result.is_ok(), "Colon with chain should parse: {:?}", result);
+        if let Ok((_, Statement::BusAssignment { name, expr, bus_type, .. })) = result {
+            assert_eq!(name, "wet");
+            assert_eq!(bus_type, BusType::Signal);
+            assert!(matches!(expr, Expr::Chain(_, _)), "Should be a chain expression");
+        }
+    }
+
+    #[test]
     fn test_parse_pattern_bus_in_lpf() {
         // This should work: lpf with pattern bus
         let result = parse_expr("s \"hh\" # lpf ~cutoffs 0.8");
@@ -3086,6 +3120,14 @@ mod tests {
             println!("Statements: {}", statements.len());
             assert_eq!(statements.len(), 3);
         }
+    }
+
+    #[test]
+    fn test_parse_program_colon_with_chain() {
+        // Colon bus followed by colon+chain bus
+        let code = "~dry $ sine 440\n~wet: ~dry # reverb 0.9 0.9\n";
+        let (rest, stmts) = parse_program(code).unwrap();
+        assert_eq!(stmts.len(), 2, "Should parse 2 statements, remaining: '{}'", rest);
     }
 
     #[test]

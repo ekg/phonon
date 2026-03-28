@@ -113,6 +113,32 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
         );
     }
 
+    // Check for remaining text starting with ( — parser consumed the function name
+    // e.g., `~kick: s("bd*4")` parses `~kick: s`, remaining is `("bd*4")`
+    if text.starts_with('(') {
+        // Look at source line to find what function was being called
+        let trimmed_source = source_line.trim();
+        // Find the position just before the ( in source line
+        if let Some(paren_pos) = trimmed_source.find('(') {
+            let before_paren = trimmed_source[..paren_pos].trim();
+            // Get the last word (function name)
+            if let Some(func_name) = before_paren.split_whitespace().last() {
+                return (
+                    format!(
+                        "Could not parse: '{}'",
+                        if text.len() > 50 { &text[..50] } else { text }
+                    ),
+                    Some(format!(
+                        "Phonon uses space-separated syntax, not parentheses.\n\
+                                  ❌ Wrong: {}(...)\n\
+                                  ✅ Correct: {} \"pattern\"",
+                        func_name, func_name
+                    )),
+                );
+            }
+        }
+    }
+
     // Check for function call with parentheses and commas
     if text.contains("(") && text.contains(",") {
         // Look for patterns like s("bd", ...) or lpf(..., ...)

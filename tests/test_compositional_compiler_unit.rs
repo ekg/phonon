@@ -511,7 +511,7 @@ fn test_tempo_statement() {
 #[test]
 fn test_bpm_statement() {
     let graph = compile_to_graph("bpm: 120\nout: sine 440");
-    assert!((graph.cps - 0.5).abs() < 0.001, "BPM 120 in 4/4 should give cps=0.5, got {}", graph.cps);
+    assert!((graph.cps - 2.0).abs() < 0.001, "BPM 120 should give cps=2.0, got {}", graph.cps);
 }
 
 #[test]

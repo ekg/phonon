@@ -177,7 +177,7 @@ out $ sine 440 * 0.5
 
 #[test]
 fn test_e2e_bpm_120() {
-    // 120 BPM in 4/4 = 0.5 CPS (120 / (4 * 60))
+    // 120 BPM = 120 / 60 = 2.0 CPS
     let code = r#"
 bpm: 120
 out $ sine 440 * 0.5
@@ -185,7 +185,7 @@ out $ sine 440 * 0.5
     let graph = compile_code(code, 44100.0);
 
     let cps = graph.get_cps();
-    let expected = 120.0 / 240.0; // BPM / (beats_per_bar * 60)
+    let expected = 120.0 / 60.0; // BPM / 60
     assert!(
         (cps - expected).abs() < 0.001,
         "120 BPM should be {} CPS, got {}",
@@ -196,7 +196,7 @@ out $ sine 440 * 0.5
 
 #[test]
 fn test_e2e_bpm_60() {
-    // 60 BPM in 4/4 = 0.25 CPS
+    // 60 BPM = 60 / 60 = 1.0 CPS
     let code = r#"
 bpm: 60
 out $ sine 440 * 0.5
@@ -204,7 +204,7 @@ out $ sine 440 * 0.5
     let graph = compile_code(code, 44100.0);
 
     let cps = graph.get_cps();
-    let expected = 60.0 / 240.0;
+    let expected = 60.0 / 60.0;
     assert!(
         (cps - expected).abs() < 0.001,
         "60 BPM should be {} CPS, got {}",
@@ -215,7 +215,7 @@ out $ sine 440 * 0.5
 
 #[test]
 fn test_e2e_bpm_174_dnb() {
-    // 174 BPM (drum and bass tempo)
+    // 174 BPM (drum and bass tempo) = 174 / 60 = 2.9 CPS
     let code = r#"
 bpm: 174
 out $ sine 440 * 0.5
@@ -223,7 +223,7 @@ out $ sine 440 * 0.5
     let graph = compile_code(code, 44100.0);
 
     let cps = graph.get_cps();
-    let expected = 174.0 / 240.0;
+    let expected = 174.0 / 60.0;
     assert!(
         (cps - expected).abs() < 0.001,
         "174 BPM should be {} CPS, got {}",
@@ -234,7 +234,7 @@ out $ sine 440 * 0.5
 
 #[test]
 fn test_e2e_bpm_with_time_signature_3_4() {
-    // 120 BPM in 3/4 time = 120 / (3 * 60) = 0.667 CPS
+    // 120 BPM in 3/4 time = 2.0 CPS (time signature doesn't affect CPS)
     let code = r#"
 bpm: 120 "3/4"
 out $ sine 440 * 0.5
@@ -242,7 +242,7 @@ out $ sine 440 * 0.5
     let graph = compile_code(code, 44100.0);
 
     let cps = graph.get_cps();
-    let expected = 120.0 / (3.0 * 60.0);
+    let expected = 120.0 / 60.0;
     assert!(
         (cps - expected).abs() < 0.01,
         "120 BPM in 3/4 should be {} CPS, got {}",
@@ -253,7 +253,7 @@ out $ sine 440 * 0.5
 
 #[test]
 fn test_e2e_bpm_with_time_signature_6_8() {
-    // 120 BPM in 6/8 time = 120 / (6 * 60) = 0.333 CPS
+    // 120 BPM in 6/8 time = 2.0 CPS (time signature doesn't affect CPS)
     let code = r#"
 bpm: 120 "6/8"
 out $ sine 440 * 0.5
@@ -261,7 +261,7 @@ out $ sine 440 * 0.5
     let graph = compile_code(code, 44100.0);
 
     let cps = graph.get_cps();
-    let expected = 120.0 / (6.0 * 60.0);
+    let expected = 120.0 / 60.0;
     assert!(
         (cps - expected).abs() < 0.01,
         "120 BPM in 6/8 should be {} CPS, got {}",
@@ -570,11 +570,12 @@ out $ sine "220 440 660 880" * 0.3
 "#;
     let mut graph = compile_code(code, sample_rate);
 
-    // Initial CPS should be 0.5 (120 BPM)
+    // Initial CPS should be 2.0 (120 BPM / 60)
     let initial_cps = graph.get_cps();
     assert!(
-        (initial_cps - 0.5).abs() < 0.001,
-        "Initial CPS should be 0.5"
+        (initial_cps - 2.0).abs() < 0.001,
+        "Initial CPS should be 2.0, got {}",
+        initial_cps
     );
 
     // Set cycle to specific position
@@ -595,11 +596,11 @@ out $ sine "220 440 660 880" * 0.3
     let audio = graph.render(22050); // 0.5 seconds
     assert!(has_audio(&audio, 0.01), "Should produce audio");
 
-    // Position should have advanced by ~0.25 cycles (0.5 sec * 0.5 CPS)
+    // Position should have advanced by ~1.0 cycles (0.5 sec * 2.0 CPS)
     let pos_after = graph.get_cycle_position();
     assert!(
-        pos_after > 2.9 && pos_after < 3.1,
-        "Position should be ~3.0, got {}",
+        pos_after > 3.5 && pos_after < 4.0,
+        "Position should be ~3.75, got {}",
         pos_after
     );
 
