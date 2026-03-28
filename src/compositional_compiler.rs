@@ -766,16 +766,17 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             time_signature,
         } => {
             // bpm: value sets beats per minute
-            // Convert to cycles per second: cps = bpm / 60
-            // Time signature is parsed but not used in CPS calculation
-            // (consistent with unified_graph_parser and Tidal convention)
+            // Convert to cycles per second based on time signature
+            // Default time signature is 4/4 (4 beats per bar/cycle)
+            // In Tidal, one cycle = one bar, so cps = bpm / (beats_per_bar * 60)
 
-            let _ = time_signature; // Parsed but not used in CPS calc
+            let (numerator, _denominator) = time_signature.unwrap_or((4, 4));
+            let beats_per_bar = numerator as f64;
 
-            // Formula: cps = bpm / 60
-            // Example: 120 BPM → 120 / 60 = 2.0 cps
-            // Example: 60 BPM → 60 / 60 = 1.0 cps
-            let cps = bpm / 60.0;
+            // Formula: cps = bpm / (beats_per_bar × 60)
+            // Example: 120 BPM in 4/4 → 120 / (4 × 60) = 0.5 cps
+            // Example: 120 BPM in 3/4 → 120 / (3 × 60) = 0.67 cps
+            let cps = bpm / (beats_per_bar * 60.0);
 
             ctx.set_cps(cps);
             Ok(())
