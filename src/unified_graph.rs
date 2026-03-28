@@ -741,6 +741,10 @@ pub enum SignalNode {
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
 
+    /// Wedge: ramp from 0 to 1 over each cycle
+    /// Equivalent to `phasor 1` - useful for parameter automation
+    Wedge,
+
     /// UnitDelay (z^-1) for feedback loops
     /// Returns the previous sample's value of a bus, enabling self-referential feedback
     /// This is the fundamental building block for IIR filters and feedback systems
@@ -3159,15 +3163,25 @@ impl WaveguideState {
     }
 
     /// Initialize delay lines with noise (simulates initial pluck/bow)
+    /// Uses deterministic noise seeded from delay length for reproducible results
     pub fn initialize_with_noise(&mut self) {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        // Use a deterministic seed based on delay line length so identical
+        // waveguide configurations produce identical output across runs
+        let seed: u64 = self.forward_delay.len() as u64 * 2654435761;
+        let mut state = seed.wrapping_add(1);
 
         for sample in &mut self.forward_delay {
-            *sample = rng.gen_range(-1.0..1.0);
+            // Simple xorshift64 for deterministic pseudo-random noise
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            *sample = (state as i32 as f32) / (i32::MAX as f32);
         }
         for sample in &mut self.backward_delay {
-            *sample = rng.gen_range(-1.0..1.0);
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            *sample = (state as i32 as f32) / (i32::MAX as f32);
         }
 
         self.initialized = true;
@@ -3197,8 +3211,12 @@ impl WaveguideState {
         let output = (forward_sample + backward_sample) * 0.5;
 
         // Calculate reflection coefficient (energy retention at boundaries)
-        // Higher damping = more energy loss
-        let reflection_coeff = 0.999 - (damping * 0.002);
+        // The 2-point averaging filter already provides significant frequency-dependent damping,
+        // so the reflection coefficient controls additional energy loss per round trip.
+        // damping=0.0 -> coeff=0.99999 (very long sustain)
+        // damping=0.5 -> coeff=0.9998 (moderate sustain)
+        // damping=1.0 -> coeff=0.999 (short sustain)
+        let reflection_coeff = 1.0 - damping * damping * 0.001 - 0.00001;
 
         // Read from ends of delay lines for reflection
         let forward_end = self.forward_delay[self.forward_pos];
@@ -6229,6 +6247,7 @@ impl UnifiedSignalGraph {
             }
             SignalNode::Constant { .. }
             | SignalNode::WhiteNoise { .. }
+            | SignalNode::Wedge { .. }
             | SignalNode::PinkNoise { .. }
             | SignalNode::BrownNoise { .. }
             | SignalNode::Pattern { .. }
@@ -8818,7 +8837,6 @@ impl UnifiedSignalGraph {
         damping: Signal,
         pickup_position: Signal,
     ) -> NodeId {
-        let node_id = NodeId(self.nodes.len());
         let max_delay = (self.sample_rate / 20.0) as usize; // 20Hz = lowest freq
         let node = SignalNode::Waveguide {
             freq,
@@ -8827,8 +8845,7 @@ impl UnifiedSignalGraph {
             state: WaveguideState::new(max_delay),
             last_freq: 0.0,
         };
-        self.nodes.push(Some(Rc::new(node)));
-        node_id
+        self.add_node(node)
     }
 
     /// Add an XFade (crossfade) node (helper for testing)
@@ -9059,6 +9076,7 @@ impl UnifiedSignalGraph {
             }
             SignalNode::Constant { .. }
             | SignalNode::WhiteNoise
+            | SignalNode::Wedge
             | SignalNode::PinkNoise { .. }
             | SignalNode::BrownNoise { .. }
             | SignalNode::Noise { .. }
@@ -10537,6 +10555,12 @@ impl UnifiedSignalGraph {
                 rng.gen_range(-1.0..1.0)
             }
 
+            SignalNode::Wedge => {
+                // Ramp from 0 to 1 over each cycle (like phasor with speed=1)
+                let cycle_pos = self.get_cycle_position();
+                (cycle_pos % 1.0) as f32
+            }
+
             // z^-1 unit delay for feedback loops
             // Returns the previous sample's value of the named bus
             SignalNode::UnitDelay { bus_name } => {
@@ -11025,52 +11049,54 @@ impl UnifiedSignalGraph {
             } => {
                 // BYPASS MODE: For pipelined rendering, generators produce silence
                 if self.bypass_sequential_effects {
-                    return 0.0;
-                }
+                    0.0
+                } else {
+                    // Evaluate pattern-modulatable parameters
+                    let f = self.eval_signal(freq).clamp(20.0, 10000.0);
+                    let damp = self.eval_signal(damping).clamp(0.0, 1.0);
+                    let trig = self.eval_signal(trigger);
 
-                // Evaluate pattern-modulatable parameters
-                let f = self.eval_signal(freq).clamp(20.0, 10000.0);
-                let damp = self.eval_signal(damping).clamp(0.0, 1.0);
-                let trig = self.eval_signal(trigger);
+                    // Calculate required delay line size for this frequency
+                    let required_size = (self.sample_rate / f) as usize;
 
-                // Calculate required delay line size for this frequency
-                let required_size = (self.sample_rate / f) as usize;
+                    // Check if frequency changed significantly (need to resize delay line)
+                    let freq_changed = (f - *last_freq).abs() > 1.0;
 
-                // Check if frequency changed significantly (need to resize delay line)
-                let freq_changed = (f - *last_freq).abs() > 1.0;
+                    // Detect rising edge trigger (0 -> 1)
+                    let trigger_edge = trig > 0.5 && *last_trigger <= 0.5;
 
-                // Detect rising edge trigger (0 -> 1)
-                let trigger_edge = trig > 0.5 && *last_trigger <= 0.5;
+                    // NOTE: Must not use return here - cleanup code after match must run
+                    let mut result = 0.0;
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                        let node = Rc::make_mut(node_rc);
+                        if let SignalNode::KarplusStrong {
+                            state: s,
+                            last_freq: lf,
+                            last_trigger: lt,
+                            ..
+                        } = node
+                        {
+                            // Resize delay line if frequency changed
+                            if freq_changed {
+                                s.resize(required_size);
+                                *lf = f;
+                            }
 
-                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
-                    let node = Rc::make_mut(node_rc);
-                    if let SignalNode::KarplusStrong {
-                        state: s,
-                        last_freq: lf,
-                        last_trigger: lt,
-                        ..
-                    } = node
-                    {
-                        // Resize delay line if frequency changed
-                        if freq_changed {
-                            s.resize(required_size);
-                            *lf = f;
+                            // Re-initialize with noise on trigger
+                            if trigger_edge {
+                                s.initialize_with_noise();
+                            }
+
+                            // Update last_trigger
+                            *lt = trig;
+
+                            // Get sample from Karplus-Strong algorithm
+                            result = s.get_sample(damp);
                         }
-
-                        // Re-initialize with noise on trigger
-                        if trigger_edge {
-                            s.initialize_with_noise();
-                        }
-
-                        // Update last_trigger
-                        *lt = trig;
-
-                        // Get sample from Karplus-Strong algorithm
-                        return s.get_sample(damp);
                     }
-                }
 
-                0.0
+                    result
+                }
             }
 
             SignalNode::Waveguide {
@@ -11082,40 +11108,43 @@ impl UnifiedSignalGraph {
             } => {
                 // BYPASS MODE: For pipelined rendering, generators produce silence
                 if self.bypass_sequential_effects {
-                    return 0.0;
-                }
+                    0.0
+                } else {
+                    // Evaluate pattern-modulatable parameters
+                    let f = self.eval_signal(freq).clamp(20.0, 10000.0);
+                    let damp = self.eval_signal(damping).clamp(0.0, 1.0);
+                    let pickup = self.eval_signal(pickup_position).clamp(0.0, 1.0);
 
-                // Evaluate pattern-modulatable parameters
-                let f = self.eval_signal(freq).clamp(20.0, 10000.0);
-                let damp = self.eval_signal(damping).clamp(0.0, 1.0);
-                let pickup = self.eval_signal(pickup_position).clamp(0.0, 1.0);
+                    // Calculate required delay line size for this frequency
+                    // Each delay line is half the wavelength (bidirectional waveguide)
+                    let required_size = ((self.sample_rate / f) / 2.0).max(2.0) as usize;
 
-                // Calculate required delay line size for this frequency
-                let required_size = (self.sample_rate / f) as usize;
+                    // Check if frequency changed significantly (need to resize delay lines)
+                    let freq_changed = (f - *last_freq).abs() > 1.0;
 
-                // Check if frequency changed significantly (need to resize delay lines)
-                let freq_changed = (f - *last_freq).abs() > 1.0;
+                    // NOTE: Must not use return here - cleanup code after match must run
+                    let mut result = 0.0;
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                        let node = Rc::make_mut(node_rc);
+                        if let SignalNode::Waveguide {
+                            state: s,
+                            last_freq: lf,
+                            ..
+                        } = node
+                        {
+                            // Resize delay lines if frequency changed
+                            if freq_changed {
+                                s.resize(required_size);
+                                *lf = f;
+                            }
 
-                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
-                    let node = Rc::make_mut(node_rc);
-                    if let SignalNode::Waveguide {
-                        state: s,
-                        last_freq: lf,
-                        ..
-                    } = node
-                    {
-                        // Resize delay lines if frequency changed
-                        if freq_changed {
-                            s.resize(required_size);
-                            *lf = f;
+                            // Get sample from waveguide algorithm
+                            result = s.get_sample(pickup, damp);
                         }
-
-                        // Get sample from waveguide algorithm
-                        return s.get_sample(pickup, damp);
                     }
-                }
 
-                0.0
+                    result
+                }
             }
 
             SignalNode::Formant {
@@ -21676,6 +21705,52 @@ impl UnifiedSignalGraph {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::AD { state: s, .. } = node {
                         *s = ad_state;
+                    }
+                }
+            }
+
+            SignalNode::Waveguide {
+                freq,
+                damping,
+                pickup_position,
+                state,
+                last_freq,
+            } => {
+                // Native buffer evaluation for Waveguide - avoids per-sample eval_node overhead
+                let freq_signal = freq.clone();
+                let damping_signal = damping.clone();
+                let pickup_signal = pickup_position.clone();
+
+                // Evaluate parameter signals
+                let f = self.eval_signal(&freq_signal).clamp(20.0, 10000.0);
+                let damp = self.eval_signal(&damping_signal).clamp(0.0, 1.0);
+                let pickup = self.eval_signal(&pickup_signal).clamp(0.0, 1.0);
+
+                // Calculate required delay line size (half wavelength for bidirectional waveguide)
+                let required_size = ((self.sample_rate / f) / 2.0).max(2.0) as usize;
+                let freq_changed = if let SignalNode::Waveguide { last_freq: lf, .. } = &*node_rc {
+                    (f - *lf).abs() > 1.0
+                } else {
+                    false
+                };
+
+                // Process entire buffer using waveguide state directly
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Waveguide {
+                        state: s,
+                        last_freq: lf,
+                        ..
+                    } = node
+                    {
+                        if freq_changed {
+                            s.resize(required_size);
+                            *lf = f;
+                        }
+
+                        for i in 0..buffer_size {
+                            output[i] = s.get_sample(pickup, damp);
+                        }
                     }
                 }
             }

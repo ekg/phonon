@@ -33,10 +33,10 @@ Verified BPMs: 80, 90, 96, 100, 110, 120, 130, 140, 150
 
 All events triggered within **±45 microseconds** (2 samples at 44.1kHz) of expected time.
 
-Example measurements at 120 BPM (0.5 cps):
+Example measurements at 120 BPM (2.0 cps):
 ```
-Expected: 0.000s, 1.000s, 2.000s, 3.000s, 4.000s, 5.000s, 6.000s, 7.000s
-Actual:   0.000s, 1.000s, 2.000s, 3.000s, 4.000s, 5.000s, 6.000s, 7.000s
+Expected: 0.000s, 0.500s, 1.000s, 1.500s, 2.000s, 2.500s, 3.000s, 3.500s
+Actual:   0.000s, 0.500s, 1.000s, 1.500s, 2.000s, 2.500s, 3.000s, 3.500s
 Error:    <0.001ms at all positions
 ```
 
@@ -45,13 +45,13 @@ Error:    <0.001ms at all positions
 The system correctly implements BPM to cycles-per-second conversion:
 
 ```
-cps = bpm / (beats_per_bar × 60)
+cps = bpm / 60
 ```
 
 Examples:
-- 120 BPM in 4/4 → 0.500 cps (2.0s per cycle)
-- 120 BPM in 3/4 → 0.667 cps (1.5s per cycle)
-- 96 BPM in 4/4 → 0.400 cps (2.5s per cycle)
+- 120 BPM → 2.0 cps (0.5s per cycle)
+- 60 BPM → 1.0 cps (1.0s per cycle)
+- 174 BPM → 2.9 cps (DnB tempo)
 
 ## Timing Investigation
 

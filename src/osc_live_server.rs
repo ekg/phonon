@@ -276,7 +276,7 @@ mod tests {
         assert!(graph.is_some());
 
         let graph = graph.unwrap();
-        // tempo: 0.5 → 0.5 cps (120 BPM)
+        // tempo: 0.5 → 0.5 cps (30 BPM)
         assert_eq!(graph.get_cps(), 0.5);
     }
 
