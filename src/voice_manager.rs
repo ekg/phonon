@@ -274,6 +274,15 @@ pub struct Voice {
     /// None = voice was triggered in previous buffer (render normally)
     /// Some(n) = voice was triggered at sample n in current buffer (produce zeros before n)
     buffer_trigger_offset: Option<usize>,
+
+    /// Anti-click zero-crossing fadeout state.
+    /// When a voice would normally cut to silence (envelope done, sample ended),
+    /// this keeps the voice alive briefly to reach a zero crossing.
+    /// Counts down from FADEOUT_MAX_SAMPLES to 0.
+    fadeout_remaining: u16,
+
+    /// Last mono output value — used for zero-crossing detection during fadeout.
+    last_mono_out: f32,
 }
 
 /// Unit mode for sample playback speed interpretation
@@ -312,6 +321,8 @@ impl Voice {
             release: 0.1,                 // 100ms default release
             unit_mode: UnitMode::Rate,    // Default to rate mode
             loop_enabled: false,          // Default to no looping
+            fadeout_remaining: 0,
+            last_mono_out: 0.0,
             auto_release_at_sample: None, // No auto-release by default
         }
     }
@@ -370,6 +381,8 @@ impl Voice {
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
+        self.fadeout_remaining = 0;
+        self.last_mono_out = 0.0;
         self.cut_group = cut_group;
         self.attack = attack.max(0.0001); // Minimum 0.1ms
         self.release = release.max(0.001); // Minimum 1ms
@@ -408,6 +421,8 @@ impl Voice {
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
+        self.fadeout_remaining = 0;
+        self.last_mono_out = 0.0;
         self.cut_group = cut_group;
         self.attack = attack;
         self.release = release;
@@ -444,6 +459,8 @@ impl Voice {
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
+        self.fadeout_remaining = 0;
+        self.last_mono_out = 0.0;
         self.cut_group = cut_group;
         self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
@@ -479,6 +496,8 @@ impl Voice {
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
+        self.fadeout_remaining = 0;
+        self.last_mono_out = 0.0;
         self.cut_group = cut_group;
         self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
@@ -506,10 +525,48 @@ impl Voice {
         (left + right) / std::f32::consts::SQRT_2
     }
 
+    /// Maximum samples to wait for a zero crossing before forcing silence.
+    /// 64 samples ≈ 1.5ms at 44.1kHz — inaudible fade, handles DC offset.
+    const FADEOUT_MAX_SAMPLES: u16 = 64;
+
+    /// Enter zero-crossing fadeout mode instead of hard-cutting to silence.
+    /// If last output was already near zero, skip fadeout and free immediately.
+    fn begin_fadeout(&mut self) {
+        if self.last_mono_out.abs() < 0.001 {
+            // Already at silence — no click, just free
+            self.state = VoiceState::Free;
+            self.sample_data = None;
+            self.synthesis_node_id = None;
+            self.last_mono_out = 0.0;
+        } else {
+            self.fadeout_remaining = Self::FADEOUT_MAX_SAMPLES;
+        }
+    }
+
     /// Process one sample of audio (stereo with panning)
     pub fn process_stereo(&mut self) -> (f32, f32) {
         if self.state == VoiceState::Free {
             return (0.0, 0.0);
+        }
+
+        // Zero-crossing fadeout: voice is winding down to silence.
+        // Apply linear ramp toward zero; cut immediately on zero crossing.
+        if self.fadeout_remaining > 0 {
+            self.fadeout_remaining -= 1;
+            let ramp = self.fadeout_remaining as f32 / Self::FADEOUT_MAX_SAMPLES as f32;
+            let mono = self.last_mono_out * ramp;
+            // Zero crossing detected or ramp finished — done
+            if (mono >= 0.0) != (self.last_mono_out >= 0.0) || self.fadeout_remaining == 0 {
+                self.state = VoiceState::Free;
+                self.sample_data = None;
+                self.synthesis_node_id = None;
+                self.last_mono_out = 0.0;
+                return (0.0, 0.0);
+            }
+            self.last_mono_out = mono;
+            // Convert mono to stereo using current pan
+            let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+            return (mono * pan_radians.cos(), mono * pan_radians.sin());
         }
 
         // DEBUG: Log voice processing
@@ -550,10 +607,9 @@ impl Voice {
             // Check if envelope finished for synthesis voice
             if !self.envelope.is_active() {
                 if std::env::var("DEBUG_VOICE_PROCESS").is_ok() {
-                    eprintln!("[VOICE] synthesis envelope finished, freeing voice");
+                    eprintln!("[VOICE] synthesis envelope finished, starting fadeout");
                 }
-                self.state = VoiceState::Free;
-                self.synthesis_node_id = None;
+                self.begin_fadeout();
                 return (0.0, 0.0);
             }
             // Use cached synthesis sample (populated by VoiceManager before calling process_stereo)
@@ -573,6 +629,8 @@ impl Voice {
             let left = output_value * left_gain;
             let right = output_value * right_gain;
 
+            // Track mono output for zero-crossing fadeout
+            self.last_mono_out = (left + right) / std::f32::consts::SQRT_2;
             return (left, right);
         }
 
@@ -636,10 +694,12 @@ impl Voice {
                     (gained_left * left_gain, gained_right * right_gain)
                 };
 
+                // Track mono output for zero-crossing fadeout
+                self.last_mono_out = (left + right) / std::f32::consts::SQRT_2;
+
                 // Check if envelope finished for sample voice
                 if !self.envelope.is_active() {
-                    self.state = VoiceState::Free;
-                    self.sample_data = None;
+                    self.begin_fadeout();
                 }
 
                 (left, right)
@@ -648,10 +708,29 @@ impl Voice {
                 // This ensures ADSR envelopes properly fade out instead of staying in Sustain
                 self.envelope.release();
 
+                // If we were producing audio, enter zero-crossing fadeout
+                // to avoid a hard cut. This catches the case where the sample
+                // ends but the envelope is still active (e.g., 10s default release).
+                if self.last_mono_out.abs() > 0.001 && self.fadeout_remaining == 0 {
+                    self.fadeout_remaining = Self::FADEOUT_MAX_SAMPLES;
+                    // Produce the first fadeout sample immediately
+                    self.fadeout_remaining -= 1;
+                    let ramp = self.fadeout_remaining as f32 / Self::FADEOUT_MAX_SAMPLES as f32;
+                    let mono = self.last_mono_out * ramp;
+                    if (mono >= 0.0) != (self.last_mono_out >= 0.0) || self.fadeout_remaining == 0 {
+                        self.state = VoiceState::Free;
+                        self.sample_data = None;
+                        self.last_mono_out = 0.0;
+                        return (0.0, 0.0);
+                    }
+                    self.last_mono_out = mono;
+                    let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+                    return (mono * pan_radians.cos(), mono * pan_radians.sin());
+                }
+
                 // Check if envelope also finished
                 if !self.envelope.is_active() {
-                    self.state = VoiceState::Free;
-                    self.sample_data = None;
+                    self.begin_fadeout();
                 }
                 (0.0, 0.0)
             }
@@ -1202,6 +1281,8 @@ impl VoiceManager {
                 self.voices[idx].speed = 1.0; // Speed doesn't apply to synthesis
                 self.voices[idx].position = 0.0;
                 self.voices[idx].age = 0;
+                self.voices[idx].fadeout_remaining = 0;
+                self.voices[idx].last_mono_out = 0.0;
                 self.voices[idx].cut_group = cut_group;
                 self.voices[idx].source_node = self.default_source_node;
                 self.voices[idx].envelope =
@@ -1237,6 +1318,8 @@ impl VoiceManager {
             self.voices[idx].speed = 1.0;
             self.voices[idx].position = 0.0;
             self.voices[idx].age = 0;
+            self.voices[idx].fadeout_remaining = 0;
+            self.voices[idx].last_mono_out = 0.0;
             self.voices[idx].cut_group = cut_group;
             self.voices[idx].source_node = self.default_source_node;
             self.voices[idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
@@ -1269,6 +1352,8 @@ impl VoiceManager {
         self.voices[oldest_idx].speed = 1.0;
         self.voices[oldest_idx].position = 0.0;
         self.voices[oldest_idx].age = 0;
+        self.voices[oldest_idx].fadeout_remaining = 0;
+        self.voices[oldest_idx].last_mono_out = 0.0;
         self.voices[oldest_idx].cut_group = cut_group;
         self.voices[oldest_idx].source_node = self.default_source_node;
         self.voices[oldest_idx].envelope =
@@ -1910,10 +1995,12 @@ impl VoiceManager {
                                 i, semitone_key, env_value, mono, old_val, old_val + mono);
                         }
 
+                        // Track mono output for zero-crossing fadeout
+                        voice.last_mono_out = mono;
+
                         // Check if envelope finished
                         if !voice.envelope.is_active() {
-                            voice.state = VoiceState::Free;
-                            voice.synthesis_node_id = None;
+                            voice.begin_fadeout();
                             break; // Stop processing this voice
                         }
                     }
