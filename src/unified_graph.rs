@@ -4823,7 +4823,12 @@ pub struct UnifiedSignalGraph {
     /// Key: (oscillator_node_id, semitone_key) where semitone_key = (semitone_offset * 100).round() as i32
     /// Value: phase value in [0, 1)
     /// This allows each pitch variant (chord note) to maintain its own phase continuity
-    synthesis_phase_cache: std::cell::RefCell<HashMap<(usize, i32), f32>>,
+    /// Per-pitch node state cache for synthesis voices.
+    /// Key: (bus_node_id, semitone_key) → Vec of (node_id, cloned SignalNode).
+    /// Each pitch gets its own snapshot of the entire bus chain (oscillator phase,
+    /// filter state, etc.), preventing cross-contamination between pitches and
+    /// between synthesis rendering and DAG evaluation.
+    synthesis_state_cache: std::cell::RefCell<HashMap<(usize, i32), Vec<(usize, Rc<SignalNode>)>>>,
 
     /// z^-1 storage for feedback loops
     /// Stores the previous sample's output value for each bus
@@ -4938,7 +4943,7 @@ impl Clone for UnifiedSignalGraph {
             buffer_cache: RefCell::new(HashMap::new()), // Fresh cache for cloned instance
             buffer_cache_enabled: std::cell::Cell::new(false),
             nodes_initialized: false, // Cloned graph needs initialization on first buffer
-            synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
+            synthesis_state_cache: RefCell::new(HashMap::new()),
             bus_previous_values: self.bus_previous_values.clone(), // Preserve feedback state
             buffer_size: self.buffer_size,
             current_voice_frequency: std::cell::Cell::new(None),
@@ -5029,7 +5034,7 @@ impl UnifiedSignalGraph {
             buffer_cache: RefCell::new(HashMap::new()),
             buffer_cache_enabled: std::cell::Cell::new(false),
             nodes_initialized: false,
-            synthesis_phase_cache: RefCell::new(HashMap::new()),
+            synthesis_state_cache: RefCell::new(HashMap::new()),
             bus_previous_values: HashMap::new(),
             current_voice_frequency: std::cell::Cell::new(None),
             current_voice_gate: std::cell::Cell::new(None),
@@ -7311,41 +7316,45 @@ impl UnifiedSignalGraph {
                         continue;
                     }
 
-                    // Find oscillator nodes and save their state
-                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
-                    let mut original_state: Vec<(usize, f32, f32)> = Vec::new();
-                    for &osc_id in &oscillator_ids {
-                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
-                            if let SignalNode::Oscillator {
-                                semitone_offset: node_offset,
-                                phase,
-                                ..
-                            } = &**node_rc
-                            {
-                                original_state.push((osc_id, *node_offset, *phase.borrow()));
+                    // Find ALL nodes in the bus chain (oscillators, filters, effects)
+                    let chain_node_ids = self.find_all_nodes_in_chain(node_id);
+
+                    // Snapshot the original state of the entire chain (deep clone).
+                    // This preserves the DAG evaluation state so we can restore it
+                    // after synthesis rendering.
+                    let original_snapshot: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                        .iter()
+                        .filter_map(|&id| {
+                            self.nodes.get(id)
+                                .and_then(|n| n.as_ref())
+                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                        })
+                        .collect();
+
+                    // If we have cached state for this pitch, restore it.
+                    // This continues from where we left off last buffer.
+                    let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
+                    if has_cached {
+                        let cache = self.synthesis_state_cache.borrow();
+                        let cached_state = cache.get(&buffer_key).unwrap();
+                        for (id, cached_node) in cached_state {
+                            if let Some(slot) = self.nodes.get_mut(*id) {
+                                *slot = Some(Rc::new((**cached_node).clone()));
                             }
                         }
                     }
 
-                    // Apply pitch offset and restore per-pitch phase
+                    // Apply pitch offset to oscillators in the chain
+                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
                     for &osc_id in &oscillator_ids {
                         if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
                             let node = std::rc::Rc::make_mut(node_rc);
                             if let SignalNode::Oscillator {
                                 semitone_offset: node_offset,
-                                phase,
                                 ..
                             } = node
                             {
-                                let phase_key = (osc_id, semitone_key);
-                                let cached_phase = self
-                                    .synthesis_phase_cache
-                                    .borrow()
-                                    .get(&phase_key)
-                                    .copied()
-                                    .unwrap_or(0.0);
                                 *node_offset = semitone_offset;
-                                *phase.borrow_mut() = cached_phase;
                             }
                         }
                     }
@@ -7356,31 +7365,22 @@ impl UnifiedSignalGraph {
                     self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
                     synthesis_buffers.insert(buffer_key, synth_buffer);
 
-                    // Save phase to cache for next buffer
-                    for &osc_id in &oscillator_ids {
-                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
-                            if let SignalNode::Oscillator { phase, .. } = &**node_rc {
-                                let phase_key = (osc_id, semitone_key);
-                                self.synthesis_phase_cache
-                                    .borrow_mut()
-                                    .insert(phase_key, *phase.borrow());
-                            }
-                        }
-                    }
+                    // Save the ENTIRE chain state to cache for next buffer.
+                    // This captures oscillator phase, filter state, etc.
+                    let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                        .iter()
+                        .filter_map(|&id| {
+                            self.nodes.get(id)
+                                .and_then(|n| n.as_ref())
+                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                        })
+                        .collect();
+                    self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
 
-                    // Restore original oscillator state
-                    for (osc_id, original_offset, original_phase) in original_state {
-                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
-                            let node = std::rc::Rc::make_mut(node_rc);
-                            if let SignalNode::Oscillator {
-                                semitone_offset: node_offset,
-                                phase,
-                                ..
-                            } = node
-                            {
-                                *node_offset = original_offset;
-                                *phase.borrow_mut() = original_phase;
-                            }
+                    // Restore original chain state so DAG evaluation isn't affected
+                    for (id, snapshot_node) in &original_snapshot {
+                        if let Some(slot) = self.nodes.get_mut(*id) {
+                            *slot = Some(Rc::new((**snapshot_node).clone()));
                         }
                     }
                 }
@@ -18074,44 +18074,42 @@ impl UnifiedSignalGraph {
                     continue;
                 }
 
-                // Find ALL oscillator nodes in the signal chain
-                let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+                // Find ALL nodes in the bus chain
+                let chain_node_ids = self.find_all_nodes_in_chain(node_id);
 
-                // Store original offsets AND phases for all oscillators
-                let mut original_state: Vec<(usize, f32, f32)> = Vec::new();
-                for &osc_id in &oscillator_ids {
-                    if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
-                        if let SignalNode::Oscillator {
-                            semitone_offset: node_offset,
-                            phase,
-                            ..
-                        } = &**node_rc
-                        {
-                            original_state.push((osc_id, *node_offset, *phase.borrow()));
+                // Snapshot the original state of the entire chain (deep clone)
+                let original_snapshot: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                    .iter()
+                    .filter_map(|&id| {
+                        self.nodes.get(id)
+                            .and_then(|n| n.as_ref())
+                            .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                    })
+                    .collect();
+
+                // Restore cached state for this pitch if available
+                let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
+                if has_cached {
+                    let cache = self.synthesis_state_cache.borrow();
+                    let cached_state = cache.get(&buffer_key).unwrap();
+                    for (id, cached_node) in cached_state {
+                        if let Some(slot) = self.nodes.get_mut(*id) {
+                            *slot = Some(Rc::new((**cached_node).clone()));
                         }
                     }
                 }
 
-                // Apply pitch offset to ALL oscillators in the chain
+                // Apply pitch offset to oscillators
+                let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
                 for &osc_id in &oscillator_ids {
                     if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
                         let node = std::rc::Rc::make_mut(node_rc);
                         if let SignalNode::Oscillator {
                             semitone_offset: node_offset,
-                            phase,
                             ..
                         } = node
                         {
-                            // Get cached phase for this (osc, pitch) combination
-                            let phase_key = (osc_id, semitone_key);
-                            let cached_phase = self
-                                .synthesis_phase_cache
-                                .borrow()
-                                .get(&phase_key)
-                                .copied()
-                                .unwrap_or(0.0);
                             *node_offset = semitone_offset;
-                            *phase.borrow_mut() = cached_phase;
                         }
                     }
                 }
@@ -18125,32 +18123,21 @@ impl UnifiedSignalGraph {
 
                 synthesis_buffers.insert(buffer_key, synth_buffer);
 
-                // Save phase to per-pitch cache BEFORE restoring original state
-                for &osc_id in &oscillator_ids {
-                    if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
-                        if let SignalNode::Oscillator { phase, .. } = &**node_rc {
-                            let phase_key = (osc_id, semitone_key);
-                            let new_phase = *phase.borrow();
-                            self.synthesis_phase_cache
-                                .borrow_mut()
-                                .insert(phase_key, new_phase);
-                        }
-                    }
-                }
+                // Save entire chain state to cache for next buffer
+                let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                    .iter()
+                    .filter_map(|&id| {
+                        self.nodes.get(id)
+                            .and_then(|n| n.as_ref())
+                            .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                    })
+                    .collect();
+                self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
 
-                // Restore original state for all oscillators
-                for (osc_id, original_offset, original_phase) in original_state {
-                    if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
-                        let node = std::rc::Rc::make_mut(node_rc);
-                        if let SignalNode::Oscillator {
-                            semitone_offset: node_offset,
-                            phase,
-                            ..
-                        } = node
-                        {
-                            *node_offset = original_offset;
-                            *phase.borrow_mut() = original_phase;
-                        }
+                // Restore original chain state
+                for (id, snapshot_node) in &original_snapshot {
+                    if let Some(slot) = self.nodes.get_mut(*id) {
+                        *slot = Some(Rc::new((**snapshot_node).clone()));
                     }
                 }
             }
@@ -18409,8 +18396,12 @@ impl UnifiedSignalGraph {
     /// Find all oscillator nodes in a signal chain by traversing from the output node
     /// This is needed because a bus like `sine 440 # gain 0.3` creates a chain where
     /// the bus points to the Multiply (gain) node, not the Oscillator.
-    fn find_oscillator_nodes_in_chain(&self, start_node_id: usize) -> Vec<usize> {
-        let mut oscillators = Vec::new();
+    /// Find all nodes in a signal chain by traversing from the output node.
+    /// Returns ALL node IDs in the chain (oscillators, filters, effects, etc.).
+    /// Used for synthesis voice state management — all stateful nodes in the chain
+    /// need their state saved/restored per-pitch to prevent cross-contamination.
+    fn find_all_nodes_in_chain(&self, start_node_id: usize) -> Vec<usize> {
+        let mut all_nodes = Vec::new();
         let mut visited = std::collections::HashSet::new();
         let mut stack = vec![start_node_id];
 
@@ -18421,11 +18412,9 @@ impl UnifiedSignalGraph {
             visited.insert(node_id);
 
             if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                all_nodes.push(node_id);
                 match &**node_rc {
-                    SignalNode::Oscillator { .. } => {
-                        oscillators.push(node_id);
-                    }
-                    // Traverse through common wrapper nodes - binary ops
+                    // Binary ops
                     SignalNode::Multiply { a, b }
                     | SignalNode::Add { a, b }
                     | SignalNode::Min { a, b } => {
@@ -18494,13 +18483,26 @@ impl UnifiedSignalGraph {
                         }
                     }
                     _ => {
-                        // Other nodes - don't traverse (constants, patterns, noise, etc.)
+                        // Leaf nodes (oscillators, noise, constants, etc.) — already added above
                     }
                 }
             }
         }
 
-        oscillators
+        all_nodes
+    }
+
+    /// Find only oscillator nodes in a chain (subset of find_all_nodes_in_chain).
+    /// Used specifically for applying pitch offsets to oscillators during synthesis.
+    fn find_oscillator_nodes_in_chain(&self, start_node_id: usize) -> Vec<usize> {
+        self.find_all_nodes_in_chain(start_node_id)
+            .into_iter()
+            .filter(|&id| {
+                self.nodes.get(id)
+                    .and_then(|n| n.as_ref())
+                    .is_some_and(|n| matches!(&**n, SignalNode::Oscillator { .. }))
+            })
+            .collect()
     }
 
     pub fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
