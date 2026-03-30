@@ -521,6 +521,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
 
+                // Apply zero-crossing crossfade at block boundaries in the final output.
+                // Independent graph clones in parallel mode can produce discontinuities
+                // at block edges. Scan for large jumps and smooth them with a short fade.
+                {
+                    const BLOCK_SIZE_XFADE: usize = 512;
+                    const FADE_SAMPLES: usize = 32;
+                    const CLICK_THRESHOLD: f32 = 0.1;
+
+                    let len = output_buffer.len();
+                    let mut block_start = BLOCK_SIZE_XFADE;
+                    while block_start < len {
+                        if block_start > 0 {
+                            let prev = output_buffer[block_start - 1];
+                            let curr = output_buffer[block_start];
+                            let delta = (curr - prev).abs();
+                            if delta > CLICK_THRESHOLD {
+                                // Apply short crossfade: ramp from prev value to actual value
+                                let fade_len = FADE_SAMPLES.min(len - block_start);
+                                for i in 0..fade_len {
+                                    let t = (i + 1) as f32 / (fade_len + 1) as f32;
+                                    // Blend: at i=0, mostly prev; at i=fade_len-1, mostly actual
+                                    output_buffer[block_start + i] =
+                                        prev * (1.0 - t) + output_buffer[block_start + i] * t;
+                                }
+                            }
+                        }
+                        block_start += BLOCK_SIZE_XFADE;
+                    }
+                }
+
                 println!(); // New line after progress
                 println!("⏱️  PROFILING RESULTS:");
                 println!("   Total blocks:     {}", num_blocks);

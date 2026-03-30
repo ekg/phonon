@@ -4865,6 +4865,11 @@ pub struct UnifiedSignalGraph {
     /// Set to 1.0 or above to disable
     pub master_limiter_ceiling: f32,
 
+    /// Previous buffer tail (stereo interleaved) for zero-crossing crossfade.
+    /// Stores the last N stereo sample pairs from the previous buffer to smooth
+    /// discontinuities at buffer boundaries.
+    prev_buffer_tail: Vec<f32>,
+
     /// Plugin instance manager for external VST3/CLAP/AU plugins
     /// Shared between graph and editor via Arc<Mutex<>>
     /// None = plugins not available (headless mode, testing)
@@ -4952,6 +4957,7 @@ impl Clone for UnifiedSignalGraph {
             shared_state: self.shared_state.clone(),
             bypass_sequential_effects: self.bypass_sequential_effects,
             master_limiter_ceiling: self.master_limiter_ceiling,
+            prev_buffer_tail: Vec::new(),
             // Plugin manager is shared via Arc
             plugin_manager: self.plugin_manager.clone(),
             // Mock plugins need fresh instances (they have internal state)
@@ -5041,6 +5047,7 @@ impl UnifiedSignalGraph {
             shared_state: None, // Disabled by default
             bypass_sequential_effects: false, // Normal mode by default
             master_limiter_ceiling: 0.95, // Default: -0.4dB headroom for safety
+            prev_buffer_tail: Vec::new(),
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
             #[cfg(feature = "vst3")]
@@ -7316,74 +7323,113 @@ impl UnifiedSignalGraph {
                         continue;
                     }
 
-                    // Find ALL nodes in the bus chain (oscillators, filters, effects)
-                    let chain_node_ids = self.find_all_nodes_in_chain(node_id);
+                    {
+                        // Per-pitch state management for synthesis voices.
+                        // Oscillators: save/restore only phase+offset (preserves pending_freq
+                        // and last_sample for zero-crossing detection — matching original behavior).
+                        // Filters/effects: full node clone to prevent cross-pitch contamination.
+                        let chain_node_ids = self.find_all_nodes_in_chain(node_id);
+                        let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+                        let non_osc_ids: Vec<usize> = chain_node_ids.iter()
+                            .filter(|id| !oscillator_ids.contains(id))
+                            .copied()
+                            .collect();
 
-                    // Snapshot the original state of the entire chain (deep clone).
-                    // This preserves the DAG evaluation state so we can restore it
-                    // after synthesis rendering.
-                    let original_snapshot: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
-                        .iter()
-                        .filter_map(|&id| {
-                            self.nodes.get(id)
-                                .and_then(|n| n.as_ref())
-                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
-                        })
-                        .collect();
-
-                    // If we have cached state for this pitch, restore it.
-                    // This continues from where we left off last buffer.
-                    let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
-                    if has_cached {
-                        let cache = self.synthesis_state_cache.borrow();
-                        let cached_state = cache.get(&buffer_key).unwrap();
-                        for (id, cached_node) in cached_state {
-                            if let Some(slot) = self.nodes.get_mut(*id) {
-                                *slot = Some(Rc::new((**cached_node).clone()));
+                        // Save original oscillator state (phase + offset only)
+                        let mut original_osc_state: Vec<(usize, f32, f32)> = Vec::new();
+                        for &osc_id in &oscillator_ids {
+                            if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                                if let SignalNode::Oscillator {
+                                    semitone_offset: so, phase, ..
+                                } = &**node_rc {
+                                    original_osc_state.push((osc_id, *so, *phase.borrow()));
+                                }
                             }
                         }
-                    }
 
-                    // Apply pitch offset to oscillators in the chain
-                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
-                    for &osc_id in &oscillator_ids {
-                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
-                            let node = std::rc::Rc::make_mut(node_rc);
-                            if let SignalNode::Oscillator {
-                                semitone_offset: node_offset,
-                                ..
-                            } = node
-                            {
-                                *node_offset = semitone_offset;
+                        // Save original non-oscillator state (full clone)
+                        let original_non_osc: Vec<(usize, SignalNode)> = non_osc_ids.iter()
+                            .filter_map(|&id| {
+                                self.nodes.get(id)
+                                    .and_then(|n| n.as_ref())
+                                    .map(|node_rc| (id, (**node_rc).clone()))
+                            })
+                            .collect();
+
+                        // Restore cached state for this pitch
+                        let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
+                        if has_cached {
+                            let cached: Vec<(usize, SignalNode)> = {
+                                let cache = self.synthesis_state_cache.borrow();
+                                cache.get(&buffer_key).unwrap()
+                                    .iter().map(|(id, n)| (*id, (**n).clone())).collect()
+                            };
+                            for (id, cached_node) in cached {
+                                if let Some(Some(node_rc)) = self.nodes.get_mut(id) {
+                                    *Rc::make_mut(node_rc) = cached_node;
+                                }
+                            }
+                        } else {
+                            // First buffer for this pitch: reset oscillator phase
+                            for &osc_id in &oscillator_ids {
+                                if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                                    let node = Rc::make_mut(node_rc);
+                                    if let SignalNode::Oscillator { phase, .. } = node {
+                                        *phase.borrow_mut() = 0.0;
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    // Clear buffer cache and generate synthesis buffer
-                    self.buffer_cache.borrow_mut().clear();
-                    let mut synth_buffer = vec![0.0; buffer_size];
-                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
-                    synthesis_buffers.insert(buffer_key, synth_buffer);
+                        // Apply pitch offset
+                        for &osc_id in &oscillator_ids {
+                            if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                                let node = Rc::make_mut(node_rc);
+                                if let SignalNode::Oscillator { semitone_offset: so, .. } = node {
+                                    *so = semitone_offset;
+                                }
+                            }
+                        }
 
-                    // Save the ENTIRE chain state to cache for next buffer.
-                    // This captures oscillator phase, filter state, etc.
-                    let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
-                        .iter()
-                        .filter_map(|&id| {
-                            self.nodes.get(id)
-                                .and_then(|n| n.as_ref())
-                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
-                        })
-                        .collect();
-                    self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
+                        // Render
+                        self.buffer_cache.borrow_mut().clear();
+                        let mut synth_buffer = vec![0.0; buffer_size];
+                        self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+                        synthesis_buffers.insert(buffer_key, synth_buffer);
 
-                    // Restore original chain state so DAG evaluation isn't affected
-                    for (id, snapshot_node) in &original_snapshot {
-                        if let Some(slot) = self.nodes.get_mut(*id) {
-                            *slot = Some(Rc::new((**snapshot_node).clone()));
+                        // Save full chain state to cache
+                        let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids.iter()
+                            .filter_map(|&id| {
+                                self.nodes.get(id)
+                                    .and_then(|n| n.as_ref())
+                                    .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                            })
+                            .collect();
+                        self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
+
+                        // Restore oscillator state (phase + offset only)
+                        for (osc_id, orig_offset, orig_phase) in original_osc_state {
+                            if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                                let node = Rc::make_mut(node_rc);
+                                if let SignalNode::Oscillator { semitone_offset: so, phase, .. } = node {
+                                    *so = orig_offset;
+                                    *phase.borrow_mut() = orig_phase;
+                                }
+                            }
+                        }
+
+                        // Restore non-oscillator state (filters/effects)
+                        for (id, snapshot_node) in original_non_osc {
+                            if let Some(Some(node_rc)) = self.nodes.get_mut(id) {
+                                *Rc::make_mut(node_rc) = snapshot_node;
+                            }
                         }
                     }
                 }
+
+                // Clear buffer cache after synthesis rendering to prevent stale
+                // cached results from affecting DAG evaluation
+                self.buffer_cache.borrow_mut().clear();
 
                 // Process synthesis voices with envelopes and mix into voice_buffers
                 let synthesis_voice_buffers = self
@@ -7666,6 +7712,44 @@ impl UnifiedSignalGraph {
                 // Hard limit to ceiling (brick-wall limiter)
                 *sample = sample.clamp(-ceiling, ceiling);
             }
+        }
+
+        // Phase 4c: Zero-crossing crossfade at buffer boundaries.
+        // When there's a discontinuity between the end of the previous buffer and
+        // the start of this buffer, apply a short equal-power cosine crossfade to
+        // smooth the transition. This eliminates clicks from DAG-level timing
+        // mismatches at buffer edges.
+        {
+            const CROSSFADE_SAMPLES: usize = 32; // ~0.7ms at 44.1kHz
+            const CROSSFADE_THRESHOLD: f32 = 0.05;
+            let overlap = CROSSFADE_SAMPLES.min(buffer_size);
+
+            if self.prev_buffer_tail.len() >= 2 {
+                let tail_len = self.prev_buffer_tail.len();
+                let prev_last_l = self.prev_buffer_tail[tail_len - 2];
+                let curr_first_l = buffer[0];
+
+                if (prev_last_l - curr_first_l).abs() > CROSSFADE_THRESHOLD {
+                    let tail_stereo_pairs = tail_len / 2;
+                    for i in 0..overlap {
+                        let t = i as f32 / overlap as f32;
+                        // Linear crossfade (sums to 1.0, no energy bump)
+                        let fade_in = t;
+                        let fade_out = 1.0 - t;
+                        let tail_pair = tail_stereo_pairs.saturating_sub(overlap) + i;
+                        let prev_l = self.prev_buffer_tail.get(tail_pair * 2).copied().unwrap_or(0.0);
+                        let prev_r = self.prev_buffer_tail.get(tail_pair * 2 + 1).copied().unwrap_or(0.0);
+                        buffer[i * 2] = prev_l * fade_out + buffer[i * 2] * fade_in;
+                        buffer[i * 2 + 1] = prev_r * fade_out + buffer[i * 2 + 1] * fade_in;
+                    }
+                }
+            }
+
+            // Save current buffer tail for next crossfade
+            let tail_start = buffer_size.saturating_sub(overlap) * 2;
+            let tail_slice = &buffer[tail_start..buffer_size * 2];
+            self.prev_buffer_tail.resize(tail_slice.len(), 0.0);
+            self.prev_buffer_tail.copy_from_slice(tail_slice);
         }
 
         // Phase 5: Swap buffers for feedback support
@@ -18074,70 +18158,69 @@ impl UnifiedSignalGraph {
                     continue;
                 }
 
-                // Find ALL nodes in the bus chain
-                let chain_node_ids = self.find_all_nodes_in_chain(node_id);
+                if semitone_key == 0 {
+                    // Pitch 0: render directly from live graph state
+                    self.buffer_cache.borrow_mut().clear();
+                    let mut synth_buffer = vec![0.0; buffer_size];
+                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+                    synthesis_buffers.insert(buffer_key, synth_buffer);
+                } else {
+                    // Pitched voice: per-pitch state cache
+                    let chain_node_ids = self.find_all_nodes_in_chain(node_id);
 
-                // Snapshot the original state of the entire chain (deep clone)
-                let original_snapshot: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
-                    .iter()
-                    .filter_map(|&id| {
-                        self.nodes.get(id)
-                            .and_then(|n| n.as_ref())
-                            .map(|node_rc| (id, Rc::new((**node_rc).clone())))
-                    })
-                    .collect();
+                    let original_snapshot: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                        .iter()
+                        .filter_map(|&id| {
+                            self.nodes.get(id)
+                                .and_then(|n| n.as_ref())
+                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                        })
+                        .collect();
 
-                // Restore cached state for this pitch if available
-                let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
-                if has_cached {
-                    let cache = self.synthesis_state_cache.borrow();
-                    let cached_state = cache.get(&buffer_key).unwrap();
-                    for (id, cached_node) in cached_state {
+                    let has_cached = self.synthesis_state_cache.borrow().contains_key(&buffer_key);
+                    if has_cached {
+                        let cache = self.synthesis_state_cache.borrow();
+                        let cached_state = cache.get(&buffer_key).unwrap();
+                        for (id, cached_node) in cached_state {
+                            if let Some(slot) = self.nodes.get_mut(*id) {
+                                *slot = Some(Rc::new((**cached_node).clone()));
+                            }
+                        }
+                    }
+
+                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                ..
+                            } = node
+                            {
+                                *node_offset = semitone_offset;
+                            }
+                        }
+                    }
+
+                    self.buffer_cache.borrow_mut().clear();
+                    let mut synth_buffer = vec![0.0; buffer_size];
+                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+                    synthesis_buffers.insert(buffer_key, synth_buffer);
+
+                    let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
+                        .iter()
+                        .filter_map(|&id| {
+                            self.nodes.get(id)
+                                .and_then(|n| n.as_ref())
+                                .map(|node_rc| (id, Rc::new((**node_rc).clone())))
+                        })
+                        .collect();
+                    self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
+
+                    for (id, snapshot_node) in &original_snapshot {
                         if let Some(slot) = self.nodes.get_mut(*id) {
-                            *slot = Some(Rc::new((**cached_node).clone()));
+                            *slot = Some(Rc::new((**snapshot_node).clone()));
                         }
-                    }
-                }
-
-                // Apply pitch offset to oscillators
-                let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
-                for &osc_id in &oscillator_ids {
-                    if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
-                        let node = std::rc::Rc::make_mut(node_rc);
-                        if let SignalNode::Oscillator {
-                            semitone_offset: node_offset,
-                            ..
-                        } = node
-                        {
-                            *node_offset = semitone_offset;
-                        }
-                    }
-                }
-
-                // CRITICAL: Clear buffer cache before generating buffer with new semitone_offset
-                self.buffer_cache.borrow_mut().clear();
-
-                // Generate buffer with the temporary semitone_offset(s)
-                let mut synth_buffer = vec![0.0; buffer_size];
-                self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
-
-                synthesis_buffers.insert(buffer_key, synth_buffer);
-
-                // Save entire chain state to cache for next buffer
-                let new_state: Vec<(usize, Rc<SignalNode>)> = chain_node_ids
-                    .iter()
-                    .filter_map(|&id| {
-                        self.nodes.get(id)
-                            .and_then(|n| n.as_ref())
-                            .map(|node_rc| (id, Rc::new((**node_rc).clone())))
-                    })
-                    .collect();
-                self.synthesis_state_cache.borrow_mut().insert(buffer_key, new_state);
-
-                // Restore original chain state
-                for (id, snapshot_node) in &original_snapshot {
-                    if let Some(slot) = self.nodes.get_mut(*id) {
-                        *slot = Some(Rc::new((**snapshot_node).clone()));
                     }
                 }
             }
