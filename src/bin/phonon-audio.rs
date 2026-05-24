@@ -497,7 +497,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                     // Compile into a graph
                                     match compile_program(statements, sample_rate, None) {
-                                        Ok(new_graph) => {
+                                        Ok(mut new_graph) => {
                                             // CRITICAL: Update GlobalClock's tempo if it changed
                                             // GlobalClock.set_cps() handles timing continuity automatically!
                                             // No need for cycle_offset calculation - GlobalClock tracks position.
@@ -513,6 +513,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             // DEBUG: Log timing continuity during graph swap
                                             eprintln!("🔄 Graph swap: pos={:.4} -> {:.4} (delta={:.6}), cps={:.2} -> {:.2}",
                                                 old_pos, new_pos, new_pos - old_pos, old_cps, new_graph.cps);
+
+                                            // Enable wall-clock timing (needed for session timing
+                                            // and FX state transfer; process_buffer_at overrides
+                                            // the cycle position from GlobalClock anyway)
+                                            new_graph.enable_wall_clock_timing();
+
+                                            // Transfer state from old graph: FX tails, active
+                                            // voices, and session timing offset.
+                                            // Use try_borrow_mut with retries to avoid panicking
+                                            // if the audio callback is mid-buffer (same fallback
+                                            // pattern as modal editor load_code).
+                                            let current_graph = graph.load();
+                                            if let Some(ref old_graph_cell) = **current_graph {
+                                                let mut state_transferred = false;
+                                                for _attempt in 0..50 {
+                                                    match old_graph_cell.0.try_borrow_mut() {
+                                                        Ok(mut old_graph) => {
+                                                            new_graph.transfer_session_timing(&old_graph);
+                                                            new_graph.transfer_fx_states(&old_graph);
+                                                            new_graph.transfer_voice_manager(old_graph.take_voice_manager());
+                                                            state_transferred = true;
+                                                            break;
+                                                        }
+                                                        Err(_) => {
+                                                            std::thread::sleep(std::time::Duration::from_micros(500));
+                                                        }
+                                                    }
+                                                }
+                                                if !state_transferred {
+                                                    eprintln!("⚠️  Could not transfer state after retries — starting fresh");
+                                                }
+                                            }
+
+                                            // Preload samples before swap to avoid disk I/O
+                                            // in the audio callback (prevents dropouts on
+                                            // first-hit samples after reload)
+                                            new_graph.preload_samples();
 
                                             // Swap in new graph (atomic, lock-free)
                                             // Graph does NOT own timing - it receives timing from GlobalClock
