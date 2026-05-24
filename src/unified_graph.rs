@@ -7714,7 +7714,18 @@ impl UnifiedSignalGraph {
             }
         }
 
-        // Phase 4c: Zero-crossing crossfade at buffer boundaries.
+        // Phase 4c: Sanitize output — flush NaN, Inf, and denormals to silence.
+        // NaN or Inf surviving into the ring buffer poisons CPAL output (silence or clicks).
+        // Denormals (subnormals < 1e-38) waste CPU on x86 without FTZ/DAZ mode.
+        for sample in buffer.iter_mut() {
+            if !sample.is_finite() {
+                *sample = 0.0;
+            } else if sample.abs() < 1e-38 {
+                *sample = 0.0;
+            }
+        }
+
+        // Phase 4d: Zero-crossing crossfade at buffer boundaries.
         // When there's a discontinuity between the end of the previous buffer and
         // the start of this buffer, apply a short equal-power cosine crossfade to
         // smooth the transition. This eliminates clicks from DAG-level timing
@@ -17734,6 +17745,12 @@ impl UnifiedSignalGraph {
         self.update_bus_previous_values();
 
         self.sample_count += 1;
+
+        // Sanitize: flush NaN, Inf, and denormals to silence before returning to caller.
+        if !total_left.is_finite() { total_left = 0.0; }
+        else if total_left.abs() < 1e-38 { total_left = 0.0; }
+        if !total_right.is_finite() { total_right = 0.0; }
+        else if total_right.abs() < 1e-38 { total_right = 0.0; }
 
         // Return stereo sample output
         // Note: In the future, we could add stereo DSP chain support here
