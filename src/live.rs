@@ -288,6 +288,10 @@ impl LiveSession {
             new_graph.transfer_voice_manager(old_graph_cell.0.borrow_mut().take_voice_manager());
         }
 
+        // Preload samples on the calling thread so the synthesis thread never
+        // performs disk I/O on first trigger after a live edit.
+        new_graph.preload_samples();
+
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render
         self.graph
