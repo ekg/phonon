@@ -35,13 +35,15 @@ use phonon::unified_graph::UnifiedSignalGraph;
 #[cfg(unix)]
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 #[cfg(unix)]
-use ringbuf::HeapRb;
+use ringbuf::{HeapProd, HeapRb};
 #[cfg(unix)]
 use std::cell::RefCell;
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
 use std::io::BufWriter;
+#[cfg(unix)]
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 #[cfg(unix)]
 use std::sync::{Arc, Mutex};
 #[cfg(unix)]
@@ -213,7 +215,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
     // Create WAV writer for recording (if requested)
-    let wav_writer: Arc<Mutex<Option<WavWriter<BufWriter<File>>>>> =
+    let wav_writer_opt: Option<WavWriter<BufWriter<File>>> =
         if let Some(ref record_path) = args.record {
             let spec = WavSpec {
                 channels: channels as u16,
@@ -223,9 +225,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let writer = WavWriter::create(record_path, spec)?;
             eprintln!("✅ WAV writer created for recording");
-            Arc::new(Mutex::new(Some(writer)))
+            Some(writer)
         } else {
-            Arc::new(Mutex::new(None))
+            None
         };
 
     // GLOBAL CLOCK - THE SINGLE SOURCE OF TIMING TRUTH
@@ -243,12 +245,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ring = HeapRb::<f32>::new(ring_buffer_size);
     let (mut ring_producer, mut ring_consumer) = ring.split();
 
+    // Fix 3: Replace static mut UNDERRUN_COUNT with a shared atomic.
+    // The CPAL callback increments this; the synth thread logs changes off the real-time path.
+    let underrun_count = Arc::new(AtomicUsize::new(0));
+    let underrun_count_synth = Arc::clone(&underrun_count);
+
     // Background synthesis thread: continuously renders samples into ring buffer
     let graph_clone_synth = Arc::clone(&graph);
     let clock_clone_synth = Arc::clone(&global_clock);
     thread::spawn(move || {
         // Use configurable buffer size (can't use array with runtime size, use Vec)
         let mut buffer = vec![0.0f32; buffer_size];
+        let mut last_underrun_logged = 0usize;
 
         loop {
             // Check if we have space in ring buffer
@@ -297,6 +305,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     buffer.fill(0.0);
                     ring_producer.push_slice(&buffer);
                 }
+
+                // Log underruns here (off the real-time callback path)
+                let current = underrun_count_synth.load(Ordering::Relaxed);
+                if current != last_underrun_logged {
+                    if current % 100 == 0 || current - last_underrun_logged >= 10 {
+                        eprintln!("⚠️  Audio underrun #{}", current);
+                    }
+                    last_underrun_logged = current;
+                }
             } else {
                 // Ring buffer is full, sleep briefly
                 thread::sleep(StdDuration::from_micros(100));
@@ -324,9 +341,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Clone wav_writer for audio callbacks
-    let wav_writer_f32 = Arc::clone(&wav_writer);
-    let wav_writer_i16 = Arc::clone(&wav_writer);
+    // Fix 2: Dedicated WAV writer thread fed by a lock-free SPSC ring.
+    // Callbacks push f32 samples into rec_ring; the writer thread drains and writes WAV.
+    // If the ring is full, samples are dropped silently (recording glitch preferred over audio glitch).
+    let recording_ring_size = (sample_rate as usize) * 2;
+
+    // Create one producer per callback arm (only the arm matching sample_format will be Some).
+    // Shutdown flag is kept by the main thread; the writer thread clones it.
+    let writer_shutdown = Arc::new(AtomicBool::new(false));
+
+    let (mut rec_prod_f32, mut rec_prod_i16, writer_thread_handle): (
+        Option<HeapProd<f32>>,
+        Option<HeapProd<f32>>,
+        Option<thread::JoinHandle<()>>,
+    ) = if let Some(writer) = wav_writer_opt {
+        let (prod, mut cons) = HeapRb::<f32>::new(recording_ring_size).split();
+        let shutdown_flag = Arc::clone(&writer_shutdown);
+        let handle = thread::spawn(move || {
+            let mut wav = writer;
+            let mut scratch = vec![0.0f32; 4096];
+            loop {
+                let n = cons.pop_slice(&mut scratch);
+                for &s in &scratch[..n] {
+                    let _ = wav.write_sample(s);
+                }
+                if shutdown_flag.load(Ordering::Relaxed) && cons.is_empty() {
+                    let _ = wav.finalize();
+                    break;
+                }
+                if n == 0 {
+                    thread::sleep(StdDuration::from_micros(200));
+                }
+            }
+        });
+        match sample_format {
+            cpal::SampleFormat::F32 => (Some(prod), None, Some(handle)),
+            _ => (None, Some(prod), Some(handle)),
+        }
+    } else {
+        (None, None, None)
+    };
+
+    // Fix 1: Pre-allocate I16 conversion buffer sized from the stream config.
+    // Captured by move into the I16 callback — never resized inside the callback.
+    let mut i16_conv_buf = vec![0.0f32; buffer_size];
+
+    // Clones of underrun_count for each callback arm
+    let underrun_count_f32 = Arc::clone(&underrun_count);
+    let underrun_count_i16 = Arc::clone(&underrun_count);
 
     // Build audio stream based on sample format
     let stream_result = match sample_format {
@@ -338,31 +400,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let available = ring_consumer.occupied_len();
 
                     if available >= data.len() {
-                        // Ring buffer has enough samples, read them
                         ring_consumer.pop_slice(data);
                     } else {
-                        // Underrun: not enough samples in buffer
+                        // Underrun: fill remainder with silence
                         let read = ring_consumer.pop_slice(data);
                         for sample in data[read..].iter_mut() {
                             *sample = 0.0;
                         }
-
-                        static mut UNDERRUN_COUNT: usize = 0;
-                        unsafe {
-                            UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT.is_multiple_of(100) {
-                                eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
-                            }
-                        }
+                        underrun_count_f32.fetch_add(1, Ordering::Relaxed);
                     }
 
-                    // Write to WAV file if recording
-                    if let Ok(mut writer_lock) = wav_writer_f32.lock() {
-                        if let Some(ref mut writer) = *writer_lock {
-                            for &sample in data.iter() {
-                                let _ = writer.write_sample(sample);
-                            }
-                        }
+                    // Push to recording ring (lock-free; drops silently if full)
+                    if let Some(ref mut rec) = rec_prod_f32 {
+                        rec.push_slice(data);
                     }
                 },
                 err_fn,
@@ -376,57 +426,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let available = ring_consumer.occupied_len();
 
                     if available >= data.len() {
-                        // Read from ring buffer and convert to i16
-                        let mut temp = vec![0.0f32; data.len()];
-                        ring_consumer.pop_slice(&mut temp);
+                        // Use pre-allocated conversion buffer — no allocation in callback
+                        let conv = &mut i16_conv_buf[..data.len()];
+                        ring_consumer.pop_slice(conv);
 
-                        // Write f32 samples to WAV file if recording
-                        if let Ok(mut writer_lock) = wav_writer_i16.lock() {
-                            if let Some(ref mut writer) = *writer_lock {
-                                for &sample in temp.iter() {
-                                    let _ = writer.write_sample(sample);
-                                }
-                            }
+                        // Push f32 samples to recording ring before converting
+                        if let Some(ref mut rec) = rec_prod_i16 {
+                            rec.push_slice(conv);
                         }
 
-                        // Convert to i16 for audio output
-                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
-                            *dst = (*src * 32767.0) as i16;
+                        for (dst, &src) in data.iter_mut().zip(conv.iter()) {
+                            *dst = (src * 32767.0) as i16;
                         }
                     } else {
-                        // Underrun
-                        let mut temp = vec![0.0f32; available];
-                        ring_consumer.pop_slice(&mut temp);
+                        // Underrun: read what we have, zero-fill the rest
+                        let conv = &mut i16_conv_buf[..available];
+                        ring_consumer.pop_slice(conv);
 
-                        // Write f32 samples to WAV file if recording (with zero padding)
-                        if let Ok(mut writer_lock) = wav_writer_i16.lock() {
-                            if let Some(ref mut writer) = *writer_lock {
-                                for &sample in temp.iter() {
-                                    let _ = writer.write_sample(sample);
-                                }
-                                // Write zeros for underrun portion
-                                for _ in temp.len()..data.len() {
-                                    let _ = writer.write_sample(0.0f32);
-                                }
-                            }
+                        // Push available f32 samples to recording ring
+                        if let Some(ref mut rec) = rec_prod_i16 {
+                            rec.push_slice(conv);
                         }
 
-                        // Convert to i16 for audio output
                         for (i, dst) in data.iter_mut().enumerate() {
-                            if i < temp.len() {
-                                *dst = (temp[i] * 32767.0) as i16;
+                            *dst = if i < available {
+                                (i16_conv_buf[i] * 32767.0) as i16
                             } else {
-                                *dst = 0;
-                            }
+                                0
+                            };
                         }
-
-                        static mut UNDERRUN_COUNT: usize = 0;
-                        unsafe {
-                            UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT.is_multiple_of(100) {
-                                eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
-                            }
-                        }
+                        underrun_count_i16.fetch_add(1, Ordering::Relaxed);
                     }
                 },
                 err_fn,
@@ -533,14 +562,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("🛑 Audio engine shutting down");
 
-    // Finalize WAV recording if active
-    if let Ok(mut writer_lock) = wav_writer.lock() {
-        if let Some(writer) = writer_lock.take() {
-            match writer.finalize() {
-                Ok(_) => eprintln!("✅ Recording finalized successfully"),
-                Err(e) => eprintln!("⚠️  Error finalizing recording: {}", e),
-            }
-        }
+    // Signal writer thread to flush remaining samples and finalize WAV, then join
+    writer_shutdown.store(true, Ordering::Relaxed);
+    if let Some(handle) = writer_thread_handle {
+        let _ = handle.join();
+        eprintln!("✅ Recording finalized successfully");
     }
 
     Ok(())
