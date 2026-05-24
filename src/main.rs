@@ -970,7 +970,11 @@ out sine(440) * 0.2
             {
                 if let Ok(content) = std::fs::read_to_string(&file) {
                     match parse_phonon(&content, sample_rate) {
-                        Ok(new_graph) => {
+                        Ok(mut new_graph) => {
+                            // Enable wall-clock timing from the start so timing transfers
+                            // on subsequent reloads have a valid reference point
+                            new_graph.enable_wall_clock_timing();
+                            new_graph.preload_samples();
                             graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
                             let mut state_lock = file_state.lock().unwrap();
                             state_lock.last_content = content;
@@ -1088,7 +1092,44 @@ out sine(440) * 0.2
                                     println!("🔄 Reloading...");
 
                                     match parse_phonon(&content, sample_rate) {
-                                        Ok(new_graph) => {
+                                        Ok(mut new_graph) => {
+                                            // ALWAYS enable wall-clock timing for live mode —
+                                            // must happen before transfer_session_timing
+                                            new_graph.enable_wall_clock_timing();
+
+                                            // Transfer state from old graph for seamless continuation:
+                                            // session timing (no beat jump), FX tails, and active voices.
+                                            // Retry up to 50×0.5ms to wait out a busy audio thread.
+                                            let current_graph = graph.load();
+                                            if let Some(ref old_graph_cell) = **current_graph {
+                                                let mut state_transferred = false;
+                                                for _attempt in 0..50 {
+                                                    match old_graph_cell.0.try_borrow_mut() {
+                                                        Ok(mut old_graph) => {
+                                                            new_graph.transfer_session_timing(&old_graph);
+                                                            new_graph.transfer_fx_states(&old_graph);
+                                                            new_graph.transfer_voice_manager(
+                                                                old_graph.take_voice_manager(),
+                                                            );
+                                                            state_transferred = true;
+                                                            break;
+                                                        }
+                                                        Err(_) => {
+                                                            std::thread::sleep(
+                                                                std::time::Duration::from_micros(500),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                if !state_transferred {
+                                                    eprintln!("⚠️  Could not transfer state after retries — beat may jump");
+                                                }
+                                            }
+
+                                            // Preload samples BEFORE swapping to avoid disk I/O
+                                            // in the audio synthesis thread
+                                            new_graph.preload_samples();
+
                                             // Lock-free atomic swap: no audio callback blocking!
                                             graph.store(Arc::new(Some(GraphCell(RefCell::new(
                                                 new_graph,
