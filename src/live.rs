@@ -19,6 +19,7 @@ use ringbuf::HeapRb;
 use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -69,6 +70,11 @@ impl LiveSession {
         let ring = HeapRb::<f32>::new(ring_buffer_size);
         let (mut ring_producer, mut ring_consumer) = ring.split();
 
+        // Underrun counter shared between the audio callback (increment-only)
+        // and the synth thread (read + log).  No logging inside the callback.
+        let underrun_counter = Arc::new(AtomicUsize::new(0));
+        let underrun_counter_for_synth = Arc::clone(&underrun_counter);
+
         // Background synthesis thread: continuously renders samples into ring buffer
         // This enables parallel synthesis using all CPU cores!
         let graph_clone_synth = Arc::clone(&graph);
@@ -77,6 +83,8 @@ impl LiveSession {
             let mut total_buffers = 0usize;
             let mut total_time = std::time::Duration::ZERO;
             let profile = std::env::var("PROFILE_LIVE").is_ok();
+            let mut render_count = 0usize;
+            let mut last_underrun_reported = 0usize;
 
             if profile {
                 eprintln!("🔧 Background synthesis thread started with profiling");
@@ -127,6 +135,16 @@ impl LiveSession {
                         // No graph yet, write silence
                         ring_producer.push_slice(&buffer);
                     }
+
+                    // Off-callback underrun logging: check every ~100 renders (~1 s)
+                    render_count += 1;
+                    if render_count % 100 == 0 {
+                        let underruns = underrun_counter_for_synth.load(Ordering::Relaxed);
+                        if underruns != last_underrun_reported {
+                            eprintln!("⚠️  Audio underruns: {} total (synth can't keep up)", underruns);
+                            last_underrun_reported = underruns;
+                        }
+                    }
                 } else {
                     // Ring buffer is full, sleep briefly
                     thread::sleep(Duration::from_micros(100));
@@ -157,30 +175,20 @@ impl LiveSession {
 
         let stream = match sample_format {
             cpal::SampleFormat::F32 => {
+                let underrun_f32 = Arc::clone(&underrun_counter);
                 device.build_output_stream(
                     &config,
                     move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                        // Read from ring buffer - MUCH faster than synthesis!
                         let available = ring_consumer.occupied_len();
 
                         if available >= data.len() {
-                            // Ring buffer has enough samples, read them
                             ring_consumer.pop_slice(data);
                         } else {
-                            // Underrun: not enough samples in buffer
-                            // Read what we have, fill rest with silence
                             let read = ring_consumer.pop_slice(data);
                             for sample in data[read..].iter_mut() {
                                 *sample = 0.0;
                             }
-
-                            // Warn about underrun
-                            use std::sync::atomic::{AtomicUsize, Ordering};
-                            static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
-                            let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-                            if count.is_multiple_of(100) {
-                                eprintln!("⚠️  Audio underrun #{} (synth can't keep up)", count);
-                            }
+                            underrun_f32.fetch_add(1, Ordering::Relaxed);
                         }
                     },
                     err_fn,
@@ -188,36 +196,32 @@ impl LiveSession {
                 )
             }
             cpal::SampleFormat::I16 => {
+                // Preallocate conversion scratch buffer — never allocate inside callback.
+                // ring_buffer_size (1 s of audio) safely exceeds any CPAL callback request.
+                let mut i16_conv_buf = vec![0.0f32; ring_buffer_size];
+                let underrun_i16 = Arc::clone(&underrun_counter);
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
                         let available = ring_consumer.occupied_len();
+                        let req = data.len().min(i16_conv_buf.len());
+                        let n = available.min(req);
 
-                        if available >= data.len() {
-                            // Read from ring buffer and convert to i16
-                            let mut temp = vec![0.0f32; data.len()];
-                            ring_consumer.pop_slice(&mut temp);
-                            for (dst, src) in data.iter_mut().zip(temp.iter()) {
-                                *dst = (*src * 32767.0) as i16;
-                            }
-                        } else {
-                            // Underrun
-                            let mut temp = vec![0.0f32; available];
-                            ring_consumer.pop_slice(&mut temp);
-                            for (i, dst) in data.iter_mut().enumerate() {
-                                if i < temp.len() {
-                                    *dst = (temp[i] * 32767.0) as i16;
-                                } else {
-                                    *dst = 0;
-                                }
-                            }
-
-                            use std::sync::atomic::{AtomicUsize, Ordering};
-                            static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
-                            let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-                            if count.is_multiple_of(100) {
-                                eprintln!("⚠️  Audio underrun #{}", count);
-                            }
+                        let conv = &mut i16_conv_buf[..req];
+                        if n > 0 {
+                            ring_consumer.pop_slice(&mut conv[..n]);
+                        }
+                        for s in conv[n..].iter_mut() {
+                            *s = 0.0;
+                        }
+                        for (dst, &src) in data[..req].iter_mut().zip(conv.iter()) {
+                            *dst = (src * 32767.0) as i16;
+                        }
+                        for dst in data[req..].iter_mut() {
+                            *dst = 0;
+                        }
+                        if n < data.len() {
+                            underrun_i16.fetch_add(1, Ordering::Relaxed);
                         }
                     },
                     err_fn,
