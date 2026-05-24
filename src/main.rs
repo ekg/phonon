@@ -878,6 +878,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use phonon::unified_graph::UnifiedSignalGraph;
 
             use std::sync::{Arc, Mutex};
+            use std::sync::atomic::{AtomicUsize, Ordering};
             use std::time::{Duration as StdDuration, SystemTime};
 
             // Create file if it doesn't exist
@@ -935,6 +936,9 @@ out sine(440) * 0.2
             let ring_buffer_size = (sample_rate * 1.0) as usize; // 1 second buffer
             let ring = HeapRb::<f32>::new(ring_buffer_size);
             let (mut ring_producer, mut ring_consumer) = ring.split();
+
+            // Atomic underrun counter: shared between audio callback (increment) and poll loop (log)
+            let underrun_count = Arc::new(AtomicUsize::new(0));
 
             // File watching metadata (only accessed by file watcher thread, can use Mutex)
             struct FileWatchState {
@@ -1020,6 +1024,7 @@ out sine(440) * 0.2
             // No synthesis, no processing, just copy pre-rendered samples
             let err_fn = |err| eprintln!("Audio stream error: {err}");
 
+            let underrun_count_cb = Arc::clone(&underrun_count);
             let stream = device.build_output_stream(
                 &config.into(),
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -1037,14 +1042,7 @@ out sine(440) * 0.2
                             *sample = 0.0;
                         }
 
-                        // Only warn occasionally to avoid spam
-                        static mut UNDERRUN_COUNT: usize = 0;
-                        unsafe {
-                            UNDERRUN_COUNT += 1;
-                            if UNDERRUN_COUNT.is_multiple_of(100) {
-                                eprintln!("⚠️  Audio underrun (synth can't keep up)");
-                            }
-                        }
+                        underrun_count_cb.fetch_add(1, Ordering::Relaxed);
                     }
                 },
                 err_fn,
@@ -1058,8 +1056,16 @@ out sine(440) * 0.2
             println!();
 
             // Poll for changes
+            let mut last_reported_underruns = 0usize;
             loop {
                 std::thread::sleep(StdDuration::from_millis(100));
+
+                // Log underrun stats every 100 underruns (off the audio callback, no jitter)
+                let current_underruns = underrun_count.load(Ordering::Relaxed);
+                if current_underruns.saturating_sub(last_reported_underruns) >= 100 {
+                    last_reported_underruns = current_underruns;
+                    eprintln!("⚠️  Audio underrun (synth can't keep up) — total: {current_underruns}");
+                }
 
                 // Check for file changes
                 if let Ok(metadata) = std::fs::metadata(&file) {
