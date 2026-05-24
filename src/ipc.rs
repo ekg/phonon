@@ -140,43 +140,36 @@ impl IpcMessage {
         result
     }
 
-    /// Drain all pending UpdateGraph messages and return only the most recent one
-    /// Returns Ok(Some(code)) if UpdateGraph(s) found, Ok(None) if no UpdateGraph pending
-    /// Other message types are returned immediately without draining
-    pub fn receive_coalesced(stream: &mut UnixStream) -> Result<Self, String> {
+    /// Drain all pending UpdateGraph messages, keeping only the most recent one.
+    /// Non-UpdateGraph messages (Hush, Panic, SetTempo, Shutdown) are never dropped:
+    /// they are accumulated in arrival order and returned alongside the latest UpdateGraph.
+    /// Returns a non-empty Vec; callers must dispatch all messages in order.
+    pub fn receive_coalesced(stream: &mut UnixStream) -> Result<Vec<Self>, String> {
         // Receive first message (blocking)
         let first_msg = Self::receive(stream)?;
 
-        // If it's not an UpdateGraph, return it immediately
+        // If it's not an UpdateGraph, return it immediately without draining
         if !matches!(first_msg, IpcMessage::UpdateGraph { .. }) {
-            return Ok(first_msg);
+            return Ok(vec![first_msg]);
         }
 
-        // It's an UpdateGraph - check if there are more pending
+        // It's an UpdateGraph — drain any additional pending messages
         let mut latest_update = first_msg;
+        let mut side_buffer: Vec<IpcMessage> = Vec::new();
         let mut drained_count = 0;
 
         loop {
             match Self::try_receive(stream)? {
                 Some(msg) => {
-                    // If it's another UpdateGraph, replace the latest
                     if let IpcMessage::UpdateGraph { .. } = msg {
                         latest_update = msg;
                         drained_count += 1;
                     } else {
-                        // It's a different message type - we should process it
-                        // But for now, prioritize the UpdateGraph
-                        // TODO: Consider queuing non-UpdateGraph messages
-                        eprintln!(
-                            "⚠️  Draining UpdateGraph, but received {:?} - ignoring for now",
-                            msg
-                        );
+                        // Hush, Panic, SetTempo, Shutdown — never drop these
+                        side_buffer.push(msg);
                     }
                 }
-                None => {
-                    // No more messages pending
-                    break;
-                }
+                None => break,
             }
         }
 
@@ -187,7 +180,10 @@ impl IpcMessage {
             );
         }
 
-        Ok(latest_update)
+        // Return non-UpdateGraph messages first (arrival order), then the latest graph update
+        let mut result = side_buffer;
+        result.push(latest_update);
+        Ok(result)
     }
 }
 
@@ -287,6 +283,7 @@ impl PatternClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::net::UnixListener;
 
     #[test]
     fn test_message_serialization() {
@@ -298,5 +295,87 @@ mod tests {
             IpcMessage::Hush => {}
             _ => panic!("Wrong message type"),
         }
+    }
+
+    /// Send [UpdateGraph(A), UpdateGraph(B), Hush, UpdateGraph(C)].
+    /// receive_coalesced must return Hush alongside UpdateGraph(C), not drop Hush.
+    #[test]
+    fn test_receive_coalesced_preserves_hush() {
+        use std::sync::mpsc;
+
+        let path = format!("/tmp/phonon_test_hush_{}.sock", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).unwrap();
+
+        // Channels to coordinate: writer signals when all messages are sent,
+        // reader signals when it's done so writer can close the connection.
+        let (all_sent_tx, all_sent_rx) = mpsc::channel::<()>();
+        let (reader_done_tx, reader_done_rx) = mpsc::channel::<()>();
+
+        let path2 = path.clone();
+        let writer = std::thread::spawn(move || {
+            let mut client = UnixStream::connect(&path2).unwrap();
+            IpcMessage::UpdateGraph { code: "A".to_string() }.send(&mut client).unwrap();
+            IpcMessage::UpdateGraph { code: "B".to_string() }.send(&mut client).unwrap();
+            IpcMessage::Hush.send(&mut client).unwrap();
+            IpcMessage::UpdateGraph { code: "C".to_string() }.send(&mut client).unwrap();
+            all_sent_tx.send(()).unwrap(); // all messages in kernel buffer
+            reader_done_rx.recv().unwrap(); // keep connection open until reader is done
+        });
+
+        let (mut stream, _) = listener.accept().unwrap();
+        all_sent_rx.recv().unwrap(); // all 4 messages now in the socket buffer
+
+        let messages = IpcMessage::receive_coalesced(&mut stream).unwrap();
+
+        reader_done_tx.send(()).unwrap(); // writer may now close
+        writer.join().unwrap();
+
+        // Expect [Hush, UpdateGraph(C)] — Hush not dropped, only newest graph kept
+        assert_eq!(messages.len(), 2, "expected Hush + latest UpdateGraph, got {:?}", messages);
+        assert!(matches!(messages[0], IpcMessage::Hush), "first message must be Hush");
+        match &messages[1] {
+            IpcMessage::UpdateGraph { code } => assert_eq!(code, "C"),
+            other => panic!("second message must be UpdateGraph(C), got {:?}", other),
+        }
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Send [Panic, UpdateGraph(A)].
+    /// Panic arrives first and is not an UpdateGraph, so receive_coalesced returns it immediately.
+    #[test]
+    fn test_receive_coalesced_preserves_panic() {
+        use std::sync::mpsc;
+
+        let path = format!("/tmp/phonon_test_panic_{}.sock", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).unwrap();
+
+        let (all_sent_tx, all_sent_rx) = mpsc::channel::<()>();
+        let (reader_done_tx, reader_done_rx) = mpsc::channel::<()>();
+
+        let path2 = path.clone();
+        let writer = std::thread::spawn(move || {
+            let mut client = UnixStream::connect(&path2).unwrap();
+            IpcMessage::Panic.send(&mut client).unwrap();
+            IpcMessage::UpdateGraph { code: "A".to_string() }.send(&mut client).unwrap();
+            all_sent_tx.send(()).unwrap();
+            reader_done_rx.recv().unwrap();
+        });
+
+        let (mut stream, _) = listener.accept().unwrap();
+        all_sent_rx.recv().unwrap();
+
+        let messages = IpcMessage::receive_coalesced(&mut stream).unwrap();
+
+        reader_done_tx.send(()).unwrap();
+        writer.join().unwrap();
+
+        // Panic is not UpdateGraph so receive_coalesced returns it immediately without draining
+        assert_eq!(messages.len(), 1, "expected only Panic, got {:?}", messages);
+        assert!(matches!(messages[0], IpcMessage::Panic), "message must be Panic");
+
+        let _ = std::fs::remove_file(&path);
     }
 }

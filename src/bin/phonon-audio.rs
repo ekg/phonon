@@ -477,82 +477,87 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     IpcMessage::Ready.send(&mut stream)?;
 
     // IPC message loop - receive graph updates from pattern engine
-    // Use receive_coalesced to automatically drain stale UpdateGraph messages
-    loop {
+    // Use receive_coalesced to automatically drain stale UpdateGraph messages.
+    // Returns all messages in arrival order (non-UpdateGraph first, then latest UpdateGraph).
+    'ipc: loop {
         match IpcMessage::receive_coalesced(&mut stream) {
-            Ok(msg) => match msg {
-                IpcMessage::UpdateGraph { code } => {
-                    eprintln!("📦 Received code update ({} bytes)", code.len());
+            Ok(messages) => {
+                for msg in messages {
+                    match msg {
+                        IpcMessage::UpdateGraph { code } => {
+                            eprintln!("📦 Received code update ({} bytes)", code.len());
 
-                    // Parse the DSL code
-                    match parse_program(&code) {
-                        Ok((rest, statements)) => {
-                            if !rest.trim().is_empty() {
-                                eprintln!("⚠️  Failed to parse entire code, remaining: {}", rest);
-                                continue;
-                            }
+                            // Parse the DSL code
+                            match parse_program(&code) {
+                                Ok((rest, statements)) => {
+                                    if !rest.trim().is_empty() {
+                                        eprintln!("⚠️  Failed to parse entire code, remaining: {}", rest);
+                                        continue;
+                                    }
 
-                            // Compile into a graph
-                            match compile_program(statements, sample_rate, None) {
-                                Ok(new_graph) => {
-                                    // CRITICAL: Update GlobalClock's tempo if it changed
-                                    // GlobalClock.set_cps() handles timing continuity automatically!
-                                    // No need for cycle_offset calculation - GlobalClock tracks position.
-                                    let (old_pos, new_pos, old_cps) = {
-                                        let mut clock = global_clock.lock().unwrap();
-                                        let old_cps = clock.get_cps();
-                                        let old_pos = clock.get_position();
-                                        clock.set_cps(new_graph.cps);
-                                        let new_pos = clock.get_position();
-                                        (old_pos, new_pos, old_cps)
-                                    };
+                                    // Compile into a graph
+                                    match compile_program(statements, sample_rate, None) {
+                                        Ok(new_graph) => {
+                                            // CRITICAL: Update GlobalClock's tempo if it changed
+                                            // GlobalClock.set_cps() handles timing continuity automatically!
+                                            // No need for cycle_offset calculation - GlobalClock tracks position.
+                                            let (old_pos, new_pos, old_cps) = {
+                                                let mut clock = global_clock.lock().unwrap();
+                                                let old_cps = clock.get_cps();
+                                                let old_pos = clock.get_position();
+                                                clock.set_cps(new_graph.cps);
+                                                let new_pos = clock.get_position();
+                                                (old_pos, new_pos, old_cps)
+                                            };
 
-                                    // DEBUG: Log timing continuity during graph swap
-                                    eprintln!("🔄 Graph swap: pos={:.4} -> {:.4} (delta={:.6}), cps={:.2} -> {:.2}",
-                                        old_pos, new_pos, new_pos - old_pos, old_cps, new_graph.cps);
+                                            // DEBUG: Log timing continuity during graph swap
+                                            eprintln!("🔄 Graph swap: pos={:.4} -> {:.4} (delta={:.6}), cps={:.2} -> {:.2}",
+                                                old_pos, new_pos, new_pos - old_pos, old_cps, new_graph.cps);
 
-                                    // Swap in new graph (atomic, lock-free)
-                                    // Graph does NOT own timing - it receives timing from GlobalClock
-                                    graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+                                            // Swap in new graph (atomic, lock-free)
+                                            // Graph does NOT own timing - it receives timing from GlobalClock
+                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+                                        }
+                                        Err(e) => {
+                                            eprintln!("❌ Compile error: {}", e);
+                                        }
+                                    }
                                 }
                                 Err(e) => {
-                                    eprintln!("❌ Compile error: {}", e);
+                                    eprintln!("❌ Parse error: {}", e);
                                 }
                             }
                         }
-                        Err(e) => {
-                            eprintln!("❌ Parse error: {}", e);
+
+                        IpcMessage::Hush => {
+                            eprintln!("🔇 Hush - silencing all outputs");
+                            graph.store(Arc::new(None));
+                        }
+
+                        IpcMessage::Panic => {
+                            eprintln!("🛑 Panic - stopping all synthesis");
+                            graph.store(Arc::new(None));
+                        }
+
+                        IpcMessage::SetTempo { cps } => {
+                            eprintln!("⏱️  Setting tempo to {} CPS", cps);
+                            // Update GlobalClock (THE SINGLE SOURCE OF TRUTH)
+                            // GlobalClock.set_cps() handles timing continuity automatically
+                            let mut clock = global_clock.lock().unwrap();
+                            clock.set_cps(cps);
+                        }
+
+                        IpcMessage::Shutdown => {
+                            eprintln!("👋 Shutdown requested");
+                            break 'ipc;
+                        }
+
+                        _ => {
+                            eprintln!("⚠️  Unexpected message from pattern engine: {:?}", msg);
                         }
                     }
                 }
-
-                IpcMessage::Hush => {
-                    eprintln!("🔇 Hush - silencing all outputs");
-                    graph.store(Arc::new(None));
-                }
-
-                IpcMessage::Panic => {
-                    eprintln!("🛑 Panic - stopping all synthesis");
-                    graph.store(Arc::new(None));
-                }
-
-                IpcMessage::SetTempo { cps } => {
-                    eprintln!("⏱️  Setting tempo to {} CPS", cps);
-                    // Update GlobalClock (THE SINGLE SOURCE OF TRUTH)
-                    // GlobalClock.set_cps() handles timing continuity automatically
-                    let mut clock = global_clock.lock().unwrap();
-                    clock.set_cps(cps);
-                }
-
-                IpcMessage::Shutdown => {
-                    eprintln!("👋 Shutdown requested");
-                    break;
-                }
-
-                _ => {
-                    eprintln!("⚠️  Unexpected message from pattern engine: {:?}", msg);
-                }
-            },
+            }
             Err(e) => {
                 eprintln!("❌ IPC error: {}", e);
                 break;
