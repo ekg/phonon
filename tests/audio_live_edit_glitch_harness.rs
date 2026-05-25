@@ -39,6 +39,8 @@
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::ipc::IpcMessage;
+use std::os::unix::net::UnixListener;
 use std::time::Instant;
 
 // ---------------------------------------------------------------------------
@@ -715,6 +717,294 @@ fn test_audio_live_edit_glitch_harness() {
             failures.len()
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Reload helpers that mirror specific binary code paths
+// ---------------------------------------------------------------------------
+
+/// Mirrors the Commands::Live reload sequence in src/main.rs.
+///
+/// In the real binary, state transfer uses try_borrow_mut with retry; in the
+/// headless harness we hold exclusive ownership, so a direct call is equivalent.
+fn live_reload_commands_live_path(
+    old_graph: &mut phonon::unified_graph::UnifiedSignalGraph,
+    new_code: &str,
+) -> (phonon::unified_graph::UnifiedSignalGraph, u64) {
+    let t0 = Instant::now();
+
+    let mut new_graph = compile_graph(new_code);
+
+    // Same sequence as main.rs Commands::Live reload block
+    new_graph.enable_wall_clock_timing();
+    new_graph.transfer_session_timing(old_graph);
+    new_graph.transfer_fx_states(old_graph);
+    new_graph.transfer_voice_manager(old_graph.take_voice_manager());
+    new_graph.preload_samples();
+
+    (new_graph, t0.elapsed().as_micros() as u64)
+}
+
+/// Mirrors the LiveSession::load_file sequence in src/live.rs.
+///
+/// The live.rs path reads from a file; we pass the code directly as &str
+/// because the headless harness has no filesystem dependency.
+fn live_reload_live_rs_path(
+    old_graph: &mut phonon::unified_graph::UnifiedSignalGraph,
+    new_code: &str,
+) -> (phonon::unified_graph::UnifiedSignalGraph, u64) {
+    let t0 = Instant::now();
+
+    // Mirrors live.rs: parse_program → check rest → compile_program
+    let (rest, statements) = parse_program(new_code).expect("parse_program failed");
+    assert!(
+        rest.trim().is_empty(),
+        "Parser left unconsumed input: {:?}",
+        rest
+    );
+    let mut new_graph =
+        compile_program(statements, SAMPLE_RATE, None).expect("compile_program failed");
+
+    // Same sequence as LiveSession::load_file
+    new_graph.enable_wall_clock_timing();
+    new_graph.transfer_session_timing(old_graph);
+    new_graph.transfer_fx_states(old_graph);
+    new_graph.transfer_voice_manager(old_graph.take_voice_manager());
+    new_graph.preload_samples();
+
+    (new_graph, t0.elapsed().as_micros() as u64)
+}
+
+/// Generic `run_cycle` parameterised over the reload function.
+fn run_cycle_with<F>(
+    scenario: &'static str,
+    code_before: &str,
+    code_after: &str,
+    after_is_silent: bool,
+    reload_fn: F,
+) -> CycleResult
+where
+    F: FnOnce(
+        &mut phonon::unified_graph::UnifiedSignalGraph,
+        &str,
+    ) -> (phonon::unified_graph::UnifiedSignalGraph, u64),
+{
+    let mut graph = compile_graph(code_before);
+    graph.enable_wall_clock_timing();
+    graph.preload_samples();
+
+    let mut pre_buffers: Vec<Vec<f32>> = Vec::with_capacity(PRE_BUFFERS);
+    for _ in 0..PRE_BUFFERS {
+        let mut buf = vec![0.0f32; BUFFER_LEN];
+        graph.process_buffer(&mut buf);
+        pre_buffers.push(buf);
+    }
+
+    let pre_metrics: Vec<BufferMetrics> = pre_buffers.iter().map(|b| analyze_buffer(b)).collect();
+    let pre_rms_avg = pre_metrics.iter().map(|m| m.rms).sum::<f32>() / PRE_BUFFERS as f32;
+    let pre_nan: usize = pre_metrics.iter().map(|m| m.nan_count).sum();
+    let pre_inf: usize = pre_metrics.iter().map(|m| m.inf_count).sum();
+    let pre_clip_severe = pre_metrics.iter().any(|m| m.has_severe_clip(BUFFER_LEN));
+
+    let (mut new_graph, reload_time_us) = reload_fn(&mut graph, code_after);
+
+    let mut post_buffers: Vec<Vec<f32>> = Vec::with_capacity(POST_BUFFERS);
+    for _ in 0..POST_BUFFERS {
+        let mut buf = vec![0.0f32; BUFFER_LEN];
+        new_graph.process_buffer(&mut buf);
+        post_buffers.push(buf);
+    }
+
+    let post_metrics: Vec<BufferMetrics> =
+        post_buffers.iter().map(|b| analyze_buffer(b)).collect();
+    let post_rms_avg = post_metrics.iter().map(|m| m.rms).sum::<f32>() / POST_BUFFERS as f32;
+    let post_nan: usize = post_metrics.iter().map(|m| m.nan_count).sum();
+    let post_inf: usize = post_metrics.iter().map(|m| m.inf_count).sum();
+    let post_clip_severe = post_metrics.iter().any(|m| m.has_severe_clip(BUFFER_LEN));
+    let post_silent = !after_is_silent && post_metrics.iter().all(|m| m.is_silent(true));
+    let post_stuck = is_stuck(
+        pre_buffers.last().unwrap(),
+        post_buffers.first().unwrap(),
+    );
+    let boundary_disc = boundary_discontinuity(
+        pre_buffers.last().unwrap(),
+        post_buffers.first().unwrap(),
+    );
+    let pre_last_rms = pre_metrics.last().map(|m| m.rms).unwrap_or(0.0);
+    let post_first_rms = post_metrics.first().map(|m| m.rms).unwrap_or(0.0);
+    let rms_jump_ratio = if pre_last_rms > 1e-6 {
+        (post_first_rms / pre_last_rms).max(pre_last_rms / post_first_rms.max(1e-6))
+    } else {
+        1.0
+    };
+
+    CycleResult {
+        scenario,
+        reload_time_us,
+        pre_rms_avg,
+        pre_nan,
+        pre_inf,
+        pre_clip_severe,
+        boundary_disc,
+        post_rms_avg,
+        post_nan,
+        post_inf,
+        post_clip_severe,
+        post_silent,
+        post_stuck,
+        rms_jump_ratio,
+    }
+}
+
+/// Shared assertion logic for a 10-cycle glitch run.
+///
+/// Validates hard-failure metrics: NaN=0, Inf=0, clip=0, silence=0,
+/// stuck=0, max_disc < 0.35.
+fn assert_10_cycle_results(label: &str, results: &[CycleResult]) {
+    let total_nan: usize = results.iter().map(|r| r.pre_nan + r.post_nan).sum();
+    let total_inf: usize = results.iter().map(|r| r.pre_inf + r.post_inf).sum();
+    let clip_cycles: usize = results.iter().filter(|r| r.has_severe_clipping()).count();
+    let silent_cycles: usize = results.iter().filter(|r| r.post_silent).count();
+    let stuck_cycles: usize = results.iter().filter(|r| r.post_stuck).count();
+    let max_disc: f32 = results
+        .iter()
+        .map(|r| r.boundary_disc)
+        .fold(0.0f32, f32::max);
+
+    println!("\n=== {} Summary ({} cycles) ===", label, results.len());
+    println!("  NaN: {}  Inf: {}  Clip: {}  Silence: {}  Stuck: {}  max_disc: {:.4}",
+        total_nan, total_inf, clip_cycles, silent_cycles, stuck_cycles, max_disc);
+
+    let mut failures: Vec<String> = Vec::new();
+    if total_nan > 0 {
+        failures.push(format!("NaN samples: {}", total_nan));
+    }
+    if total_inf > 0 {
+        failures.push(format!("Inf samples: {}", total_inf));
+    }
+    if clip_cycles > 0 {
+        failures.push(format!("Severe clipping in {} cycles", clip_cycles));
+    }
+    if silent_cycles > 0 {
+        failures.push(format!("Unexpected silence in {} cycles", silent_cycles));
+    }
+    if stuck_cycles > 0 {
+        failures.push(format!("Stuck output in {} cycles", stuck_cycles));
+    }
+    if max_disc >= 0.35 {
+        failures.push(format!("max_disc {:.4} >= 0.35", max_disc));
+    }
+
+    if !failures.is_empty() {
+        panic!("{}: {} failure(s): {:?}", label, failures.len(), failures);
+    }
+    println!("  PASSED");
+}
+
+// ---------------------------------------------------------------------------
+// Phonon-live (Commands::Live) reload harness — 10 cycles
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_glitch_harness_phonon_live_reload() {
+    const CYCLES: usize = 10;
+    let all_scenarios = scenarios();
+    println!("\n=== Phonon-Live Reload Glitch Harness ({} cycles) ===", CYCLES);
+
+    let results: Vec<CycleResult> = all_scenarios[..CYCLES]
+        .iter()
+        .map(|&(name, before, after)| {
+            let after_is_silent = name.contains("silence");
+            run_cycle_with(name, before, after, after_is_silent, |old, code| {
+                live_reload_commands_live_path(old, code)
+            })
+        })
+        .collect();
+
+    assert_10_cycle_results("phonon-live-reload", &results);
+}
+
+// ---------------------------------------------------------------------------
+// live.rs (LiveSession::load_file) reload harness — 10 cycles
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_glitch_harness_live_rs_reload() {
+    const CYCLES: usize = 10;
+    let all_scenarios = scenarios();
+    println!("\n=== live.rs Reload Glitch Harness ({} cycles) ===", CYCLES);
+
+    let results: Vec<CycleResult> = all_scenarios[..CYCLES]
+        .iter()
+        .map(|&(name, before, after)| {
+            let after_is_silent = name.contains("silence");
+            run_cycle_with(name, before, after, after_is_silent, |old, code| {
+                live_reload_live_rs_path(old, code)
+            })
+        })
+        .collect();
+
+    assert_10_cycle_results("live-rs-reload", &results);
+}
+
+// ---------------------------------------------------------------------------
+// IPC coalescing regression test
+// ---------------------------------------------------------------------------
+
+/// Verify that receive_coalesced preserves emergency messages (Hush) while
+/// dropping stale UpdateGraph messages, keeping only the newest one.
+///
+/// Sequence: [UpdateGraph(A), UpdateGraph(B), Hush, UpdateGraph(C)]
+/// Expected: [Hush, UpdateGraph(C)]  — A and B are dropped, Hush is kept.
+#[test]
+fn test_ipc_coalescing_preserves_emergency_messages() {
+    use std::sync::mpsc;
+
+    let path = format!("/tmp/phonon_test_coalesce_{}.sock", std::process::id());
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+
+    let (all_sent_tx, all_sent_rx) = mpsc::channel::<()>();
+    let (reader_done_tx, reader_done_rx) = mpsc::channel::<()>();
+
+    let path2 = path.clone();
+    let writer = std::thread::spawn(move || {
+        let mut client = std::os::unix::net::UnixStream::connect(&path2).unwrap();
+        IpcMessage::UpdateGraph { code: "A".to_string() }.send(&mut client).unwrap();
+        IpcMessage::UpdateGraph { code: "B".to_string() }.send(&mut client).unwrap();
+        IpcMessage::Hush.send(&mut client).unwrap();
+        IpcMessage::UpdateGraph { code: "C".to_string() }.send(&mut client).unwrap();
+        all_sent_tx.send(()).unwrap();
+        reader_done_rx.recv().unwrap();
+    });
+
+    let (mut stream, _) = listener.accept().unwrap();
+    all_sent_rx.recv().unwrap(); // all 4 messages in kernel buffer
+
+    let messages = IpcMessage::receive_coalesced(&mut stream).unwrap();
+
+    reader_done_tx.send(()).unwrap();
+    writer.join().unwrap();
+
+    let _ = std::fs::remove_file(&path);
+
+    // Hush must be preserved; only the newest UpdateGraph (C) retained; A and B dropped.
+    assert_eq!(
+        messages.len(), 2,
+        "expected [Hush, UpdateGraph(C)], got {:?}", messages
+    );
+    assert!(
+        matches!(messages[0], IpcMessage::Hush),
+        "first message must be Hush, got {:?}", messages[0]
+    );
+    match &messages[1] {
+        IpcMessage::UpdateGraph { code } => {
+            assert_eq!(code, "C", "expected UpdateGraph(C), got code={:?}", code);
+        }
+        other => panic!("second message must be UpdateGraph(C), got {:?}", other),
+    }
+
+    println!("  IPC coalescing: Hush preserved, UpdateGraph(C) kept, A+B dropped. PASSED");
 }
 
 // ---------------------------------------------------------------------------
