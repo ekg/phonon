@@ -97,16 +97,16 @@ fn calculate_tempo_from_onsets(onsets: &[Event], _cps: f64) -> Option<f64> {
 #[test]
 fn test_bpm_60_produces_correct_tempo() {
     // BPM 60 = 1 beat per second
-    // With 4 beats per cycle → 0.25 cycles per second
+    // Phonon treats one beat as one cycle → 1.0 cycles per second
     let code = r#"
         bpm: 60
         out $ s "bd"
     "#;
 
     let duration = 8.0; // 8 seconds
-    let expected_cps = 60.0 / 240.0; // 0.25 cps
-    let expected_cycles = duration * expected_cps; // 2 cycles
-    let expected_events = expected_cycles as usize; // 2 events (1 per cycle)
+    let expected_cps = 60.0 / 60.0; // 1.0 cps
+    let expected_cycles = duration * expected_cps; // 8 cycles
+    let expected_events = expected_cycles as usize; // 8 events (1 per cycle)
 
     let audio = render_dsl(code, duration);
 
@@ -120,106 +120,6 @@ fn test_bpm_60_produces_correct_tempo() {
     println!("  Expected events: {}", expected_events);
     println!("  Detected onsets: {}", onsets.len());
     for (i, onset) in onsets.iter().enumerate() {
-        println!("    Onset {}: {:.3}s", i + 1, onset.time);
-    }
-
-    // Verify onset count (allow ±1 for boundary effects)
-    assert!(
-        onsets.len() >= expected_events - 1 && onsets.len() <= expected_events + 1,
-        "Expected ~{} onsets, got {}",
-        expected_events,
-        onsets.len()
-    );
-
-    // Verify onset timing - should be ~4 seconds apart (1 cycle = 4 seconds at 0.25 cps)
-    if onsets.len() >= 2 {
-        let interval = onsets[1].time - onsets[0].time;
-        let expected_interval = 1.0 / expected_cps; // 4.0 seconds
-        assert!(
-            (interval - expected_interval).abs() < 0.1,
-            "Expected interval ~{:.3}s, got {:.3}s",
-            expected_interval,
-            interval
-        );
-    }
-}
-
-#[test]
-fn test_bpm_120_produces_correct_tempo() {
-    // BPM 120 = 2 beats per second
-    // With 4 beats per cycle → 0.5 cycles per second
-    let code = r#"
-        bpm: 120
-        out $ s "bd"
-    "#;
-
-    let duration = 8.0; // 8 seconds
-    let expected_cps = 120.0 / 240.0; // 0.5 cps
-    let expected_cycles = duration * expected_cps; // 4 cycles
-    let expected_events = expected_cycles as usize; // 4 events (1 per cycle)
-
-    let audio = render_dsl(code, duration);
-
-    // Level 2: Onset detection with minimum 100ms between onsets
-    // This filters out internal sample structure
-    let onsets = detect_musical_onsets(&audio, 44100.0, 0.02, 100.0);
-
-    println!("BPM 120 test:");
-    println!("  Expected CPS: {:.3}", expected_cps);
-    println!("  Expected cycles: {:.3}", expected_cycles);
-    println!("  Expected events: {}", expected_events);
-    println!("  Detected onsets: {}", onsets.len());
-    for (i, onset) in onsets.iter().enumerate() {
-        println!("    Onset {}: {:.3}s", i + 1, onset.time);
-    }
-
-    // Verify onset count (allow ±1 for boundary effects)
-    assert!(
-        onsets.len() >= expected_events - 1 && onsets.len() <= expected_events + 1,
-        "Expected ~{} onsets, got {}",
-        expected_events,
-        onsets.len()
-    );
-
-    // Verify onset timing - should be ~2 seconds apart (1 cycle = 2 seconds at 0.5 cps)
-    if onsets.len() >= 2 {
-        let interval = onsets[1].time - onsets[0].time;
-        let expected_interval = 1.0 / expected_cps; // 2.0 seconds
-        assert!(
-            (interval - expected_interval).abs() < 0.1,
-            "Expected interval ~{:.3}s, got {:.3}s",
-            expected_interval,
-            interval
-        );
-    }
-}
-
-#[test]
-fn test_bpm_240_produces_correct_tempo() {
-    // BPM 240 = 4 beats per second
-    // With 4 beats per cycle → 1.0 cycles per second
-    let code = r#"
-        bpm: 240
-        out $ s "bd"
-    "#;
-
-    let duration = 8.0; // 8 seconds
-    let expected_cps = 240.0 / 240.0; // 1.0 cps
-    let expected_cycles = duration * expected_cps; // 8 cycles
-    let expected_events = expected_cycles as usize; // 8 events (1 per cycle)
-
-    let audio = render_dsl(code, duration);
-
-    // Level 2: Onset detection with minimum 100ms between onsets
-    // This filters out internal sample structure
-    let onsets = detect_musical_onsets(&audio, 44100.0, 0.02, 100.0);
-
-    println!("BPM 240 test:");
-    println!("  Expected CPS: {:.3}", expected_cps);
-    println!("  Expected cycles: {:.3}", expected_cycles);
-    println!("  Expected events: {}", expected_events);
-    println!("  Detected onsets: {}", onsets.len());
-    for (i, onset) in onsets.iter().enumerate().take(10) {
         println!("    Onset {}: {:.3}s", i + 1, onset.time);
     }
 
@@ -245,10 +145,110 @@ fn test_bpm_240_produces_correct_tempo() {
 }
 
 #[test]
+fn test_bpm_120_produces_correct_tempo() {
+    // BPM 120 = 2 beats per second
+    // Phonon treats one beat as one cycle → 2.0 cycles per second
+    let code = r#"
+        bpm: 120
+        out $ s "bd"
+    "#;
+
+    let duration = 8.0; // 8 seconds
+    let expected_cps = 120.0 / 60.0; // 2.0 cps
+    let expected_cycles = duration * expected_cps; // 16 cycles
+    let expected_events = expected_cycles as usize; // 16 events (1 per cycle)
+
+    let audio = render_dsl(code, duration);
+
+    // Level 2: Onset detection with minimum 100ms between onsets
+    // This filters out internal sample structure
+    let onsets = detect_musical_onsets(&audio, 44100.0, 0.02, 100.0);
+
+    println!("BPM 120 test:");
+    println!("  Expected CPS: {:.3}", expected_cps);
+    println!("  Expected cycles: {:.3}", expected_cycles);
+    println!("  Expected events: {}", expected_events);
+    println!("  Detected onsets: {}", onsets.len());
+    for (i, onset) in onsets.iter().enumerate() {
+        println!("    Onset {}: {:.3}s", i + 1, onset.time);
+    }
+
+    // Verify onset count (allow ±1 for boundary effects)
+    assert!(
+        onsets.len() >= expected_events - 1 && onsets.len() <= expected_events + 1,
+        "Expected ~{} onsets, got {}",
+        expected_events,
+        onsets.len()
+    );
+
+    // Verify onset timing - should be ~0.5 seconds apart (1 cycle = 0.5 seconds at 2.0 cps)
+    if onsets.len() >= 2 {
+        let interval = onsets[1].time - onsets[0].time;
+        let expected_interval = 1.0 / expected_cps; // 0.5 seconds
+        assert!(
+            (interval - expected_interval).abs() < 0.1,
+            "Expected interval ~{:.3}s, got {:.3}s",
+            expected_interval,
+            interval
+        );
+    }
+}
+
+#[test]
+fn test_bpm_240_produces_correct_tempo() {
+    // BPM 240 = 4 beats per second
+    // Phonon treats one beat as one cycle → 4.0 cycles per second
+    let code = r#"
+        bpm: 240
+        out $ s "bd"
+    "#;
+
+    let duration = 8.0; // 8 seconds
+    let expected_cps = 240.0 / 60.0; // 4.0 cps
+    let expected_cycles = duration * expected_cps; // 32 cycles
+    let expected_events = expected_cycles as usize; // 32 events (1 per cycle)
+
+    let audio = render_dsl(code, duration);
+
+    // Level 2: Onset detection with minimum 100ms between onsets
+    // This filters out internal sample structure
+    let onsets = detect_musical_onsets(&audio, 44100.0, 0.02, 100.0);
+
+    println!("BPM 240 test:");
+    println!("  Expected CPS: {:.3}", expected_cps);
+    println!("  Expected cycles: {:.3}", expected_cycles);
+    println!("  Expected events: {}", expected_events);
+    println!("  Detected onsets: {}", onsets.len());
+    for (i, onset) in onsets.iter().enumerate().take(10) {
+        println!("    Onset {}: {:.3}s", i + 1, onset.time);
+    }
+
+    // Verify onset count (allow ±1 for boundary effects)
+    assert!(
+        onsets.len() >= expected_events - 1 && onsets.len() <= expected_events + 1,
+        "Expected ~{} onsets, got {}",
+        expected_events,
+        onsets.len()
+    );
+
+    // Verify onset timing - should be ~0.25 seconds apart (1 cycle = 0.25 seconds at 4.0 cps)
+    if onsets.len() >= 2 {
+        let interval = onsets[1].time - onsets[0].time;
+        let expected_interval = 1.0 / expected_cps; // 0.25 seconds
+        assert!(
+            (interval - expected_interval).abs() < 0.1,
+            "Expected interval ~{:.3}s, got {:.3}s",
+            expected_interval,
+            interval
+        );
+    }
+}
+
+#[test]
 fn test_tempo_cps_directly() {
     // tempo: X sets cycles per second directly (not BPM)
     let code = r#"
-        tempo: 0.5
+        tempo: 2.0
         out $ s "bd"
     "#;
 
@@ -299,10 +299,10 @@ fn test_bpm_with_multiple_events_per_cycle() {
     "#;
 
     let duration = 4.0; // 4 seconds
-    let expected_cps = 120.0 / 240.0; // 0.5 cps
-    let expected_cycles = duration * expected_cps; // 2 cycles
+    let expected_cps = 120.0 / 60.0; // 2.0 cps
+    let expected_cycles = duration * expected_cps; // 8 cycles
     let events_per_cycle = 4;
-    let expected_events = (expected_cycles * events_per_cycle as f64) as usize; // 8 events
+    let expected_events = (expected_cycles * events_per_cycle as f64) as usize; // 32 events
 
     let audio = render_dsl(code, duration);
 
@@ -341,7 +341,7 @@ fn test_bpm_with_multiple_events_per_cycle() {
         }
         let avg_interval = total_interval / (onsets.len().min(5) - 1) as f64;
 
-        // Expected: 1 cycle = 2 seconds, 4 events per cycle → 0.5 seconds per event
+        // Expected: 1 cycle = 0.5 seconds, 4 events per cycle → 0.125 seconds per event
         let expected_interval = 1.0 / (expected_cps * events_per_cycle as f64);
 
         println!(
@@ -360,16 +360,16 @@ fn test_bpm_with_multiple_events_per_cycle() {
 
 #[test]
 fn test_bpm_120_matches_expected_cycle_duration() {
-    // This is the key test for the "240 BPM" issue
-    // Verify that BPM 120 actually produces 2-second cycles, not 1-second cycles
+    // This is the key test for the "240 BPM" doubling issue
+    // Verify that BPM 120 produces 0.5-second cycles (2.0 cps), not doubled to 0.25s
     let code = r#"
         bpm: 120
         out $ s "bd ~ ~ ~"
     "#;
 
     let duration = 8.0; // 8 seconds
-    let expected_cps = 0.5; // 120 BPM ÷ 240 = 0.5 cps
-    let expected_cycle_duration = 2.0; // 1 / 0.5 cps = 2 seconds per cycle
+    let expected_cps = 2.0; // 120 BPM / 60 = 2.0 cps
+    let expected_cycle_duration = 0.5; // 1 / 2.0 cps = 0.5 seconds per cycle
 
     let audio = render_dsl(code, duration);
     let onsets = detect_musical_onsets(&audio, 44100.0, 0.02, 100.0);
@@ -382,10 +382,10 @@ fn test_bpm_120_matches_expected_cycle_duration() {
         println!("    Onset {}: {:.3}s", i + 1, onset.time);
     }
 
-    // Should have 4 events (1 per cycle, 4 cycles in 8 seconds)
+    // Should have 16 events (1 per cycle, 16 cycles in 8 seconds)
     assert!(
-        onsets.len() >= 3 && onsets.len() <= 5,
-        "Expected 4 onsets (±1), got {}",
+        onsets.len() >= 15 && onsets.len() <= 17,
+        "Expected 16 onsets (±1), got {}",
         onsets.len()
     );
 
@@ -394,19 +394,19 @@ fn test_bpm_120_matches_expected_cycle_duration() {
         let measured_cycle_duration = onsets[1].time - onsets[0].time;
         println!("  Measured cycle duration: {:.3}s", measured_cycle_duration);
 
-        // If this is 1.0 seconds, BPM is being doubled (240 BPM instead of 120)
-        // If this is 2.0 seconds, BPM is correct
+        // If this is 0.25 seconds, BPM is being doubled (240 BPM instead of 120)
+        // If this is 0.5 seconds, BPM is correct
         assert!(
             (measured_cycle_duration - expected_cycle_duration).abs() < 0.1,
-            "Expected cycle duration {:.3}s, got {:.3}s. BPM may be doubled!",
+            "Expected cycle duration {:.3}s, got {:.3}s. BPM may be wrong!",
             expected_cycle_duration,
             measured_cycle_duration
         );
 
-        // Verify it's NOT running at 240 BPM (which would be 1.0 second cycles)
+        // Verify it's NOT running at 240 BPM (which would be 0.25 second cycles)
         assert!(
-            (measured_cycle_duration - 1.0).abs() > 0.5,
-            "Cycle duration is ~1.0s, suggesting BPM is doubled to 240!"
+            (measured_cycle_duration - 0.25).abs() > 0.1,
+            "Cycle duration is ~0.25s, suggesting BPM is doubled to 240!"
         );
     }
 }

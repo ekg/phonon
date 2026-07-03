@@ -570,11 +570,11 @@ out $ sine "220 440 660 880" * 0.3
 "#;
     let mut graph = compile_code(code, sample_rate);
 
-    // Initial CPS should be 0.5 (120 BPM / (4 beats * 60))
+    // Initial CPS should be 2.0 (120 BPM / 60; time signature does not affect CPS)
     let initial_cps = graph.get_cps();
     assert!(
-        (initial_cps - 0.5).abs() < 0.001,
-        "Initial CPS should be 0.5, got {}",
+        (initial_cps - 2.0).abs() < 0.001,
+        "Initial CPS should be 2.0, got {}",
         initial_cps
     );
 
@@ -596,11 +596,11 @@ out $ sine "220 440 660 880" * 0.3
     let audio = graph.render(22050); // 0.5 seconds
     assert!(has_audio(&audio, 0.01), "Should produce audio");
 
-    // Position should have advanced by ~0.25 cycles (0.5 sec * 0.5 CPS)
+    // Position should have advanced by ~1.0 cycle (0.5 sec * 2.0 CPS): 2.75 -> 3.75
     let pos_after = graph.get_cycle_position();
     assert!(
-        pos_after > 2.9 && pos_after < 3.1,
-        "Position should be ~3.0, got {}",
+        pos_after > 3.65 && pos_after < 3.85,
+        "Position should be ~3.75, got {}",
         pos_after
     );
 
