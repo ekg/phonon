@@ -380,6 +380,7 @@ pub mod signal_graph;
 pub mod signal_parser;
 pub mod simple_dsp_executor;
 pub mod simple_dsp_executor_v2;
+pub mod stress_harness;
 pub mod superdirt_synths;
 pub mod synth_defs;
 pub mod synth_voice;
