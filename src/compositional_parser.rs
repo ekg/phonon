@@ -209,6 +209,9 @@ pub enum Transform {
     Bite { n: Box<Expr>, selector: Box<Expr> },
     /// slice n indices: reorder n slices by indices pattern
     Slice { n: Box<Expr>, indices: Box<Expr> },
+    /// splice n indices: like slice, but time-stretches each slice (via speed)
+    /// so it fills its event duration (beat-locked slicing)
+    Splice { n: Box<Expr>, indices: Box<Expr> },
     /// struct pattern: apply structure/rhythm from pattern to values
     Struct(Box<Expr>),
     /// scramble n: Fisher-Yates shuffle of events

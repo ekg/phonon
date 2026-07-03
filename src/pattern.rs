@@ -1433,6 +1433,63 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Stitch - interleave two value patterns using a boolean pattern for STRUCTURE.
+    ///
+    /// This is the complement of `sew`: where `sew` takes its structure from the two
+    /// value patterns (the boolean just selects which is audible over time regions),
+    /// `stitch` takes its structure from the boolean pattern. Each boolean event
+    /// yields exactly one output event, whose value is sampled from `pat_true` when
+    /// the boolean is true and from `pat_false` when false.
+    ///
+    /// Example: stitch("t f t f", a, b) -> 4 events; a's value where true, b's where
+    /// false. With a = "1 2 3" and b = "4 5 6" this yields [1, 4, 2, 6].
+    pub fn stitch(
+        bool_pattern: Pattern<String>,
+        pat_true: Pattern<T>,
+        pat_false: Pattern<T>,
+    ) -> Pattern<T> {
+        Pattern::new(move |state| {
+            let mut result = Vec::new();
+
+            // Structure comes from the boolean pattern
+            let bool_events = bool_pattern.query(state);
+
+            for bool_hap in bool_events {
+                // Parse boolean value (accept "t"/"true"/"1" for true; else false)
+                let is_true = match bool_hap.value.to_lowercase().as_str() {
+                    "t" | "true" | "1" => true,
+                    "f" | "false" | "0" => false,
+                    _ => false, // Default to false for unrecognized values
+                };
+
+                // Choose which value pattern to sample from
+                let source_pattern = if is_true { &pat_true } else { &pat_false };
+
+                // Sample the chosen pattern at this boolean event's ONSET, then stamp
+                // that value onto the boolean event's timespan (structure from bool).
+                let onset = bool_hap
+                    .whole
+                    .map(|w| w.begin)
+                    .unwrap_or(bool_hap.part.begin);
+                let sample_state = State {
+                    span: TimeSpan::new(onset, onset + Fraction::from_float(1e-6)),
+                    controls: state.controls.clone(),
+                };
+
+                if let Some(value_hap) = source_pattern.query(&sample_state).into_iter().next() {
+                    result.push(Hap {
+                        whole: bool_hap.whole,
+                        part: bool_hap.part,
+                        value: value_hap.value,
+                        context: value_hap.context,
+                    });
+                }
+            }
+
+            result
+        })
+    }
+
     /// Stripe - repeat pattern N times over N cycles at random speeds
     /// Creates rhythmic variation while maintaining sync
     /// Example: stripe(3, pat) repeats pattern 3 times over 3 cycles at varying speeds
@@ -1826,6 +1883,115 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         hap.context
                             .insert("begin".to_string(), slice_begin.to_string());
                         hap.context.insert("end".to_string(), slice_end.to_string());
+
+                        result.push(hap);
+                    }
+                }
+            }
+
+            result
+        })
+    }
+
+    /// splice_pattern n indices_pattern - like `slice_pattern`, but ALSO sets the
+    /// playback `speed` on each event so the slice is time-stretched to exactly fill
+    /// its event duration (beat-locked slicing, matching Tidal's `splice`).
+    ///
+    /// The distinguishing feature vs `slice`: with `slice` each slice plays at its
+    /// natural speed (leaving gaps if the slot is longer than the slice); with
+    /// `splice` the slice is stretched/compressed to the grid.
+    ///
+    /// speed = slice_size / event_duration = (1/n) / event_duration_in_cycles
+    /// A slice of size 1/n played at that speed fills the event's whole slot,
+    /// assuming the source sample spans one cycle at speed 1 (the loopAt/`unit "c"`
+    /// convention used elsewhere in phonon).
+    ///
+    /// Example: splice_pattern(8, "0 1 2 3") -> 4 events, each a 1/8 slice played
+    /// at speed 0.5 so it fills its 1/4-cycle slot.
+    pub fn splice_pattern(self, n: usize, indices: Pattern<String>) -> Self {
+        if n == 0 {
+            return Pattern::silence();
+        }
+
+        Pattern::new(move |state| {
+            // Query the indices pattern to find which slice to use
+            let index_haps = indices.query(state);
+
+            let mut result = Vec::new();
+
+            for index_hap in index_haps {
+                // Parse the index value
+                let index_str = &index_hap.value;
+                if let Ok(index_value) = index_str.parse::<usize>() {
+                    let slice_index = index_value % n;
+
+                    // Calculate slice boundaries
+                    let slice_begin = slice_index as f64 / n as f64;
+                    let slice_end = (slice_index + 1) as f64 / n as f64;
+
+                    // Query the pattern for this slice within the event's time span
+                    let event_begin = index_hap.part.begin;
+                    let event_end = index_hap.part.end;
+                    let event_duration = event_end - event_begin;
+
+                    // Speed so the slice fills its event's WHOLE duration (onset to
+                    // onset). Fall back to the part duration for clipped fragments.
+                    let whole_duration = index_hap
+                        .whole
+                        .map(|w| (w.end - w.begin).to_float())
+                        .unwrap_or_else(|| event_duration.to_float());
+                    let slice_size = 1.0 / n as f64;
+                    let speed = if whole_duration > 1e-9 {
+                        slice_size / whole_duration
+                    } else {
+                        1.0
+                    };
+
+                    // Map the slice to the event's time window
+                    let query_begin = Fraction::from_float(slice_begin);
+                    let query_end = Fraction::from_float(slice_end);
+
+                    let slice_state = State {
+                        span: TimeSpan::new(query_begin, query_end),
+                        controls: state.controls.clone(),
+                    };
+
+                    let slice_haps = self.query(&slice_state);
+
+                    // Map the slice events to the index event's time window
+                    for mut hap in slice_haps {
+                        let hap_begin = hap.part.begin.to_float();
+                        let hap_end = hap.part.end.to_float();
+
+                        // Normalize to 0-1 within the slice
+                        let slice_duration = slice_end - slice_begin;
+                        let norm_begin = (hap_begin - slice_begin) / slice_duration;
+                        let norm_end = (hap_end - slice_begin) / slice_duration;
+
+                        // Map to event window
+                        let new_begin =
+                            event_begin + event_duration * Fraction::from_float(norm_begin);
+                        let new_end = event_begin + event_duration * Fraction::from_float(norm_end);
+
+                        hap.part = TimeSpan::new(new_begin, new_end);
+                        hap.whole = hap.whole.map(|w| {
+                            let w_begin = w.begin.to_float();
+                            let w_end = w.end.to_float();
+                            let norm_w_begin = (w_begin - slice_begin) / slice_duration;
+                            let norm_w_end = (w_end - slice_begin) / slice_duration;
+                            TimeSpan::new(
+                                event_begin + event_duration * Fraction::from_float(norm_w_begin),
+                                event_begin + event_duration * Fraction::from_float(norm_w_end),
+                            )
+                        });
+
+                        // Add begin/end to context for sample slicing
+                        hap.context
+                            .insert("begin".to_string(), slice_begin.to_string());
+                        hap.context.insert("end".to_string(), slice_end.to_string());
+                        // Distinguishing feature of splice: playback speed stretches
+                        // the slice to fill its event slot.
+                        hap.context.insert("speed".to_string(), speed.to_string());
 
                         result.push(hap);
                     }

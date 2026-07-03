@@ -73,6 +73,10 @@ fn parse_transform_from_call(name: &str, args: &[Expr]) -> Result<Transform, Str
             n: Box::new(args[0].clone()),
             indices: Box::new(args[1].clone()),
         }),
+        "splice" if args.len() == 2 => Ok(Transform::Splice {
+            n: Box::new(args[0].clone()),
+            indices: Box::new(args[1].clone()),
+        }),
         "chop" if args.len() == 1 => Ok(Transform::Chop(Box::new(args[0].clone()))),
         "striate" if args.len() == 1 => Ok(Transform::Striate(Box::new(args[0].clone()))),
 
@@ -106,7 +110,7 @@ fn parse_transform_from_call(name: &str, args: &[Expr]) -> Result<Transform, Str
                 "stutter", "stut",
                 "shuffle", "scramble",
                 "iter", "loopAt", "ply",
-                "slice", "chop", "striate",
+                "slice", "splice", "chop", "striate",
                 "swing", "groove",
                 "compress", "zoom",
             ];
@@ -2515,6 +2519,7 @@ fn compile_function_call(
         "slowcat" => compile_slowcat(ctx, args),
         "wedge" => compile_wedge(ctx, args),
         "sew" => compile_sew(ctx, args),
+        "stitch" => compile_stitch(ctx, args),
 
         // ========== Sample playback ==========
         "s" => {
@@ -3592,6 +3597,70 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let combined_pattern = Pattern::sew(bool_pattern, pat_true, pat_false);
     let combined_str = format!(
         "sew \"{}\" \"{}\" \"{}\"",
+        bool_str, pat_true_str, pat_false_str
+    );
+
+    // Create a Sample node with the combined pattern
+    let node = SignalNode::Sample {
+        pattern_str: combined_str,
+        pattern: combined_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.0),
+        release: Signal::Value(0.0),
+        envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile a `stitch` combinator: interleave two value patterns using a boolean
+/// pattern for STRUCTURE (the complement of `sew`, which takes structure from the
+/// value patterns). Each boolean event yields exactly one output event, taking its
+/// value from `pat_true` when the boolean is true and `pat_false` when false.
+///
+///   stitch "t f t f" "a b" "c d"  ->  4 events; a/b sampled on true, c/d on false
+fn compile_stitch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 3 {
+        return Err("stitch requires 3 arguments: bool_pattern pat_true pat_false".to_string());
+    }
+
+    // Extract pattern strings for all three patterns (mirrors compile_sew)
+    let extract_pattern_str = |expr: &Expr| -> Result<String, String> {
+        match expr {
+            Expr::String(s) => Ok(s.clone()),
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => match &args[0] {
+                Expr::String(s) => Ok(s.clone()),
+                _ => Err("s() call in stitch must have a string argument".to_string()),
+            },
+            _ => Err("stitch patterns must be strings or s calls".to_string()),
+        }
+    };
+
+    let bool_str = extract_pattern_str(&args[0])?;
+    let pat_true_str = extract_pattern_str(&args[1])?;
+    let pat_false_str = extract_pattern_str(&args[2])?;
+
+    // Parse patterns
+    let bool_pattern = parse_mini_notation(&bool_str);
+    let pat_true = parse_mini_notation(&pat_true_str);
+    let pat_false = parse_mini_notation(&pat_false_str);
+
+    // Combine using Pattern::stitch
+    let combined_pattern = Pattern::stitch(bool_pattern, pat_true, pat_false);
+    let combined_str = format!(
+        "stitch \"{}\" \"{}\" \"{}\"",
         bool_str, pat_true_str, pat_false_str
     );
 
@@ -8551,6 +8620,31 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
             Ok(pattern.slice_pattern(n_val, indices_pattern))
         }
+        Transform::Splice { n, indices } => {
+            // splice n indices_pattern - like slice, but time-stretches each slice
+            // (via playback speed) so it fills its event duration (beat-locked).
+            let n_val = extract_number(&n)? as usize;
+
+            // Extract indices pattern from the expression
+            let indices_pattern = match indices.as_ref() {
+                Expr::String(s) => {
+                    // Parse mini-notation pattern
+                    use crate::mini_notation_v3::parse_mini_notation;
+                    parse_mini_notation(s)
+                }
+                Expr::Number(num) => {
+                    // Single number - create a pattern with just that index
+                    Pattern::from_string(&num.to_string())
+                }
+                _ => {
+                    return Err(
+                        "splice indices must be a string pattern (e.g., \"0 2 1 3\")".to_string()
+                    )
+                }
+            };
+
+            Ok(pattern.splice_pattern(n_val, indices_pattern))
+        }
         Transform::Struct(struct_expr) => {
             // struct pattern - apply structure/rhythm from boolean pattern to values
             // Example: struct "t ~ t ~" or struct "t(3,8)"
@@ -11633,6 +11727,13 @@ mod tests {
     #[test]
     fn test_parse_transform_slice() {
         assert!(matches!(parse_transform_from_call("slice", &[Expr::Number(8.0), Expr::String("0 1 2 3".into())]), Ok(Transform::Slice { .. })));
+    }
+
+    #[test]
+    fn test_parse_transform_splice() {
+        assert!(matches!(parse_transform_from_call("splice", &[Expr::Number(8.0), Expr::String("0 1 2 3".into())]), Ok(Transform::Splice { .. })));
+        // Wrong arity is rejected
+        assert!(parse_transform_from_call("splice", &[Expr::Number(8.0)]).is_err());
     }
 
     #[test]
