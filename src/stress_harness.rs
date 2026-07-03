@@ -2220,9 +2220,134 @@ fn drain_consumer(
     }
 }
 
+// ===========================================================================
+// ThreadSanitizer probe — isolates the C1 ROOT borrow-flag data race so it can
+// be instrumented under `-Zsanitizer=thread` without dragging the whole audio
+// engine through the sanitizer.
+//
+// `run_concurrent_session_mode` above spins the real engine (>= 60 s of audio),
+// far too heavy for TSan's ~10x slowdown. This probe keeps the *exact*
+// concurrency shape the three live paths share — a `RefCell` published behind
+// `Arc` with a hand-written `unsafe impl Sync`, mutably borrowed by a render
+// thread and a reload thread at the same time — but with a trivial `u64`
+// payload so a race manifests in milliseconds. See docs/RACE_DETECTION.md and
+// docs/audits/design-render-owner-swap-2026-07.md §6.A(2).
+// ===========================================================================
+
+/// A trivial payload standing in for the graph. Mirrors `GraphCell`'s
+/// `RefCell` + hand-written `unsafe impl Sync` (`src/main.rs:951-952`,
+/// `src/modal_editor/mod.rs:58-59`, `src/bin/phonon-audio.rs:174,176`,
+/// `src/stress_harness.rs:1932-1933`).
+struct RaceProbeCell(RefCell<u64>);
+// SAFETY: mirrors the production paths verbatim — the whole point of this probe
+// is that this hand-written `unsafe impl Sync` is *unsound*, which TSan proves.
+unsafe impl Send for RaceProbeCell {}
+unsafe impl Sync for RaceProbeCell {}
+
+/// Reproduce the C1 root data race on `RefCell`'s non-atomic borrow flag for
+/// ThreadSanitizer. A render thread and a reload thread both borrow the *same*
+/// `Arc<GraphCell>`-shaped cell concurrently for `iterations` rounds.
+///
+/// Both borrow disciplines race:
+/// * [`SynthBorrow::TryBorrowSkip`] — the **current** (post symptom-fix) code:
+///   both sides use `try_borrow_mut()`. TSan STILL reports a race, because the
+///   two calls perform an unsynchronised read-modify-write on the non-atomic
+///   borrow flag (`Cell<isize>`). **This is the proof the symptom fix did not
+///   remove the root race** (design §2.4).
+/// * [`SynthBorrow::Unconditional`] — the pre-fix panic path (`borrow_mut()`).
+///
+/// A normal (non-instrumented) run cannot deterministically surface the UB, so
+/// this returns `false` only if the *render* side actually panicked
+/// (`Unconditional` mode under real contention). The data race itself is
+/// observed by TSan, not by the return value. Post-migration the render-owner
+/// harness runs the single-owner path and TSan is clean.
+pub fn run_borrow_flag_race_probe(iterations: usize, mode: SynthBorrow) -> bool {
+    let cell = Arc::new(RaceProbeCell(RefCell::new(0)));
+    let stop = Arc::new(AtomicBool::new(false));
+
+    // Reload/control thread: hold a `try_borrow_mut` across a (modeled)
+    // `transfer_*`, exactly like `src/main.rs:1205` / `src/modal_editor/mod.rs:759`.
+    let reload_cell = Arc::clone(&cell);
+    let reload_stop = Arc::clone(&stop);
+    let reload = std::thread::spawn(move || {
+        let mut done = 0usize;
+        while !reload_stop.load(Ordering::Relaxed) && done < iterations {
+            if let Ok(mut old) = reload_cell.0.try_borrow_mut() {
+                *old = old.wrapping_add(1); // modeled transfer_* under the borrow
+                done += 1;
+            }
+            std::hint::spin_loop();
+        }
+    });
+
+    // Render/synth thread == this thread: borrow per block, matching `mode`.
+    let mut render_alive = true;
+    for _ in 0..iterations {
+        match mode {
+            SynthBorrow::TryBorrowSkip => {
+                if let Ok(mut g) = cell.0.try_borrow_mut() {
+                    *g = g.wrapping_add(1);
+                }
+            }
+            SynthBorrow::Unconditional => {
+                // Would panic under contention; caught so the probe can report
+                // it instead of aborting the whole test process.
+                let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut g = cell.0.borrow_mut();
+                    *g = g.wrapping_add(1);
+                }));
+                if res.is_err() {
+                    render_alive = false;
+                    break;
+                }
+            }
+        }
+        std::hint::spin_loop();
+    }
+
+    stop.store(true, Ordering::Relaxed);
+    let _ = reload.join();
+    render_alive
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// TSan lane entry point. Under a normal `cargo test` this is skipped
+    /// (`#[ignore]`) so it never slows the suite and never asserts on UB a
+    /// normal run cannot see. Under the race-detection lane
+    /// (`RUSTFLAGS="-Zsanitizer=thread" cargo +nightly test --ignored concurrent_swap`)
+    /// ThreadSanitizer reports the data race on `RefCell`'s borrow flag — proving
+    /// the current `TryBorrowSkip` protocol is still racy. See docs/RACE_DETECTION.md.
+    #[test]
+    #[ignore = "TSan lane only: RUSTFLAGS=\"-Zsanitizer=thread\" cargo +nightly test --ignored concurrent_swap"]
+    fn concurrent_swap_borrow_flag_race_is_tsan_dirty() {
+        // Exercises the exact current-code discipline (both sides try_borrow_mut).
+        let render_alive = run_borrow_flag_race_probe(20_000, SynthBorrow::TryBorrowSkip);
+        // TryBorrowSkip never panics the render thread (that is the symptom fix);
+        // the *race* is what TSan flags. This assertion just confirms the probe
+        // ran the safe-discipline path end to end.
+        assert!(
+            render_alive,
+            "TryBorrowSkip render side must not panic (symptom fix); TSan observes the race"
+        );
+    }
+
+    /// The pre-fix `Unconditional` discipline can panic the render thread under
+    /// contention (the shipped C1 symptom). Report-only, `#[ignore]`d: whether
+    /// the panic is hit is timing-dependent, so we never assert it occurred —
+    /// this exists so the TSan lane can also instrument the legacy path.
+    #[test]
+    #[ignore = "TSan lane only: legacy Unconditional borrow path (report-only)"]
+    fn concurrent_swap_unconditional_borrow_is_tsan_dirty() {
+        let render_alive = run_borrow_flag_race_probe(20_000, SynthBorrow::Unconditional);
+        println!(
+            "[race-harness] Unconditional render side alive={} (false => reproduced the \
+             shipped C1 panic; timing-dependent, report-only)",
+            render_alive
+        );
+    }
 
     #[test]
     fn rng_is_deterministic_for_seed() {

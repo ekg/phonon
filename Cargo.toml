@@ -108,6 +108,13 @@ base64 = "0.22"
 criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3.24.0"
 
+# Race-detection harness (ENABLER I2, render-owner graph swap). loom is pulled in
+# ONLY when the crate is built with `--cfg loom` (RUSTFLAGS="--cfg loom"), so it
+# never touches a normal `cargo build` / `cargo test`. See tests/loom_graph_swap.rs
+# and docs/RACE_DETECTION.md.
+[target.'cfg(loom)'.dev-dependencies]
+loom = "0.7"
+
 [[bin]]
 name = "wav_analyze"
 path = "src/bin/wav_analyze.rs"

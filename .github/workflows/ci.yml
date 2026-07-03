@@ -83,6 +83,65 @@ jobs:
     - name: Build
       run: cargo build --release
 
+  race-detection:
+    name: Race Detection (loom / TSan / Miri)
+    runs-on: ubuntu-latest
+    # ENABLER I2 (render-owner graph swap). Proves the C1 root borrow-flag data
+    # race: baseline dirty, target clean. See docs/RACE_DETECTION.md and
+    # docs/audits/design-render-owner-swap-2026-07.md §6.A.
+    steps:
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: false
+
+    - uses: actions/checkout@v4
+
+    - name: Install ALSA dependencies
+      run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+    # --- loom: cheap, gating. Exhaustively explores the two-thread swap. ---
+    - name: Install Rust (stable, for loom)
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-race-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: loom model (baseline racy + target clean)
+      run: |
+        RUSTFLAGS="--cfg loom" cargo test --release --test loom_graph_swap
+
+    # --- ThreadSanitizer + Miri: nightly, slower. Required for merge, not
+    #     PR-blocking (continue-on-error mirrors how the budget harness is gated). ---
+    - name: Install Rust (nightly, for TSan + Miri)
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src, miri
+
+    - name: ThreadSanitizer (borrow-flag race probe)
+      continue-on-error: true
+      run: |
+        RUSTFLAGS="-Zsanitizer=thread" \
+          cargo +nightly test -Zbuild-std \
+          --target x86_64-unknown-linux-gnu \
+          --lib concurrent_swap -- --ignored --nocapture
+
+    - name: Miri (single-owner ownership logic)
+      continue-on-error: true
+      run: |
+        cargo +nightly miri test --test loom_graph_swap
+
   vst3-gui-test:
     name: VST3 GUI Test (Linux)
     runs-on: ubuntu-latest
