@@ -5,13 +5,18 @@ use std::process::Command;
 fn test_n_modifier_sample_selection() {
     println!("Testing n modifier for sample selection...");
 
-    // Test DSL code using n modifier to select specific samples
+    // Test DSL code using n modifier to select specific samples.
+    // The `#` operator takes its event structure from the LEFT operand, so the
+    // sample pattern must actually contain 4 events for the four n values to be
+    // applied to four distinct hits (`s "bd"` alone is a single event/cycle and
+    // would only ever exercise n=0). `bd*4` gives one hit per n value -- the same
+    // shape the sibling tests (test_n_modifier_with_patterns / _constant) use.
     let phonon_code = r#"
 tempo: 0.5
 
 -- Select specific bd samples using n modifier
 -- bd:0 is first sample, bd:1 is second, etc.
-out $ s "bd" # n "0 1 2 3"
+out $ s "bd*4" # n "0 1 2 3"
 "#;
 
     std::fs::write("/tmp/test_n_modifier.phonon", phonon_code).unwrap();
@@ -48,7 +53,7 @@ out $ s "bd" # n "0 1 2 3"
         analysis
     );
 
-    // Should detect kick events (4 different samples in 2 seconds at 2 cps = 4 cycles)
+    // Should detect kick events (4 hits from bd*4, one per n value)
     let onset_count = extract_onset_count(&analysis);
     assert!(
         onset_count >= 3,

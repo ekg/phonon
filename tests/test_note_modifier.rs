@@ -8,12 +8,18 @@ fn test_note_modifier_pitch_shift() {
     // Test DSL code using note modifier
     // note values change playback speed: 0 = normal, 12 = octave up, -12 = octave down
     // Using semitone formula: speed = 2^(note/12)
+    //
+    // `#` takes event structure from the LEFT operand, so the sample pattern must
+    // contain 4 events for the four note values to be applied to four distinct
+    // hits -- `s "bd"` alone is a single event/cycle and would only play pitch 0.
+    // `bd*4` yields one hit per note value, matching the sibling tests
+    // (test_note_modifier_scale / _negative / _constant all use bd*4/bd*8).
     let phonon_code = r#"
 tempo: 0.5
 
 -- Play sample at different pitches using note modifier
 -- 0 = original pitch, 5 = perfect fourth up, 7 = perfect fifth up, 12 = octave up
-out $ s "bd" # note "0 5 7 12"
+out $ s "bd*4" # note "0 5 7 12"
 "#;
 
     std::fs::write("/tmp/test_note_modifier.phonon", phonon_code).unwrap();

@@ -409,7 +409,18 @@ fn analyze_rhythm(samples: &[f32], sample_rate: u32) -> (usize, Option<f32>, Vec
     let threshold = mean_energy + std_dev * 1.5;
 
     let mut peaks = Vec::new();
-    let mut in_peak = false;
+
+    // Seed the peak state so an onset that is already sounding in the very first
+    // window is not missed. The rising-edge test in the loop below (smoothed[i]
+    // > smoothed[i-1]) can only detect the leading edge of a peak; a hit that
+    // starts at (or before) sample 0 has no visible rising edge because the
+    // window opens already at/near its maximum and immediately decays. Rendered
+    // patterns almost always place an event at cycle position 0, so without this
+    // the loudest, clearest onset in the file was silently dropped -- which is
+    // how a file with obvious audio could report "Onset Events: 0". Only seed
+    // when the opening window is above threshold, so silence-led signals are
+    // unaffected.
+    let mut in_peak = !smoothed.is_empty() && smoothed[0] > threshold;
     let mut peak_start = 0;
 
     // Minimum time between peaks (prevents double detection)

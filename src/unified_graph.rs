@@ -7375,7 +7375,14 @@ impl UnifiedSignalGraph {
             self.dag_zero_buffer = vec![0.0; buffer_size];
         }
 
-        // CRITICAL: Initialize sample node timing (same as legacy path)
+        // CRITICAL: Initialize sample node timing (same as legacy path).
+        // Gate on `last_cycle < 0` (unambiguous never-processed sentinel) rather
+        // than `last_trigger_time < 0.0`, matching process_buffer_internal: a node
+        // built with last_trigger_time: 0.0 has a valid cycle-0 position, not an
+        // uninitialized marker, and must still fire its first event. (This site is
+        // normally reached after process_buffer_internal has already run the same
+        // init, so it is defensive, but keeping the condition identical avoids a
+        // divergence if process_buffer_dag is ever entered directly.)
         for node_opt in self.nodes.iter_mut() {
             if let Some(node_rc) = node_opt {
                 let node = std::rc::Rc::make_mut(node_rc);
@@ -7385,7 +7392,7 @@ impl UnifiedSignalGraph {
                     ..
                 } = node
                 {
-                    if *last_trigger_time < 0.0 {
+                    if *last_cycle < 0 {
                         *last_trigger_time = buffer_start_cycle as f32 - 0.001;
                         *last_cycle = buffer_start_cycle.floor() as i32;
                     }
@@ -18331,8 +18338,20 @@ impl UnifiedSignalGraph {
                     ..
                 } = node
                 {
-                    // Only initialize if uninitialized (-1.0 is the default)
-                    if *last_trigger_time < 0.0 {
+                    // Only initialize on the first buffer, i.e. before this node has
+                    // processed any cycle. Use `last_cycle < 0` as the "never processed"
+                    // sentinel rather than `last_trigger_time < 0.0`.
+                    //
+                    // Why: cycle indices are always >= 0, so `last_cycle == -1` is an
+                    // unambiguous "fresh node" marker. `last_trigger_time`, however, is a
+                    // cycle *position* and 0.0 is a perfectly valid event start. A node
+                    // constructed with `last_trigger_time: 0.0` (the default many callers
+                    // and tests use) would otherwise fail the `< 0.0` guard, skip init,
+                    // and then never fire the event that lands exactly at cycle position
+                    // 0.0 -- silencing the first hit of cycle 0. Hot-swapped/seeked graphs
+                    // set `last_cycle` to the current cycle (>= 0) to suppress re-trigger,
+                    // so they are correctly left untouched here.
+                    if *last_cycle < 0 {
                         *last_trigger_time = buffer_start_cycle as f32 - 0.001;
                         *last_cycle = buffer_start_cycle.floor() as i32;
                     }

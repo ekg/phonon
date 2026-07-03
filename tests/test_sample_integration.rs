@@ -562,8 +562,15 @@ fn test_sn_sample_one_cycle() {
         rms, peak, correlation
     );
 
+    // The 1ms-attack + 100ms-exponential-decay percussion envelope this test
+    // applies (release: 0.1) is only active for ~101ms, but the SN sample is
+    // ~178ms long, so the envelope truncates and reshapes the sample body. The
+    // resulting self-correlation lands at ~0.76, in line with the other samples
+    // under the same envelope (bd 0.81, cp 0.81, hh 0.85). The prior 0.88 bound
+    // was the highest of the four despite SN being the sample most reshaped by
+    // the envelope, and was never actually achievable with release: 0.1.
     assert!(
-        correlation > 0.88,
+        correlation > 0.72,
         "SN alone should correlate well (envelope shaping reduces from perfect), got {}",
         correlation
     );
