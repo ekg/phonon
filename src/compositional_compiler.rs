@@ -8227,12 +8227,14 @@ fn create_signal_pattern_for_transform(
     use crate::unified_graph::{Signal, SignalNode};
     use std::collections::HashMap;
     use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
-    // Create shared state cells for thread-safe communication
+    // Create shared, lock-free state cells for render-thread communication.
+    // The f32 value is stored as its bit pattern in an AtomicU32 so the render
+    // path never locks a mutex (see rt-safety audit F-3 / harden-render-locks).
     let midpoint = (out_min + out_max) / 2.0;
-    let sampled_value = Arc::new(Mutex::new(midpoint));
-    let sample_cycle = Arc::new(Mutex::new(-1.0f32));
+    let sampled_value = Arc::new(AtomicU32::new(midpoint.to_bits()));
+    let sample_cycle = Arc::new(AtomicU32::new((-1.0f32).to_bits()));
 
     // Create SignalAsPattern node that will sample the bus signal
     let sap_node = SignalNode::SignalAsPattern {
@@ -8248,7 +8250,7 @@ fn create_signal_pattern_for_transform(
     let value_ref = sampled_value.clone();
     let pattern = Pattern::new(move |state| {
         // Read the current sampled value (set by SignalAsPattern during audio eval)
-        let value = *value_ref.lock().unwrap() as f64;
+        let value = f32::from_bits(value_ref.load(Ordering::Relaxed)) as f64;
 
         // Return a single event spanning the query span with the sampled value
         vec![Hap {

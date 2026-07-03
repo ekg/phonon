@@ -505,6 +505,77 @@ lazy_static::lazy_static! {
     static ref VST3_LOAD_MUTEX: Mutex<()> = Mutex::new(());
 }
 
+// Reusable, per-render-thread scratch buffer for plugin parameter values.
+//
+// The plugin render branches used to allocate a fresh `Vec<(String, f32)>` (with
+// a cloned param name per entry) on EVERY sample. That is a heap allocation on the
+// audio hot path (rt-safety audit F-2). Instead we evaluate parameter *values* into
+// a thread-local `Vec<f32>` that is reused across samples (capacity retained) and
+// zip it back against the node's `params` map at apply time — zero per-sample
+// allocations and zero name clones. Thread-local so each render thread has its own.
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+thread_local! {
+    static PLUGIN_PARAM_SCRATCH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Take ownership of the thread-local param scratch buffer (leaving it empty).
+/// Ownership is taken (rather than a borrow held) so that evaluating a parameter
+/// signal that re-enters plugin evaluation cannot double-borrow the cell.
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+fn take_plugin_param_scratch() -> Vec<f32> {
+    PLUGIN_PARAM_SCRATCH.with(|s| std::mem::take(&mut *s.borrow_mut()))
+}
+
+/// Return the scratch buffer to the thread-local cell, retaining its capacity.
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+fn put_plugin_param_scratch(buf: Vec<f32>) {
+    PLUGIN_PARAM_SCRATCH.with(|s| {
+        // Keep whichever buffer has the larger capacity (a re-entrant eval may have
+        // left a fresh one behind); either way we never re-allocate steadily.
+        let mut slot = s.borrow_mut();
+        if buf.capacity() >= slot.capacity() {
+            *slot = buf;
+        }
+    });
+}
+
+/// RAII wrapper: hands out the reusable plugin-param scratch buffer and guarantees
+/// it is returned to the thread-local cell on ANY exit path (including the plugin
+/// branch's early `return`s). Deref/DerefMut expose the inner `Vec<f32>`.
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+struct PluginParamScratch(Vec<f32>);
+
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+impl PluginParamScratch {
+    fn acquire() -> Self {
+        let mut buf = take_plugin_param_scratch();
+        buf.clear();
+        PluginParamScratch(buf)
+    }
+}
+
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+impl Drop for PluginParamScratch {
+    fn drop(&mut self) {
+        put_plugin_param_scratch(std::mem::take(&mut self.0));
+    }
+}
+
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+impl std::ops::Deref for PluginParamScratch {
+    type Target = Vec<f32>;
+    fn deref(&self) -> &Vec<f32> {
+        &self.0
+    }
+}
+
+#[cfg(any(feature = "vst3", feature = "vst2"))]
+impl std::ops::DerefMut for PluginParamScratch {
+    fn deref_mut(&mut self) -> &mut Vec<f32> {
+        &mut self.0
+    }
+}
+
 /// Unique identifier for nodes in the graph
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct NodeId(pub usize);
@@ -1011,11 +1082,16 @@ pub enum SignalNode {
 
     /// Signal as a pattern source (audio→pattern modulation)
     /// Samples a signal once per cycle and exposes it as a pattern value
-    /// Thread-safe with Arc<Mutex> for pattern closures
+    /// Lock-free: the scalar state is shared with the pattern closure via
+    /// `Arc<AtomicU32>` holding the f32 bit pattern. This replaces the previous
+    /// mutex-guarded f32 cell that was locked 4x/sample with `.unwrap()` on the
+    /// render hot path (a poisoned lock would have panicked the render thread). An
+    /// atomic cell is Send+Sync (required by pattern closures), never poisons, and
+    /// never blocks — see docs/audits/rt-safety-2026-07.md F-3.
     SignalAsPattern {
         signal: Signal,
-        last_sampled_value: std::sync::Arc<std::sync::Mutex<f32>>,
-        last_sample_cycle: std::sync::Arc<std::sync::Mutex<f32>>,
+        last_sampled_value: std::sync::Arc<std::sync::atomic::AtomicU32>,
+        last_sample_cycle: std::sync::Arc<std::sync::atomic::AtomicU32>,
     },
 
     /// Cycle trigger: generates a short pulse at the start of each cycle
@@ -5610,6 +5686,108 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Instantiate + initialise every external plugin referenced by the graph.
+    ///
+    /// This MUST run OFF the audio render thread (ideally at compile/reload) so the
+    /// render path never blocks loading a VST3/VST2 from disk and never blocks on a
+    /// poisoned lock (rt-safety audit F-2). It is idempotent — already-loaded
+    /// plugins are skipped — and is also invoked once via [`Self::ensure_prepared`]
+    /// on the first render as a safety net so a live session with plugins never goes
+    /// silent, even if the caller has not yet wired an explicit compile/reload call.
+    ///
+    /// Mock plugins (`mock:` / `MockSynth`) are intentionally NOT preloaded here;
+    /// they are cheap, stateful, and created inline in the mock render branch.
+    pub fn preload_plugins(&mut self) {
+        #[cfg(any(feature = "vst3", feature = "vst2"))]
+        {
+            // Collect the distinct, non-mock plugin ids referenced by the graph.
+            let mut ids: Vec<String> = Vec::new();
+            for node in self.nodes.iter().flatten() {
+                if let SignalNode::PluginInstance { plugin_id, .. } = &**node {
+                    let is_mock =
+                        plugin_id.starts_with("mock:") || plugin_id == "MockSynth";
+                    if !is_mock && !ids.iter().any(|id| id == plugin_id) {
+                        ids.push(plugin_id.clone());
+                    }
+                }
+            }
+            if ids.is_empty() {
+                return;
+            }
+
+            #[cfg(feature = "vst3")]
+            for plugin_id in &ids {
+                // Skip if already loaded (real_plugins is shared across hot-reload
+                // clones via Arc). Recover from a poisoned lock instead of panicking.
+                let already_loaded = match self.real_plugins.lock() {
+                    Ok(map) => map.contains_key(plugin_id),
+                    Err(poisoned) => poisoned.into_inner().contains_key(plugin_id),
+                };
+                if already_loaded {
+                    continue;
+                }
+                // Serialize disk loading across threads (recover from poison).
+                let _load_guard = match VST3_LOAD_MUTEX.lock() {
+                    Ok(g) => g,
+                    Err(p) => p.into_inner(),
+                };
+                match create_real_plugin_by_name(plugin_id) {
+                    Ok(mut plugin) => {
+                        if let Err(e) = plugin.initialize(self.sample_rate, 512) {
+                            tracing::error!("VST3 init failed for {}: {}", plugin_id, e);
+                        }
+                        match self.real_plugins.lock() {
+                            Ok(mut map) => {
+                                map.insert(plugin_id.clone(), plugin);
+                            }
+                            Err(poisoned) => {
+                                poisoned.into_inner().insert(plugin_id.clone(), plugin);
+                            }
+                        }
+                        tracing::info!("Preloaded VST3 plugin: {}", plugin_id);
+                    }
+                    Err(e) => {
+                        tracing::warn!("VST3 preload failed {}: {}", plugin_id, e);
+                    }
+                }
+            }
+
+            #[cfg(feature = "vst2")]
+            for plugin_id in &ids {
+                if self.vst2_plugins.borrow().contains_key(plugin_id) {
+                    continue;
+                }
+                match create_vst2_plugin_by_name(plugin_id) {
+                    Ok(mut plugin) => {
+                        if let Err(e) = plugin.initialize(self.sample_rate, 512) {
+                            tracing::error!("VST2 init failed for {}: {}", plugin_id, e);
+                        }
+                        self.vst2_plugins
+                            .borrow_mut()
+                            .insert(plugin_id.clone(), plugin);
+                        tracing::info!("Preloaded VST2 plugin: {}", plugin_id);
+                    }
+                    Err(e) => {
+                        tracing::debug!("VST2 preload not found {}: {}", plugin_id, e);
+                    }
+                }
+            }
+        }
+    }
+
+    /// One-time render-init hook: runs render-thread-unsafe preparation (currently
+    /// plugin instantiation) exactly once per graph instance, off the per-sample hot
+    /// path. Guarded by the (otherwise unused) `nodes_initialized` flag. Callers may
+    /// instead call [`Self::preload_plugins`] at compile/reload to avoid paying this
+    /// on the first rendered buffer.
+    #[inline]
+    fn ensure_prepared(&mut self) {
+        if !self.nodes_initialized {
+            self.nodes_initialized = true;
+            self.preload_plugins();
+        }
+    }
+
     /// Get reference to buffer cache enabled flag (for testing)
     pub fn buffer_cache_enabled(&self) -> &std::cell::Cell<bool> {
         &self.buffer_cache_enabled
@@ -7357,6 +7535,9 @@ impl UnifiedSignalGraph {
         buffer_start_cycle: f64,
         sample_increment: f64,
     ) {
+        // One-time preparation (plugin instantiation) off the per-sample hot path.
+        self.ensure_prepared();
+
         static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let call = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if std::env::var("DEBUG_DAG").is_ok() && call < 3 {
@@ -9932,6 +10113,7 @@ impl UnifiedSignalGraph {
     /// Process one sample and return all output channels
     /// Returns a vector where outputs[0] = channel 1, outputs[1] = channel 2, etc.
     pub fn process_sample_multi(&mut self) -> Vec<f32> {
+        self.ensure_prepared();
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
 
@@ -12427,55 +12609,34 @@ impl UnifiedSignalGraph {
                 // Try loading real VST3 plugin (single-sample mode - inefficient but functional)
                 #[cfg(feature = "vst3")]
                 {
-                    // Check if we need to load the plugin
-                    let needs_load = !self.real_plugins.lock().unwrap().contains_key(plugin_id);
+                    // NOTE: Plugins are instantiated + initialised OFF the render
+                    // thread by preload_plugins() (invoked once via ensure_prepared()
+                    // at render init). The render path below NEVER loads from disk and
+                    // NEVER blocks on a poisoned lock — it only looks up an
+                    // already-loaded instance with try_lock and degrades to silence
+                    // otherwise (rt-safety audit F-2).
 
-                    if needs_load {
-                        // Acquire global mutex for plugin loading to prevent race conditions
-                        // Each thread gets its own plugin instance, but loading is serialized
-                        let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
+                    // Pre-evaluate audio input if needed
+                    let input_val = if !audio_inputs.is_empty() {
+                        self.eval_signal(&audio_inputs[0])
+                    } else {
+                        0.0
+                    };
 
-                        // Double-check after acquiring lock (another thread may have loaded it)
-                        if !self.real_plugins.lock().unwrap().contains_key(plugin_id) {
-                            // Try to load the VST3 plugin by name
-                            match create_real_plugin_by_name(plugin_id) {
-                                Ok(mut plugin) => {
-                                    tracing::info!("Loaded VST3 plugin: {}", plugin_id);
-                                    // Initialize with 512 sample buffer
-                                    if let Err(e) = plugin.initialize(self.sample_rate, 512) {
-                                        tracing::error!("VST3 init failed: {}", e);
-                                    }
-                                    self.real_plugins.lock().unwrap().insert(plugin_id.clone(), plugin);
-                                }
-                                Err(e) => {
-                                    tracing::warn!("VST3 load failed {}: {}", plugin_id, e);
-                                }
-                            }
-                        }
+                    // Pre-evaluate parameter VALUES into the reused scratch buffer
+                    // (no per-sample Vec allocation, no param-name clones). Zipped
+                    // back against `params` at apply time. The RAII guard returns the
+                    // buffer on every exit path, including the early returns below.
+                    let mut param_values = PluginParamScratch::acquire();
+                    for (_name, signal) in params.iter() {
+                        param_values.push(self.eval_signal(signal));
                     }
 
-                    // Check if plugin is loaded
-                    let has_plugin = self.real_plugins.lock().unwrap().contains_key(plugin_id);
-
-                    if has_plugin {
-                        // Pre-evaluate audio input if needed
-                        let input_val = if !audio_inputs.is_empty() {
-                            self.eval_signal(&audio_inputs[0])
-                        } else {
-                            0.0
-                        };
-
-                        // Pre-evaluate all parameter values
-                        let param_values: Vec<(String, f32)> = params
-                            .iter()
-                            .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
-                            .collect();
-
-                        // Lock for processing
-                        let mut real_plugins = self.real_plugins.lock().unwrap();
+                    // try_lock: silence fallback if not loaded / lock poisoned/contended.
+                    if let Ok(mut real_plugins) = self.real_plugins.try_lock() {
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation to real VST3 plugin
-                            for (name, value) in &param_values {
+                            for ((name, _signal), &value) in params.iter().zip(param_values.iter()) {
                                 let normalized = value.clamp(0.0, 1.0);
 
                                 // Check if this is a numeric param ID (e.g., "param_164559267")
@@ -12585,23 +12746,9 @@ impl UnifiedSignalGraph {
                 // Try loading VST2 plugin as fallback (single-sample mode)
                 #[cfg(feature = "vst2")]
                 {
-                    let needs_load = !self.vst2_plugins.borrow().contains_key(plugin_id);
-
-                    if needs_load {
-                        match create_vst2_plugin_by_name(plugin_id) {
-                            Ok(mut plugin) => {
-                                tracing::info!("Loaded VST2 plugin: {}", plugin_id);
-                                if let Err(e) = plugin.initialize(self.sample_rate, 512) {
-                                    tracing::error!("VST2 init failed: {}", e);
-                                }
-                                self.vst2_plugins.borrow_mut().insert(plugin_id.clone(), plugin);
-                            }
-                            Err(e) => {
-                                tracing::debug!("VST2 not found {}: {}", plugin_id, e);
-                            }
-                        }
-                    }
-
+                    // Plugins are instantiated off the render thread by
+                    // preload_plugins(); the render path only looks up an
+                    // already-loaded instance (rt-safety F-2).
                     let has_plugin = self.vst2_plugins.borrow().contains_key(plugin_id);
 
                     if has_plugin {
@@ -12611,14 +12758,15 @@ impl UnifiedSignalGraph {
                             0.0
                         };
 
-                        let param_values: Vec<(String, f32)> = params
-                            .iter()
-                            .map(|(name, signal)| (name.clone(), self.eval_signal(signal)))
-                            .collect();
+                        // Reused scratch for parameter values (no per-sample alloc).
+                        let mut param_values = PluginParamScratch::acquire();
+                        for (_name, signal) in params.iter() {
+                            param_values.push(self.eval_signal(signal));
+                        }
 
                         let mut vst2_plugins = self.vst2_plugins.borrow_mut();
                         if let Some(plugin) = vst2_plugins.get_mut(plugin_id) {
-                            for (name, value) in &param_values {
+                            for ((name, _signal), &value) in params.iter().zip(param_values.iter()) {
                                 let param_count = plugin.parameter_count();
                                 for idx in 0..param_count {
                                     let param_name = plugin.get_parameter_name(idx);
@@ -14091,9 +14239,11 @@ impl UnifiedSignalGraph {
                     .collect();
 
                 // 2. For units with static constructors, check if parameters changed
-                //    and recreate unit if needed (to update internal state)
-                let state_guard = state.lock().unwrap();
-                let needs_recreation = match unit_type {
+                //    and recreate unit if needed (to update internal state).
+                //    Render-path lock: use try_lock and degrade to silence on a
+                //    poisoned/contended lock instead of panicking (rt-safety F-3).
+                let needs_recreation = if let Ok(state_guard) = state.try_lock() {
+                    match unit_type {
                     // Units with static constructors need recreation when params change
                     FundspUnitType::OrganHz => {
                         input_values.len() >= 1
@@ -14131,15 +14281,16 @@ impl UnifiedSignalGraph {
                     // Parameterless units or audio-rate-only units never need recreation
                     FundspUnitType::Noise | FundspUnitType::Pink | FundspUnitType::Pulse => false,
                     _ => false,
+                    }
+                } else {
+                    // Render-path lock unavailable (poisoned/contended): degrade to
+                    // silence this sample rather than panicking (rt-safety F-3).
+                    return 0.0;
                 };
 
-                // CRITICAL: Drop the lock guard before attempting to lock again for tick
-                // Otherwise we get a deadlock for units that don't need recreation
-                drop(state_guard);
-
                 if needs_recreation {
-                    let mut state_mut = state.lock().unwrap();
-
+                    // try_lock: silently skip recreation if the lock is unavailable.
+                    if let Ok(mut state_mut) = state.try_lock() {
                     // Recreate unit with new parameters
                     *state_mut = match unit_type {
                         FundspUnitType::OrganHz => {
@@ -14173,12 +14324,16 @@ impl UnifiedSignalGraph {
                         }
                         _ => return 0.0, // Should never happen
                     };
+                    }
                 }
 
-                // 3. Call fundsp tick() with all inputs
-                let output = state.lock().unwrap().tick(&input_values);
-
-                output
+                // 3. Call fundsp tick() with all inputs.
+                //    try_lock + silence fallback: never panic the render thread.
+                if let Ok(mut guard) = state.try_lock() {
+                    guard.tick(&input_values)
+                } else {
+                    0.0
+                }
             }
 
             SignalNode::Tap { input, state } => {
@@ -14325,19 +14480,23 @@ impl UnifiedSignalGraph {
                 last_sampled_value,
                 last_sample_cycle,
             } => {
-                // Sample the signal once per cycle and cache the value
+                use std::sync::atomic::Ordering;
+                // Sample the signal once per cycle and cache the value.
+                // Lock-free scalar state: f32 bits stored in an AtomicU32 (no mutex,
+                // no poison, no blocking on the render thread).
                 let current_cycle = self.get_cycle_position().floor();
-                let last_cycle = *last_sample_cycle.lock().unwrap() as f64;
+                let last_cycle =
+                    f32::from_bits(last_sample_cycle.load(Ordering::Relaxed)) as f64;
 
                 // If we've moved to a new cycle, sample the signal
                 if (current_cycle - last_cycle).abs() > 0.01 {
                     let sampled = self.eval_signal(signal);
-                    *last_sampled_value.lock().unwrap() = sampled;
-                    *last_sample_cycle.lock().unwrap() = current_cycle as f32;
+                    last_sampled_value.store(sampled.to_bits(), Ordering::Relaxed);
+                    last_sample_cycle.store((current_cycle as f32).to_bits(), Ordering::Relaxed);
                 }
 
                 // Return the cached value
-                *last_sampled_value.lock().unwrap()
+                f32::from_bits(last_sampled_value.load(Ordering::Relaxed))
             }
 
             SignalNode::CycleTrigger {
@@ -17889,6 +18048,7 @@ impl UnifiedSignalGraph {
     /// Process one sample and advance time
     #[inline]
     pub fn process_sample(&mut self) -> f32 {
+        self.ensure_prepared();
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
 
@@ -18007,6 +18167,7 @@ impl UnifiedSignalGraph {
     /// processes mono. Stereo separation comes from sample panning (jux, pan).
     #[inline]
     pub fn process_sample_stereo(&mut self) -> (f32, f32) {
+        self.ensure_prepared();
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
 
@@ -18925,6 +19086,7 @@ impl UnifiedSignalGraph {
     }
 
     pub fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
+        self.ensure_prepared();
         let buffer_size = output.len();
 
         // If caching is not enabled (e.g., in tests), clear cache to avoid stale data
@@ -19235,35 +19397,12 @@ impl UnifiedSignalGraph {
                     // Try loading real VST3 plugin
                     #[cfg(feature = "vst3")]
                     {
-                        // Check if we need to load the plugin
-                        let needs_load = !self.real_plugins.lock().unwrap().contains_key(plugin_id);
-
-                        if needs_load {
-                            // Acquire global mutex for plugin loading to prevent race conditions
-                            // Each thread gets its own plugin instance, but loading is serialized
-                            let _load_guard = VST3_LOAD_MUTEX.lock().unwrap();
-
-                            // Double-check after acquiring lock (another thread may have loaded it)
-                            if !self.real_plugins.lock().unwrap().contains_key(plugin_id) {
-                                // Try to load the VST3 plugin by name
-                                match create_real_plugin_by_name(plugin_id) {
-                                    Ok(mut plugin) => {
-                                        tracing::info!("Loaded VST3 plugin: {}", plugin_id);
-                                        // Initialize with current sample rate and buffer size
-                                        if let Err(e) = plugin.initialize(self.sample_rate, buffer_size) {
-                                            tracing::error!("Failed to initialize VST3 plugin {}: {}", plugin_id, e);
-                                        }
-                                        self.real_plugins.lock().unwrap().insert(plugin_id.clone(), plugin);
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!("Failed to load VST3 plugin {}: {}", plugin_id, e);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Try to process through real plugin
-                        let mut real_plugins = self.real_plugins.lock().unwrap();
+                        // Plugins are instantiated + initialised OFF the render thread
+                        // by preload_plugins() (via ensure_prepared at render init).
+                        // The render path only looks up an already-loaded instance with
+                        // try_lock and degrades to silence on a poisoned/contended lock;
+                        // it NEVER loads from disk here (rt-safety audit F-2).
+                        if let Ok(mut real_plugins) = self.real_plugins.try_lock() {
                         if let Some(plugin) = real_plugins.get_mut(plugin_id) {
                             // Apply parameter automation
                             for (name, value) in &param_values {
@@ -19344,6 +19483,7 @@ impl UnifiedSignalGraph {
                                 }
                             }
                             return;
+                        }
                         }
                     }
 
@@ -22259,6 +22399,7 @@ impl UnifiedSignalGraph {
     /// * `signal` - The signal to evaluate
     /// * `output` - Pre-allocated output buffer to fill
     pub fn eval_signal_buffer(&mut self, signal: &Signal, output: &mut [f32]) {
+        self.ensure_prepared();
         match signal {
             Signal::Value(v) => {
                 // Constant: fill entire buffer with same value
