@@ -8173,41 +8173,207 @@ impl UnifiedSignalGraph {
                             None
                         }
                     }
-                    _ => {
-                        // For other FX types, just count them
-                        match &*node_rc {
-                            SignalNode::TapeDelay { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay");
-                            }
-                            SignalNode::MultiTapDelay { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay");
-                            }
-                            SignalNode::PingPongDelay { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay");
-                            }
-                            SignalNode::DattorroReverb { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb");
-                            }
-                            SignalNode::Convolution { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "convolution");
-                            }
-                            SignalNode::SidechainCompressor { .. } => {
-                                self.make_fx_key(
-                                    &mut fx_counters,
-                                    &bus_name,
-                                    "sidechaincompressor",
-                                );
-                            }
-                            SignalNode::Expander { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "expander");
-                            }
-                            SignalNode::MoogLadder { .. } => {
-                                self.make_fx_key(&mut fx_counters, &bus_name, "moogladder");
-                            }
-                            _ => {}
+                    // --- Time-domain tails (audible if reset — audit D2) ---
+                    SignalNode::TapeDelay {
+                        input,
+                        time,
+                        feedback,
+                        wow_rate,
+                        wow_depth,
+                        flutter_rate,
+                        flutter_depth,
+                        saturation,
+                        mix,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay");
+                        if let Some(ExtractedFxState::TapeDelay(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::TapeDelay {
+                                input: input.clone(),
+                                time: time.clone(),
+                                feedback: feedback.clone(),
+                                wow_rate: wow_rate.clone(),
+                                wow_depth: wow_depth.clone(),
+                                flutter_rate: flutter_rate.clone(),
+                                flutter_depth: flutter_depth.clone(),
+                                saturation: saturation.clone(),
+                                mix: mix.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
                         }
-                        None
                     }
+                    SignalNode::MultiTapDelay {
+                        input,
+                        time,
+                        taps,
+                        feedback,
+                        mix,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay");
+                        if let Some(ExtractedFxState::MultiTapDelay { buffer, write_idx }) =
+                            state_map.get(&key)
+                        {
+                            transferred += 1;
+                            Some(SignalNode::MultiTapDelay {
+                                input: input.clone(),
+                                time: time.clone(),
+                                taps: *taps,
+                                feedback: feedback.clone(),
+                                mix: mix.clone(),
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    SignalNode::PingPongDelay {
+                        input,
+                        time,
+                        feedback,
+                        stereo_width,
+                        channel,
+                        mix,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay");
+                        if let Some(ExtractedFxState::PingPongDelay {
+                            buffer_l,
+                            buffer_r,
+                            write_idx,
+                        }) = state_map.get(&key)
+                        {
+                            transferred += 1;
+                            Some(SignalNode::PingPongDelay {
+                                input: input.clone(),
+                                time: time.clone(),
+                                feedback: feedback.clone(),
+                                stereo_width: stereo_width.clone(),
+                                channel: *channel,
+                                mix: mix.clone(),
+                                buffer_l: buffer_l.clone(),
+                                buffer_r: buffer_r.clone(),
+                                write_idx: *write_idx,
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    // --- Reverb tails ---
+                    SignalNode::DattorroReverb {
+                        input,
+                        pre_delay,
+                        decay,
+                        diffusion,
+                        damping,
+                        mod_depth,
+                        mix,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb");
+                        if let Some(ExtractedFxState::DattorroReverb(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::DattorroReverb {
+                                input: input.clone(),
+                                pre_delay: pre_delay.clone(),
+                                decay: decay.clone(),
+                                diffusion: diffusion.clone(),
+                                damping: damping.clone(),
+                                mod_depth: mod_depth.clone(),
+                                mix: mix.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    SignalNode::Convolution { input, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "convolution");
+                        if let Some(ExtractedFxState::Convolution(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Convolution {
+                                input: input.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    // --- Dynamics (envelope state) ---
+                    SignalNode::SidechainCompressor {
+                        main_input,
+                        sidechain_input,
+                        threshold,
+                        ratio,
+                        attack,
+                        release,
+                        ..
+                    } => {
+                        let key =
+                            self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor");
+                        if let Some(ExtractedFxState::Compressor(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::SidechainCompressor {
+                                main_input: main_input.clone(),
+                                sidechain_input: sidechain_input.clone(),
+                                threshold: threshold.clone(),
+                                ratio: ratio.clone(),
+                                attack: attack.clone(),
+                                release: release.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    SignalNode::Expander {
+                        input,
+                        threshold,
+                        ratio,
+                        attack,
+                        release,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "expander");
+                        if let Some(ExtractedFxState::Expander(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Expander {
+                                input: input.clone(),
+                                threshold: threshold.clone(),
+                                ratio: ratio.clone(),
+                                attack: attack.clone(),
+                                release: release.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    // --- Resonant filter (state prevents clicks) ---
+                    SignalNode::MoogLadder {
+                        input,
+                        cutoff,
+                        resonance,
+                        ..
+                    } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "moogladder");
+                        if let Some(ExtractedFxState::MoogLadder(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::MoogLadder {
+                                input: input.clone(),
+                                cutoff: cutoff.clone(),
+                                resonance: resonance.clone(),
+                                state: state.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
                 };
 
                 if let Some(new) = new_node {

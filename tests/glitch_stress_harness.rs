@@ -254,6 +254,59 @@ fn test_scripted_scenarios_represent_both_audits_and_have_no_hard_failures() {
 }
 
 // ---------------------------------------------------------------------------
+// 3b. Audit D2: FX-state transfer completeness — effect tails survive a swap
+// ---------------------------------------------------------------------------
+
+/// Regression guard for `complete-fx-state` (audit D2): the pingpong and
+/// tape-delay tails must be CONTINUOUS across a hot-swap. Each D2 scenario
+/// primes a fully-wet effect with a live source, then swaps to a graph whose
+/// dry input is silenced — so the only remaining energy is the transferred
+/// effect tail. Before `transfer_fx_states` injected these effect types, the
+/// swapped-in graph had a fresh (empty) buffer and the tail snapped to zero.
+#[test]
+fn test_d2_effect_tails_survive_swap() {
+    let cfg = SessionConfig::ci(11);
+    let scenarios = phonon::stress_harness::audit_scenarios();
+
+    let d2: Vec<_> = scenarios
+        .iter()
+        .filter(|s| matches!(s.expectation, Expectation::ContinuousTail(_)))
+        .collect();
+    assert!(
+        d2.len() >= 2,
+        "expected at least the pingpong + tapedelay tail-continuity scenarios, found {}",
+        d2.len()
+    );
+
+    for sc in d2 {
+        let r = phonon::stress_harness::run_scenario(sc, &cfg);
+        assert!(r.available, "scenario {} failed to compile", sc.name);
+        // The tail must have been audible while priming...
+        assert!(
+            r.pre_rms > cfg.thresholds.silence_rms,
+            "scenario {} never built an audible tail (pre_rms {:.5})",
+            sc.name,
+            r.pre_rms
+        );
+        // ...and must NOT drop to silence after the swap (the D2 defect).
+        assert!(
+            !r.post_silent,
+            "scenario {} FX tail reset on swap: post_rms {:.5} (state not transferred)",
+            sc.name,
+            r.post_rms
+        );
+        assert!(
+            r.passed(),
+            "scenario {} reported hard failures: {:?}",
+            sc.name,
+            r.failures
+        );
+        assert_eq!(r.nan, 0, "scenario {} produced NaN", sc.name);
+        assert_eq!(r.inf, 0, "scenario {} produced Inf", sc.name);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 4. Concurrent rig: real synth thread, structural invariants
 // ---------------------------------------------------------------------------
 

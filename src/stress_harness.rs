@@ -975,6 +975,11 @@ pub enum Expectation {
     Clean,
     /// The `after` program is intentionally silent.
     ExpectSilence,
+    /// The `after` program silences its dry input, so only a transferred FX
+    /// **tail** can produce sound. A drop to silence means the effect's state
+    /// was not carried across the swap (audit D2) — a hard defect. The string
+    /// names the audit finding (e.g. "D2").
+    ContinuousTail(&'static str),
     /// Known/documented audit defect — measured and reported, never fatal.
     /// The string names the audit finding (e.g. "D3", "R1").
     Documented(&'static str),
@@ -1023,21 +1028,29 @@ pub fn audit_scenarios() -> Vec<Scenario> {
             Expectation::Documented("D1"),
         ),
         // D2: partial FX-state transfer — a NON-transferred effect (pingpong)
-        // resets its tail at the swap.
+        // resets its tail at the swap. The `before` primes a fully-wet pingpong
+        // buffer with a live saw; the `after` silences the dry input (`* 0.0`)
+        // so ONLY the transferred delay tail can produce sound. If the pingpong
+        // buffer is not injected on swap, the tail snaps to silence — the exact
+        // D2 defect. Short delay + high feedback keeps the tail audible inside
+        // the render window.
         sc(
             "D2-pingpong-tail-reset",
             "D2",
-            "tempo: 1.0\nout $ saw 110 # pingpong 0.25 0.5 * 0.2",
-            "tempo: 1.0\nout $ saw 110 # pingpong 0.25 0.5 * 0.21",
-            Expectation::Documented("D2"),
+            "tempo: 1.0\nout $ saw 110 # pingpong 0.02 0.85 0.8 0 1.0 * 0.4",
+            "tempo: 1.0\nout $ (saw 110 * 0.0) # pingpong 0.02 0.85 0.8 0 1.0 * 0.4",
+            Expectation::ContinuousTail("D2"),
         ),
-        // D2b: a tape-delay tail (also non-transferred per the audit).
+        // D2b: a tape-delay tail (also non-transferred per the audit). Same
+        // shape — prime with a live saw, then silence the dry input so only the
+        // tape-delay tail remains. Default mix is 50% wet, ample for the tail
+        // to stay above the silence floor when the state transfers.
         sc(
             "D2-tapedelay-tail-reset",
             "D2",
-            "tempo: 1.0\nout $ saw 110 # tapedelay 0.25 0.5 0.3 * 0.2",
-            "tempo: 1.0\nout $ saw 110 # tapedelay 0.25 0.5 0.31 * 0.2",
-            Expectation::Documented("D2"),
+            "tempo: 1.0\nout $ saw 110 # tapedelay 0.02 0.85 0.5 0.02 6.0 0.05 0.3 1.0 * 0.4",
+            "tempo: 1.0\nout $ (saw 110 * 0.0) # tapedelay 0.02 0.85 0.5 0.02 6.0 0.05 0.3 1.0 * 0.4",
+            Expectation::ContinuousTail("D2"),
         ),
         // D3: cross-swap crossfade never fires — phase-dependent boundary click
         // on a waveform change (audit measured disc up to ~0.33).
@@ -1251,6 +1264,24 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
                     result.post_rms
                 ));
             }
+        }
+        Expectation::ContinuousTail(tag) => {
+            // The dry input is silenced in `after`, so any post-swap energy is
+            // the transferred effect tail. A drop to silence means the FX state
+            // was reset on swap (audit D2 defect).
+            if result.post_silent {
+                result.failures.push(format!(
+                    "{tag} FX tail reset on swap: post RMS {:.5} < silence floor {:.5} \
+                     (effect state not transferred)",
+                    result.post_rms, thr.silence_rms
+                ));
+            }
+            result.note = Some(format!(
+                "{tag} tail-continuity: pre_rms={:.4} post_rms={:.4} (tail {})",
+                result.pre_rms,
+                result.post_rms,
+                if result.post_silent { "LOST" } else { "survived" }
+            ));
         }
         Expectation::Documented(tag) => {
             // Known defect: record the measurement, do not fail on it.
