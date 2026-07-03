@@ -14,6 +14,7 @@ use crate::midi_input::{ArpPattern, Arpeggiator, MidiEventQueue, Scale, parse_ro
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::pattern_tonal::note_to_midi;
+use crate::scale_dsl::quantize_degree_pattern;
 use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{
     DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph,
@@ -3066,6 +3067,7 @@ fn compile_function_call(
         // ========== Sample Parameter Modifiers ==========
         "n" => compile_n_modifier(ctx, args),
         "note" => compile_note_modifier(ctx, args),
+        "scale" => compile_scale_modifier(ctx, args),
         "gain" => compile_gain_modifier(ctx, args),
         "pan" => compile_pan_modifier(ctx, args),
         "speed" => compile_speed_modifier(ctx, args),
@@ -9682,28 +9684,124 @@ fn compile_unop(ctx: &mut CompilerContext, op: UnOp, expr: Expr) -> Result<NodeI
 /// Compile n modifier: s "bd" # n "0 1 2"
 /// Sets the sample index for sample selection
 fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    match args.len() {
+        // Standalone source mode: `n "0 2 4 7"` -> numeric degree Pattern node.
+        // This is the HEAD of a scale chain, e.g. `~mel $ n "0 2 4 7" # scale "minor"`.
+        // Note names (`n "c4 e4 g4"`) also work: the Pattern node evaluates them
+        // via note_to_midi at render time (same path as standalone `note`).
+        1 => {
+            let pattern_expr = args[0].clone();
+            match pattern_expr {
+                Expr::String(pattern_str) => {
+                    let pattern = parse_mini_notation(&pattern_str);
+                    let node = SignalNode::Pattern {
+                        pattern_str,
+                        pattern,
+                        last_value: 0.0,
+                        last_trigger_time: -1.0,
+                    };
+                    Ok(ctx.graph.add_node(node))
+                }
+                // Non-string arg: compile as a generic numeric expression/pattern.
+                _ => compile_expr(ctx, pattern_expr),
+            }
+        }
+
+        // Modifier mode: `s "bd" # n "0 1 2"` -> set the sample-index parameter.
+        2 => {
+            // First arg should be ChainInput pointing to a Sample node
+            let sample_node_id = match &args[0] {
+                Expr::ChainInput(node_id) => *node_id,
+                _ => {
+                    return Err(
+                        "n must be used with the chain operator: s \"bd\" # n \"0 1 2\""
+                            .to_string(),
+                    )
+                }
+            };
+
+            // Compile the n pattern
+            let n_value = compile_expr(ctx, args[1].clone())?;
+
+            // Modify the Sample or SynthPattern node
+            modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))
+        }
+
+        _ => Err(format!(
+            "n requires 1 or 2 arguments, got {}. Usage: n \"0 2 4\" or s \"bd\" # n \"0 1 2\"",
+            args.len()
+        )),
+    }
+}
+
+/// Compile the `scale` quantizer modifier.
+///
+/// Syntax: `n "0 2 4 7" # scale "minor"` — remaps the scale-degree numbers
+/// coming out of the chain input into semitone offsets for the named scale.
+///
+/// The scale name is itself a *pattern* (architectural rule: every parameter is
+/// a pattern), so `scale "minor major"` alternates scales per cycle. The input
+/// must be a numeric `Pattern` node (typically produced by `n "..."`). Unknown
+/// scale names degrade to chromatic (identity) rather than panicking.
+///
+/// Output is *relative* semitones (degree 0 -> 0). To sound a melody, add a
+/// root and convert to frequency, e.g.
+/// `sine (mtof ((n "0 2 4 7" # scale "minor") + 60))`.
+fn compile_scale_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
         return Err(format!(
-            "n requires 2 arguments (sample_input, n_pattern), got {}",
+            "scale requires 2 arguments (degree_input, scale_name), got {}. \
+             Usage: n \"0 2 4\" # scale \"minor\"",
             args.len()
         ));
     }
 
-    // First arg should be ChainInput pointing to a Sample node
-    let sample_node_id = match &args[0] {
+    // First arg is the chain input: the degree pattern node.
+    let input_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
         _ => {
             return Err(
-                "n must be used with the chain operator: s \"bd\" # n \"0 1 2\"".to_string(),
+                "scale must be used with the chain operator: n \"0 2 4\" # scale \"minor\""
+                    .to_string(),
             )
         }
     };
 
-    // Compile the n pattern
-    let n_value = compile_expr(ctx, args[1].clone())?;
+    // Second arg: the scale-name pattern (a string, parsed as mini-notation so
+    // it can carry more than one scale).
+    let scale_names = match &args[1] {
+        Expr::String(s) => parse_mini_notation(s),
+        _ => {
+            return Err(
+                "scale name must be a string pattern, e.g. scale \"minor\" or scale \"minor major\""
+                    .to_string(),
+            )
+        }
+    };
 
-    // Modify the Sample or SynthPattern node
-    modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))
+    // Extract the degree pattern from the input Pattern node and quantize it.
+    let degrees = match ctx.graph.get_node(input_node_id) {
+        Some(SignalNode::Pattern { pattern, .. }) => pattern.clone(),
+        _ => {
+            return Err(
+                "scale expects a numeric degree pattern input, e.g. n \"0 2 4\" # scale \"minor\""
+                    .to_string(),
+            )
+        }
+    };
+
+    let quantized = quantize_degree_pattern(degrees, scale_names);
+    let scale_label = match &args[1] {
+        Expr::String(s) => s.clone(),
+        _ => "?".to_string(),
+    };
+    let node = SignalNode::Pattern {
+        pattern_str: format!("scale({scale_label})"),
+        pattern: quantized,
+        last_value: 0.0,
+        last_trigger_time: -1.0,
+    };
+    Ok(ctx.graph.add_node(node))
 }
 
 /// Compile note function/modifier

@@ -374,6 +374,7 @@ pub mod plugin_host;
 pub mod reference_audio;
 pub mod render;
 pub mod sample_loader;
+pub mod scale_dsl;
 pub mod shared_effect_state;
 pub mod signal_executor;
 pub mod signal_graph;
