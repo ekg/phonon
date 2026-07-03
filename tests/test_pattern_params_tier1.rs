@@ -300,7 +300,7 @@ fn test_gain_arithmetic_expression() {
     // Arithmetic expression: Complex gain calculation
     let code = r#"
         tempo: 0.5
-        ~lfout $ sine 4.0
+        ~lfo1 $ sine 4.0
         ~lfo2 $ sine 3.0
         out $ sine 440 * (~lfo1 * 0.3 + ~lfo2 * 0.2 + 0.5)
     "#;

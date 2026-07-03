@@ -12849,15 +12849,13 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Mix { signals } => {
-                // Mix all input signals with normalization
-                // Sum and divide by N to prevent volume multiplication
-                let sum: f32 = signals.iter().map(|s| self.eval_signal(s)).sum();
-                let n = signals.len() as f32;
-                if n > 0.0 {
-                    sum / n
-                } else {
-                    0.0
-                }
+                // Mix layers signals by SUMMING them (superposition), matching
+                // Tidal `stack` semantics and the `mix` UGen's documented contract
+                // ("Sums all input signals together"). Averaging (sum/N) was wrong:
+                // stacking sounds is additive, not an average — two hits at once are
+                // louder, not the same loudness. Clipping is handled downstream by the
+                // output mix mode / limiter, so no normalization is applied here.
+                signals.iter().map(|s| self.eval_signal(s)).sum()
             }
 
             SignalNode::Allpass {

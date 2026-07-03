@@ -3321,8 +3321,9 @@ fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let nodes = nodes?;
 
-    // Mix all nodes together using Mix node (normalizes automatically)
-    // This prevents volume multiplication when stacking multiple patterns
+    // Layer all nodes together using the Mix node, which SUMS its inputs
+    // (superposition) to match Tidal `stack` semantics — stacking sounds is
+    // additive. Output level is kept in check downstream by the mix mode/limiter.
     let signals: Vec<Signal> = nodes.iter().map(|&n| Signal::Node(n)).collect();
 
     let mix_node = SignalNode::Mix { signals };
