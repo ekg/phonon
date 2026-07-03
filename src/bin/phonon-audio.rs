@@ -45,7 +45,7 @@ use std::io::BufWriter;
 #[cfg(unix)]
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 #[cfg(unix)]
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 #[cfg(unix)]
 use std::thread;
 #[cfg(unix)]
@@ -94,7 +94,14 @@ fn get_buffer_size() -> usize {
 /// 1. Save current position as base_cycle_position
 /// 2. Save current time as base_time
 /// 3. Future positions = base_position + (now - base_time) * new_cps
+///
+/// RT-SAFETY (audit F-3): the clock is published as a lock-free double-buffered
+/// snapshot (`ArcSwap<GlobalClock>`), NOT behind a `Mutex`. The synth render
+/// thread reads it once per buffer with `.load()` (no lock → cannot be poisoned,
+/// no priority inversion against the IPC thread). The IPC thread updates tempo by
+/// swapping in a fresh snapshot. `Copy` lets the writer clone-modify-store cheaply.
 #[cfg(unix)]
+#[derive(Clone, Copy)]
 struct GlobalClock {
     /// Time at last tempo change (or session start)
     base_time: std::time::Instant,
@@ -233,7 +240,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // GLOBAL CLOCK - THE SINGLE SOURCE OF TIMING TRUTH
     // This is the ONLY thing that tracks timing. Graphs don't own timing.
     // Synthesis thread reads from it, IPC thread can update tempo.
-    let global_clock = Arc::new(Mutex::new(GlobalClock::new(sample_rate)));
+    //
+    // RT-SAFETY (audit F-3): published as a lock-free ArcSwap double-buffered
+    // snapshot rather than a Mutex. The render thread reads it every buffer with
+    // a lock-free `.load()`; a Mutex here was a panic-on-poison + priority-
+    // inversion point on the audio path. Only the IPC thread ever writes (tempo
+    // change), so its load→copy→set_cps→store read-modify-write has no lost-update
+    // race, and the render thread always observes a whole, consistent snapshot.
+    let global_clock = Arc::new(ArcSwap::from_pointee(GlobalClock::new(sample_rate)));
     eprintln!("⏰ Global clock initialized (single source of timing truth)");
 
     // Graph for background synthesis thread (lock-free swap)
@@ -264,9 +278,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if space >= buffer.len() {
                 // CRITICAL: Get timing from GlobalClock ONCE per buffer
-                // This is THE SINGLE SOURCE OF TRUTH for timing
+                // This is THE SINGLE SOURCE OF TRUTH for timing.
+                // RT-SAFETY (F-3): lock-free `.load()` of the ArcSwap snapshot —
+                // no `.lock().unwrap()` on the render path. Cannot be poisoned,
+                // cannot priority-invert against the IPC tempo-update thread, and
+                // always returns a whole, consistent GlobalClock snapshot.
                 let (buffer_start_cycle, sample_increment, cps) = {
-                    let clock = clock_clone_synth.lock().unwrap();
+                    let clock = clock_clone_synth.load();
                     clock.get_buffer_timing()
                 };
 
@@ -517,12 +535,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             // CRITICAL: Update GlobalClock's tempo if it changed
                                             // GlobalClock.set_cps() handles timing continuity automatically!
                                             // No need for cycle_offset calculation - GlobalClock tracks position.
+                                            // RT-SAFETY (F-3): lock-free snapshot swap. Only this IPC
+                                            // thread ever writes the clock, so load→copy→set_cps→store
+                                            // has no lost-update race; the render thread only reads.
                                             let (old_pos, new_pos, old_cps) = {
-                                                let mut clock = global_clock.lock().unwrap();
-                                                let old_cps = clock.get_cps();
-                                                let old_pos = clock.get_position();
+                                                let current = global_clock.load();
+                                                let old_cps = current.get_cps();
+                                                let old_pos = current.get_position();
+                                                let mut clock = **current;
                                                 clock.set_cps(new_graph.cps);
                                                 let new_pos = clock.get_position();
+                                                global_clock.store(Arc::new(clock));
                                                 (old_pos, new_pos, old_cps)
                                             };
 
@@ -567,6 +590,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             // first-hit samples after reload)
                                             new_graph.preload_samples();
 
+                                            // Preload VST3/VST2 plugins on THIS (IPC) thread
+                                            // before the swap, so the first rendered buffer never
+                                            // blocks on plugin disk load. harden-render-locks added
+                                            // preload_plugins() + a one-time render-init fallback
+                                            // (ensure_prepared); wiring it here keeps disk load
+                                            // fully off the render thread. (No-op without plugins.)
+                                            new_graph.preload_plugins();
+
                                             // Swap in new graph (atomic, lock-free)
                                             // Graph does NOT own timing - it receives timing from GlobalClock
                                             graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
@@ -595,9 +626,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         IpcMessage::SetTempo { cps } => {
                             eprintln!("⏱️  Setting tempo to {} CPS", cps);
                             // Update GlobalClock (THE SINGLE SOURCE OF TRUTH)
-                            // GlobalClock.set_cps() handles timing continuity automatically
-                            let mut clock = global_clock.lock().unwrap();
+                            // GlobalClock.set_cps() handles timing continuity automatically.
+                            // RT-SAFETY (F-3): lock-free snapshot swap (single writer thread).
+                            let mut clock = **global_clock.load();
                             clock.set_cps(cps);
+                            global_clock.store(Arc::new(clock));
                         }
 
                         IpcMessage::Shutdown => {
