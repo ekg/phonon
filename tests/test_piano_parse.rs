@@ -5,7 +5,10 @@ use phonon::compositional_compiler::compile_program;
 
 #[test]
 fn test_parse_piano_ph() {
-    let code = std::fs::read_to_string("piano.ph").expect("Failed to read piano.ph");
+    // piano.ph was relocated into phonemes/ (see commit "Move all .ph files into
+    // phonemes/ directory"). Read it from its current location.
+    let code = std::fs::read_to_string("phonemes/piano.ph")
+        .expect("Failed to read phonemes/piano.ph");
     println!("File content ({} bytes):", code.len());
     println!("{}", &code);
     println!("\n--- Parsing... ---\n");

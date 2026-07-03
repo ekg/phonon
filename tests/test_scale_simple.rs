@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_scale_parse() {
     // Just test that scale() parses correctly
     let input = r#"
-        out $ scale("0 1 2", "major", "60")
+        out $ scale "0 1 2" "major" "60"
     "#;
 
     let result = parse_dsl(input);
@@ -18,7 +18,7 @@ fn test_scale_compile() {
     // Test that scale() compiles without errors
     let input = r#"
         cps: 2.0
-        out $ scale("0 1 2 3", "major", "c4")
+        out $ scale "0 1 2 3" "major" "c4"
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -35,7 +35,7 @@ fn test_scale_with_sine() {
     // Test scale() feeding into sine()
     let input = r#"
         cps: 2.0
-        out $ sine(scale("0 2 4", "major", "60")) * 0.3
+        out $ sine (scale "0 2 4" "major" "60") * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -54,7 +54,7 @@ fn test_scale_with_sine() {
 #[test]
 fn test_scale_direct_output() {
     // Test scale() output directly (should output frequencies)
-    let input = "cps: 1.0\nout $ scale(\"0\", \"major\", \"60\")";
+    let input = "cps: 1.0\nout $ scale \"0\" \"major\" \"60\"";
 
     let (_, statements) = parse_dsl(input).unwrap();
     println!("Parsed statements: {:#?}", statements);
@@ -86,7 +86,7 @@ fn test_scale_changes() {
     // Using <> alternation to get one value per cycle
     let input = r#"
         cps: 4.0
-        out $ scale("<0 1 2 3>", "major", "60")
+        out $ scale "<0 1 2 3>" "major" "60"
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -95,8 +95,15 @@ fn test_scale_changes() {
 
     let samples_per_cycle = (44100.0 / 4.0) as usize;
 
-    // Render all audio first
-    let buffer = graph.render(samples_per_cycle * 4);
+    // Read the scale node's raw frequency output per sample. `scale` emits a
+    // control value (a frequency in Hz), so we sample it directly via
+    // process_sample() rather than render(): the buffer/DAG render path applies
+    // output limiting that clamps the raw ~261 Hz value to ~1.0, whereas
+    // process_sample() exposes the unlimited control value (same approach as
+    // test_scale_direct_output).
+    let buffer: Vec<f32> = (0..samples_per_cycle * 4)
+        .map(|_| graph.process_sample())
+        .collect();
 
     // Sample from the middle of each cycle
     let mut values = Vec::new();

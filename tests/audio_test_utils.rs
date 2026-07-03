@@ -240,6 +240,50 @@ pub fn find_peak(buffer: &[f32]) -> f32 {
     buffer.iter().map(|x| x.abs()).fold(0.0, f32::max)
 }
 
+/// Sum the FFT magnitude in a frequency band centered on `center_hz`.
+///
+/// This measures how much spectral energy is present near a target frequency,
+/// which is the correct way to verify that a specific note is *sounding* (unlike
+/// RMS, which only reflects total amplitude and cannot distinguish which
+/// frequencies are present). It is especially useful for polyphony tests: a chord
+/// should show significant energy in the band of EACH of its constituent notes,
+/// whereas a single note shows energy in only one band.
+///
+/// # Arguments
+/// * `buffer` - Audio samples to analyze
+/// * `sample_rate` - Sample rate in Hz
+/// * `center_hz` - Center of the band to measure
+/// * `half_width_hz` - Half-width of the band (bins within `center_hz ± half_width_hz`)
+///
+/// # Returns
+/// Sum of FFT magnitudes for all bins whose frequency falls inside the band.
+pub fn band_energy(buffer: &[f32], sample_rate: f32, center_hz: f32, half_width_hz: f32) -> f32 {
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(buffer.len());
+
+    let mut complex_input: Vec<Complex<f32>> =
+        buffer.iter().map(|&x| Complex { re: x, im: 0.0 }).collect();
+
+    fft.process(&mut complex_input);
+
+    let bin_hz = sample_rate / buffer.len() as f32;
+    let low = center_hz - half_width_hz;
+    let high = center_hz + half_width_hz;
+
+    complex_input[1..complex_input.len() / 2]
+        .iter()
+        .enumerate()
+        .filter_map(|(i, c)| {
+            let frequency = (i + 1) as f32 * bin_hz;
+            if frequency >= low && frequency <= high {
+                Some((c.re * c.re + c.im * c.im).sqrt())
+            } else {
+                None
+            }
+        })
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

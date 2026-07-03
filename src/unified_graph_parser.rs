@@ -306,7 +306,7 @@ pub enum DslExpression {
         release: Option<Box<DslExpression>>,
         envelope_type: Option<SampleEnvelopeType>,
     },
-    /// Scale quantization: scale("0 1 2 3 4", "major", "c4")
+    /// Scale quantization (space-separated args): scale "0 1 2 3 4" "major" "c4"
     Scale {
         pattern: String,
         scale_name: String,
@@ -1009,7 +1009,8 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
-/// Parse scale quantization: scale("0 1 2 3 4", "major", "c4")
+/// Parse scale quantization (space-separated args): scale "0 1 2 3 4" "major" "c4"
+/// (paren/comma call syntax is not supported -- args are parsed via space_separated_args)
 fn scale_expr(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("scale"), function_args), |args| {
         // First arg: pattern string of scale degrees

@@ -11,7 +11,7 @@ use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
 mod audio_test_utils;
-use audio_test_utils::{calculate_rms, find_dominant_frequency};
+use audio_test_utils::{band_energy, calculate_rms, find_dominant_frequency};
 
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
@@ -143,19 +143,44 @@ out $ s "~x" # note "[a3, e4]"
     let audio_single = render_dsl(code_single, 2.0);
     let audio_chord = render_dsl(code_chord, 2.0);
 
-    let rms_single = calculate_rms(&audio_single);
-    let rms_chord = calculate_rms(&audio_chord);
+    // Polyphony is verified by spectral content, NOT by RMS. The voice manager applies a
+    // 1/sqrt(N) normalization to prevent clipping, which cancels the energy gain from
+    // stacking voices -- a 2-note chord therefore has ~the same RMS as a single note.
+    // The meaningful test of polyphony is that BOTH notes' frequencies are present in the
+    // chord, while only the single note's frequency is present when played alone.
+    // a3 = 220 Hz, e4 = 329.63 Hz.
+    let a3 = 220.0;
+    let e4 = 329.63;
+
+    let single_a3 = band_energy(&audio_single, 44100.0, a3, 10.0);
+    let single_e4 = band_energy(&audio_single, 44100.0, e4, 10.0);
+    let chord_a3 = band_energy(&audio_chord, 44100.0, a3, 10.0);
+    let chord_e4 = band_energy(&audio_chord, 44100.0, e4, 10.0);
 
     println!("\n=== Chord Polyphony Test ===");
-    println!("Single note RMS: {:.4}", rms_single);
-    println!("Chord RMS: {:.4}", rms_chord);
+    println!("Single: a3 band={:.1}, e4 band={:.1}", single_a3, single_e4);
+    println!("Chord:  a3 band={:.1}, e4 band={:.1}", chord_a3, chord_e4);
 
-    // Chord should have higher RMS due to multiple voices
-    // Note: Due to phase relationships, two voices might not be exactly 2x louder
+    // Single note "a3" contains a3 but essentially no e4.
+    assert!(single_a3 > 0.0, "Single note should contain a3 energy");
     assert!(
-        rms_chord > rms_single * 1.1,
-        "Chord should be louder than single note! Single: {}, Chord: {}",
-        rms_single,
-        rms_chord
+        single_e4 < single_a3 * 0.25,
+        "Single note should NOT contain significant e4 energy: a3={}, e4={}",
+        single_a3,
+        single_e4
+    );
+
+    // Chord "[a3, e4]" must contain BOTH notes -> genuine polyphony.
+    assert!(
+        chord_a3 > single_a3 * 0.3,
+        "Chord should retain the a3 voice: single_a3={}, chord_a3={}",
+        single_a3,
+        chord_a3
+    );
+    assert!(
+        chord_e4 > chord_a3 * 0.4,
+        "Chord should contain a strong e4 voice (polyphony): a3={}, e4={}",
+        chord_a3,
+        chord_e4
     );
 }

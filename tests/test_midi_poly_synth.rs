@@ -221,8 +221,10 @@ out $ ~synth * 0.5
 
     push_note_on(&queue, 69, 100); // A4 = 440 Hz
 
-    let mut buffer = vec![0.0f32; 44100]; // 1 second
-    graph.process_buffer(&mut buffer);
+    // render() returns MONO audio (44100 samples = 1 second). process_buffer fills a
+    // stereo-interleaved buffer (buffer.len()/2 frames), so reading it directly as mono
+    // would double every sample and halve the apparent zero-crossing frequency.
+    let buffer = graph.render(44100); // 1 second, mono
 
     // Count zero crossings to estimate frequency
     let mut crossings = 0;
@@ -260,8 +262,9 @@ out $ ~synth * 0.5
     // Play C# (MIDI 61) - should be quantized to C (60) or D (62) in C major
     push_note_on(&queue, 61, 100);
 
-    let mut buffer = vec![0.0f32; 44100]; // 1 second
-    graph.process_buffer(&mut buffer);
+    // render() returns MONO audio (see note in test_midi_poly_synth_pitch_accuracy):
+    // process_buffer is stereo-interleaved and would halve the apparent frequency.
+    let buffer = graph.render(44100); // 1 second, mono
 
     // Count zero crossings to estimate frequency
     let mut crossings = 0;
@@ -308,8 +311,9 @@ out $ ~synth * 0.5
     // Play F (MIDI 65) - should be quantized to E (64) or G (67) in C pentatonic
     push_note_on(&queue, 65, 100);
 
-    let mut buffer = vec![0.0f32; 44100];
-    graph.process_buffer(&mut buffer);
+    // render() returns MONO audio (see note in test_midi_poly_synth_pitch_accuracy):
+    // process_buffer is stereo-interleaved and would halve the apparent frequency.
+    let buffer = graph.render(44100); // 1 second, mono
 
     // Count zero crossings
     let mut crossings = 0;

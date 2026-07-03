@@ -7,6 +7,9 @@
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
+mod audio_test_utils;
+use audio_test_utils::band_energy;
+
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
@@ -121,18 +124,36 @@ out $ s "~x" # note "[a3, e4]"
     println!("\n=== Synth Chord Multiple Voices Test ===");
     println!("Single note RMS: {:.4}", rms_single);
     println!("Chord RMS: {:.4}", rms_chord);
-    println!("Ratio: {:.2}x", rms_chord / rms_single);
 
     // Should have audio
     assert!(rms_single > 0.01, "Single note should produce audio");
     assert!(rms_chord > 0.01, "Chord should produce audio");
 
-    // Chord should have higher RMS (more voices = more energy)
+    // Polyphony is verified by spectral content, NOT RMS: the voice manager applies a
+    // 1/sqrt(N) normalization (anti-clipping) that cancels the energy gain from stacking
+    // voices, so a 2-note chord has ~the same RMS as a single note. The meaningful check
+    // is that BOTH notes sound in the chord while only one sounds when played alone.
+    // a3 = 220 Hz, e4 = 329.63 Hz.
+    let a3 = 220.0;
+    let e4 = 329.63;
+    let single_a3 = band_energy(&audio_single, 44100.0, a3, 10.0);
+    let single_e4 = band_energy(&audio_single, 44100.0, e4, 10.0);
+    let chord_a3 = band_energy(&audio_chord, 44100.0, a3, 10.0);
+    let chord_e4 = band_energy(&audio_chord, 44100.0, e4, 10.0);
+    println!("Single: a3 band={:.1}, e4 band={:.1}", single_a3, single_e4);
+    println!("Chord:  a3 band={:.1}, e4 band={:.1}", chord_a3, chord_e4);
+
+    // Single note "a3" contains a3 but essentially no e4.
     assert!(
-        rms_chord > rms_single * 1.1,
-        "Chord should have higher RMS than single note: single={}, chord={}",
-        rms_single,
-        rms_chord
+        single_e4 < single_a3 * 0.25,
+        "Single note should not contain significant e4 energy: a3={}, e4={}",
+        single_a3, single_e4
+    );
+    // Chord "[a3, e4]" must contain BOTH voices -> genuine polyphony.
+    assert!(
+        chord_e4 > chord_a3 * 0.4,
+        "Chord should contain a strong e4 voice (polyphony): a3={}, e4={}",
+        chord_a3, chord_e4
     );
 }
 
