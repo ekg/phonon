@@ -10040,8 +10040,53 @@ fn compile_loop_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
     modify_sample_param(ctx, sample_node_id, "loop", Signal::Node(loop_value))
 }
 
-/// Compile attack modifier: s "bd" # attack "0.01 0.1"
-/// Sets the envelope attack time in seconds
+/// Returns true if the node is a Sample or SynthPattern node — the two node
+/// types whose envelope parameters are set in-place by `modify_sample_param`.
+/// Any other signal (oscillator, filter, arithmetic, ...) gets an amplitude
+/// envelope multiplied onto it instead.
+fn is_sample_or_synth_pattern(ctx: &CompilerContext, node_id: NodeId) -> bool {
+    matches!(
+        ctx.graph.get_node(node_id),
+        Some(SignalNode::Sample { .. }) | Some(SignalNode::SynthPattern { .. })
+    )
+}
+
+/// Apply an amplitude envelope to an arbitrary signal by multiplying it with an
+/// ADSR envelope generator. Used when `attack`/`release`/`ar` modifiers are
+/// applied to oscillator/filter signals rather than sample or synth patterns —
+/// envelopes act as general amplitude shapers (matching `adsr`'s behavior on
+/// non-sample signals, see `compile_adsr`).
+///
+/// Decay is instant and sustain is full (1.0), so the envelope holds at unity
+/// after the attack ramp until the release fade at the end of the cycle. This
+/// makes `attack` a pure onset shaper and `release` a pure tail shaper.
+fn apply_amp_envelope(
+    ctx: &mut CompilerContext,
+    input_node_id: NodeId,
+    attack: Signal,
+    release: Signal,
+) -> Result<NodeId, String> {
+    use crate::unified_graph::ADSRState;
+
+    let adsr_node = SignalNode::ADSR {
+        attack,
+        decay: Signal::Value(0.001),
+        sustain: Signal::Value(1.0),
+        release,
+        state: ADSRState::default(),
+    };
+    let adsr_id = ctx.graph.add_node(adsr_node);
+
+    let mult_node = SignalNode::Multiply {
+        a: Signal::Node(input_node_id),
+        b: Signal::Node(adsr_id),
+    };
+    Ok(ctx.graph.add_node(mult_node))
+}
+
+/// Compile attack modifier: s "bd" # attack "0.01 0.1"  OR  sine 440 # attack 0.05
+/// For sample/synth patterns, sets the envelope attack time in seconds.
+/// For any other signal, multiplies an attack-only amplitude envelope onto it.
 fn compile_attack_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
         return Err(format!(
@@ -10061,11 +10106,22 @@ fn compile_attack_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result
     };
 
     let attack_value = compile_expr(ctx, args[1].clone())?;
-    modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))
+    if is_sample_or_synth_pattern(ctx, sample_node_id) {
+        modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))
+    } else {
+        // Envelope as general amplitude shaper: attack-only (instant release).
+        apply_amp_envelope(
+            ctx,
+            sample_node_id,
+            Signal::Node(attack_value),
+            Signal::Value(0.001),
+        )
+    }
 }
 
-/// Compile release modifier: s "bd" # release "0.1 0.2"
-/// Sets the envelope release time in seconds
+/// Compile release modifier: s "bd" # release "0.1 0.2"  OR  sine 440 # release 0.2
+/// For sample/synth patterns, sets the envelope release time in seconds.
+/// For any other signal, multiplies a release-only amplitude envelope onto it.
 fn compile_release_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
         return Err(format!(
@@ -10085,12 +10141,24 @@ fn compile_release_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     };
 
     let release_value = compile_expr(ctx, args[1].clone())?;
-    modify_sample_param(ctx, sample_node_id, "release", Signal::Node(release_value))
+    if is_sample_or_synth_pattern(ctx, sample_node_id) {
+        modify_sample_param(ctx, sample_node_id, "release", Signal::Node(release_value))
+    } else {
+        // Envelope as general amplitude shaper: release-only (instant attack).
+        apply_amp_envelope(
+            ctx,
+            sample_node_id,
+            Signal::Value(0.001),
+            Signal::Node(release_value),
+        )
+    }
 }
 
-/// Compile ar modifier: s "bd" # ar 0.01 0.5
-/// Shorthand for setting both attack and release times
-/// Common in Tidal/SuperCollider for quick envelope shaping
+/// Compile ar modifier: s "bd" # ar 0.01 0.5  OR  sine 440 # ar 0.01 0.05
+/// Shorthand for setting both attack and release times.
+/// Common in Tidal/SuperCollider for quick envelope shaping.
+/// For sample/synth patterns, sets both envelope times in-place.
+/// For any other signal, multiplies an attack+release amplitude envelope onto it.
 fn compile_ar_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
         return Err(format!(
@@ -10108,19 +10176,28 @@ fn compile_ar_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         }
     };
 
-    // Set attack time
     let attack_value = compile_expr(ctx, args[1].clone())?;
-    let node_after_attack =
-        modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))?;
-
-    // Set release time
     let release_value = compile_expr(ctx, args[2].clone())?;
-    modify_sample_param(
-        ctx,
-        node_after_attack,
-        "release",
-        Signal::Node(release_value),
-    )
+
+    if is_sample_or_synth_pattern(ctx, sample_node_id) {
+        // Set attack time, then release time, on the sample/synth node.
+        let node_after_attack =
+            modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))?;
+        modify_sample_param(
+            ctx,
+            node_after_attack,
+            "release",
+            Signal::Node(release_value),
+        )
+    } else {
+        // Envelope as general amplitude shaper: attack + release.
+        apply_amp_envelope(
+            ctx,
+            sample_node_id,
+            Signal::Node(attack_value),
+            Signal::Node(release_value),
+        )
+    }
 }
 
 /// Compile amp modifier: applies amplitude/gain to ANY signal
