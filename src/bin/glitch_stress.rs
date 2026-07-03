@@ -114,8 +114,9 @@ fn main() {
                 format!("FAIL: {:?}", r.failures)
             };
             println!(
-                "  [{:<28}] {:<4} bnd_delta={:.3} pre_rms={:.4} post_rms={:.4} post_silent={} nan={} => {}",
-                r.name, r.audit_ref, r.boundary_delta, r.pre_rms, r.post_rms, r.post_silent, r.nan, status
+                "  [{:<28}] {:<4} bnd_delta={:.3} pre_rms={:.4} post_rms={:.4} post_silent={} nan={} raw_nf={} raw_peak={:.2e} => {}",
+                r.name, r.audit_ref, r.boundary_delta, r.pre_rms, r.post_rms, r.post_silent, r.nan,
+                r.raw_nonfinite, r.raw_peak, status
             );
             if let Some(note) = &r.note {
                 println!("        note: {note}");

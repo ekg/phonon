@@ -784,6 +784,16 @@ pub struct SessionReport {
     pub dc_offset_blocks: usize,
     pub max_dc_offset: f32,
 
+    /// RAW pre-sanitisation invariant metrics (G5 / I1, rt F-6, test-gap P0-C).
+    /// These read the graph's [`RawSignalProbe`] — the signal *before* the output
+    /// guard flushes NaN/Inf to `0.0` — so the NaN gate is no longer tautological.
+    /// A non-zero `raw_nonfinite_samples` means a node's internal state blew up and
+    /// the sanitiser masked it as silence; a genuine defect even though the audible
+    /// output was clean.
+    pub raw_nonfinite_samples: usize,
+    pub raw_nonfinite_blocks: usize,
+    pub max_raw_peak: f32,
+
     pub rms_growth_detected: bool,
     pub max_voice_count: usize,
     pub stuck_voice_detected: bool,
@@ -828,6 +838,17 @@ impl SessionReport {
         }
         if self.inf_samples > 0 {
             v.push(format!("{} Inf samples", self.inf_samples));
+        }
+        // RAW pre-sanitisation gate (non-tautological): a NaN/Inf produced inside the
+        // graph reaches the sanitised buffer as `0.0`, so `nan_samples`/`inf_samples`
+        // above can never see an internal blow-up the output guard hid. This gate
+        // observes the raw signal directly and fires on the true internal explosion.
+        if self.raw_nonfinite_samples > 0 {
+            v.push(format!(
+                "{} RAW non-finite samples across {} blocks (internal state blew up; \
+                 sanitiser masked it as silence)",
+                self.raw_nonfinite_samples, self.raw_nonfinite_blocks
+            ));
         }
         if self.clip_blocks > 0 {
             v.push(format!("{} severely-clipped blocks", self.clip_blocks));
@@ -912,7 +933,7 @@ impl SessionReport {
             "enforced"
         };
         format!(
-            "seed={} blocks={} swaps={} audio={:.1}s | NaN={} Inf={} clip={} silent_gap={} stuck_out={} \
+            "seed={} blocks={} swaps={} audio={:.1}s | NaN={} Inf={} raw_nf={} raw_peak={:.2e} clip={} silent_gap={} stuck_out={} \
              max_bnd_delta={:.3} cat_bnd_clk={} dc_blocks={} rms_growth={} max_voices={} \
              budget_over={:.1}%[{}] spike={:.1}% probe={:.0}us p50={:.0}us p99={:.0}us max={:.0}us deadline={:.0}us => {}",
             self.seed,
@@ -921,6 +942,8 @@ impl SessionReport {
             self.audio_seconds,
             self.nan_samples,
             self.inf_samples,
+            self.raw_nonfinite_samples,
+            self.max_raw_peak,
             self.clip_blocks,
             self.silent_gap_blocks,
             self.stuck_output_events,
@@ -1002,6 +1025,9 @@ pub fn run_random_session(cfg: &SessionConfig, pool: &[Program]) -> SessionRepor
             return report;
         }
     };
+    // Observe the RAW pre-sanitisation signal so the NaN/clip gates below assert on
+    // the true internal signal instead of the sanitised `0.0` (G5 / I1, rt F-6).
+    graph.enable_raw_probe(true);
     report.swap_sequence.push(current.name.to_string());
 
     // Calibration probe: measure the per-block cost of a trivial program in the
@@ -1029,6 +1055,7 @@ pub fn run_random_session(cfg: &SessionConfig, pool: &[Program]) -> SessionRepor
             match live_swap(&mut graph, target.code, cfg.sample_rate, true) {
                 Ok((ng, _info)) => {
                     graph = ng;
+                    graph.enable_raw_probe(true);
                     current = target;
                     report.swaps += 1;
                     report.swap_sequence.push(current.name.to_string());
@@ -1057,6 +1084,24 @@ pub fn run_random_session(cfg: &SessionConfig, pool: &[Program]) -> SessionRepor
             report.note_defect(format!(
                 "block {block_idx} ({}): {nan} NaN, {inf} Inf",
                 current.name
+            ));
+        }
+
+        // RAW pre-sanitisation probe (non-tautological). Reads the graph's internal
+        // signal from BEFORE the Phase 4b–4d limiter/flush. `nan`/`inf` above are read
+        // from the already-sanitised `buf`, so they can never see an internal blow-up
+        // the output guard hid — this does.
+        let probe = graph.last_raw_probe();
+        if probe.raw_peak > report.max_raw_peak {
+            report.max_raw_peak = probe.raw_peak;
+        }
+        if probe.raw_nonfinite > 0 {
+            report.raw_nonfinite_samples += probe.raw_nonfinite;
+            report.raw_nonfinite_blocks += 1;
+            report.note_defect(format!(
+                "block {block_idx} ({}): {} RAW non-finite samples (origin node {:?}) — \
+                 sanitised output shows {nan} NaN / {inf} Inf",
+                current.name, probe.raw_nonfinite, probe.first_nonfinite_node
             ));
         }
 
@@ -1391,6 +1436,22 @@ pub fn audit_scenarios() -> Vec<Scenario> {
             "tempo: 1.0\nout $ (sine 110 / 0.0) * 0.0 + sine 110 * 0.3",
             Expectation::Documented("G2"),
         ),
+        // F-6 / P0-C: a resonant filter driven into self-oscillation blows its
+        // internal Chamberlin-SVF state up to Inf/NaN. The Phase 4c output guard
+        // flushes that to `0.0`, so the `nan`/`inf` gates (read from the sanitised
+        // buffer) see NOTHING — the exact tautology this task removes. The RAW probe
+        // observes the pre-sanitisation signal and DOES catch it (`raw_nonfinite`>0),
+        // while the internal-state sanitiser (G5) keeps the node from going
+        // permanently stuck-silent — so `post_rms` stays above the floor instead of
+        // dropping to zero. Documented (a deliberate blow-up), so the raw gate reports
+        // it rather than hard-failing; tests assert both facts.
+        sc(
+            "F6-resonant-filter-blowup",
+            "F6",
+            "tempo: 1.0\nout $ sine 220 * 0.3",
+            "tempo: 1.0\nout $ saw 55 # lpf 20000 20 * 0.5",
+            Expectation::Documented("F6"),
+        ),
         // RC-6 / G-5: tempo change at swap (rate change with phase preserved).
         sc(
             "G5-tempo-1-to-3",
@@ -1436,6 +1497,13 @@ pub struct ScenarioResult {
     pub post_rms: f32,
     pub nan: usize,
     pub inf: usize,
+    /// RAW pre-sanitisation non-finite count over the post-swap blocks (G5 / I1,
+    /// rt F-6). Distinct from `nan`/`inf`, which are read from the sanitised buffer.
+    pub raw_nonfinite: usize,
+    /// Peak RAW (pre-limiter) `|sample|` over the post-swap blocks.
+    pub raw_peak: f32,
+    /// Max `|mean(block)|` (DC offset) over the post-swap blocks (audit G-7).
+    pub max_dc_offset: f32,
     pub post_silent: bool,
     pub cycle_jump: f64,
     pub max_voices: usize,
@@ -1468,6 +1536,9 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
         post_rms: 0.0,
         nan: 0,
         inf: 0,
+        raw_nonfinite: 0,
+        raw_peak: 0.0,
+        max_dc_offset: 0.0,
         post_silent: false,
         cycle_jump: 0.0,
         max_voices: 0,
@@ -1483,6 +1554,8 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
             return result;
         }
     };
+    // Observe the RAW pre-sanitisation signal (G5 / I1, rt F-6).
+    graph.enable_raw_probe(true);
 
     let mut last_pre: Option<f32> = None;
     let mut pre_rms_acc = 0.0f32;
@@ -1507,14 +1580,31 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
     // Expected small advance vs actual — a large jump signals R1.
     result.cycle_jump = (info.cycle_after - cycle_before).abs();
 
+    new_graph.enable_raw_probe(true);
     let mut post_rms_acc = 0.0f32;
     let mut first_post = true;
+    // DC is measured over the WHOLE post-swap window, not per block: a single
+    // 512-sample block spans well under one cycle of a low bass note, so its mean
+    // is dominated by windowing (a clean 55 Hz sine reads ~0.11 DC over one block).
+    // Averaged over the full window (~5 cycles here) the oscillation cancels while a
+    // genuine constant offset survives — the metric that makes the G-7 gate usable.
+    let mut dc_accum = 0.0f64;
+    let mut dc_n = 0usize;
     for _ in 0..post_buffers {
         let mut buf = vec![0.0f32; block_len];
         new_graph.process_buffer(&mut buf);
         let (nan, inf) = count_nonfinite(&buf);
         result.nan += nan;
         result.inf += inf;
+        let probe = new_graph.last_raw_probe();
+        result.raw_nonfinite += probe.raw_nonfinite;
+        if probe.raw_peak > result.raw_peak {
+            result.raw_peak = probe.raw_peak;
+        }
+        for &s in buf.iter().filter(|s| s.is_finite()) {
+            dc_accum += s as f64;
+            dc_n += 1;
+        }
         if first_post {
             result.boundary_delta =
                 boundary_delta(last_pre.unwrap_or(0.0), buf.first().copied().unwrap_or(0.0));
@@ -1525,14 +1615,30 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
     }
     result.post_rms = post_rms_acc / post_buffers as f32;
     result.post_silent = result.post_rms < thr.silence_rms;
+    result.max_dc_offset = if dc_n > 0 {
+        (dc_accum / dc_n as f64).abs() as f32
+    } else {
+        0.0
+    };
 
     // --- Evaluate against expectation ---
     // NaN/Inf are always hard defects (a real explosion the sanitiser missed).
+    // These are read from the sanitised buffer; the RAW gate below catches internal
+    // blow-ups the output guard hid (non-tautological — G5 / I1, rt F-6).
     if result.nan > 0 {
         result.failures.push(format!("{} NaN samples", result.nan));
     }
     if result.inf > 0 {
         result.failures.push(format!("{} Inf samples", result.inf));
+    }
+    // A raw non-finite is a hard defect UNLESS the scenario is documented as a known
+    // blow-up (some audit scenarios intentionally drive the graph past its limits and
+    // only measure the outcome). For all live/clean scenarios it must be zero.
+    if result.raw_nonfinite > 0 && !matches!(sc.expectation, Expectation::Documented(_)) {
+        result.failures.push(format!(
+            "{} RAW non-finite samples (internal state blew up; sanitiser masked it)",
+            result.raw_nonfinite
+        ));
     }
     match &sc.expectation {
         Expectation::Clean => {
@@ -1545,6 +1651,16 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
                 result.failures.push(format!(
                     "catastrophic boundary click {:.3}",
                     result.boundary_delta
+                ));
+            }
+            // Audit G-7: the DC-offset gate used to be computed but never asserted on
+            // the scripted path. Promote it to a hard-fail for Clean scenarios (the
+            // random session already gates on it). A large DC offset is a broken
+            // effect/filter state or a stuck rectifier, not clean audio.
+            if result.max_dc_offset > thr.dc_offset {
+                result.failures.push(format!(
+                    "DC offset {:.3} exceeds {:.3}",
+                    result.max_dc_offset, thr.dc_offset
                 ));
             }
         }
@@ -1575,10 +1691,14 @@ pub fn run_scenario(sc: &Scenario, cfg: &SessionConfig) -> ScenarioResult {
             ));
         }
         Expectation::Documented(tag) => {
-            // Known defect: record the measurement, do not fail on it.
+            // Known defect: record the measurement, do not fail on it. The RAW
+            // metrics are included so a pre-sanitisation blow-up (F-6) is visible
+            // even though the sanitised `nan`/`inf` counts are zero.
             result.note = Some(format!(
-                "documented audit finding {tag}: boundary_delta={:.3} post_silent={} cycle_jump={:.3}",
-                result.boundary_delta, result.post_silent, result.cycle_jump
+                "documented audit finding {tag}: boundary_delta={:.3} post_silent={} cycle_jump={:.3} \
+                 raw_nonfinite={} raw_peak={:.2e}",
+                result.boundary_delta, result.post_silent, result.cycle_jump,
+                result.raw_nonfinite, result.raw_peak
             ));
         }
     }

@@ -4380,6 +4380,39 @@ impl Default for OutputMixMode {
     }
 }
 
+/// Pre-sanitisation invariant probe (G5 / I1, rt F-6, test-gap P0-C).
+///
+/// The global output guard (Phase 4c in [`UnifiedSignalGraph::process_buffer_dag`])
+/// flushes every non-finite / denormal sample to `0.0` *before* any caller observes
+/// the buffer. That makes the stress/glitch harness NaN & clip gates **tautological**:
+/// a NaN produced deep inside the graph reaches the harness as a clean `0.0`.
+///
+/// This probe captures the **raw** signal sampled just before the Phase 4b–4d
+/// limiter/flush, so tests can assert on the true internal signal. It is opt-in
+/// (disabled on the production render path for zero overhead) and enabled by the
+/// stress harness / tests via [`UnifiedSignalGraph::enable_raw_probe`].
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RawSignalProbe {
+    /// Count of non-finite (NaN or Inf) samples in the raw pre-sanitisation buffer.
+    pub raw_nonfinite: usize,
+    /// Peak `|sample|` of the raw buffer (pre-limiter). `f32::INFINITY`/`NaN` are
+    /// reported as `f32::INFINITY` so a blow-up is visible as a finite-comparable peak.
+    pub raw_peak: f32,
+    /// Largest sample-to-sample `|delta|` in the raw buffer (finite samples only).
+    pub raw_max_delta: f32,
+    /// Node id that first emitted a non-finite sample during this block, if any.
+    /// This is the *originating* node — the one whose internal state blew up —
+    /// not merely where the NaN surfaced in the mixed output.
+    pub first_nonfinite_node: Option<usize>,
+}
+
+impl RawSignalProbe {
+    /// True if the raw (pre-sanitisation) signal contained any non-finite sample.
+    pub fn had_nonfinite(&self) -> bool {
+        self.raw_nonfinite > 0
+    }
+}
+
 impl OutputMixMode {
     /// Parse from string (for DSL)
     pub fn from_str(s: &str) -> Option<Self> {
@@ -4941,6 +4974,22 @@ pub struct UnifiedSignalGraph {
     /// Set to 1.0 or above to disable
     pub master_limiter_ceiling: f32,
 
+    /// When set, [`process_buffer_dag`](Self::process_buffer_dag) records the raw
+    /// pre-sanitisation signal metrics into [`Self::last_raw_probe`] just before the
+    /// Phase 4b–4d limiter/flush. Off by default so the production render path pays
+    /// nothing; the stress harness / tests enable it via [`Self::enable_raw_probe`].
+    raw_probe_enabled: bool,
+
+    /// Last raw pre-sanitisation probe snapshot (only updated while
+    /// [`Self::raw_probe_enabled`] is set). See [`RawSignalProbe`].
+    last_raw_probe: RawSignalProbe,
+
+    /// Whether to flush a stateful node's internal state and scrub its output when
+    /// it goes non-finite (the G5 / rt F-6 fix). Enabled by default; tests toggle it
+    /// off via [`Self::set_node_state_sanitize`] to reproduce the pre-fix `main`
+    /// stuck-silence behaviour deterministically.
+    node_state_sanitize: bool,
+
     /// Previous buffer tail (stereo interleaved) for zero-crossing crossfade.
     /// Stores the last N stereo sample pairs from the previous buffer to smooth
     /// discontinuities at buffer boundaries.
@@ -5033,6 +5082,9 @@ impl Clone for UnifiedSignalGraph {
             shared_state: self.shared_state.clone(),
             bypass_sequential_effects: self.bypass_sequential_effects,
             master_limiter_ceiling: self.master_limiter_ceiling,
+            raw_probe_enabled: self.raw_probe_enabled,
+            last_raw_probe: RawSignalProbe::default(),
+            node_state_sanitize: self.node_state_sanitize,
             prev_buffer_tail: Vec::new(),
             // Plugin manager is shared via Arc
             plugin_manager: self.plugin_manager.clone(),
@@ -5123,6 +5175,9 @@ impl UnifiedSignalGraph {
             shared_state: None, // Disabled by default
             bypass_sequential_effects: false, // Normal mode by default
             master_limiter_ceiling: 0.95, // Default: -0.4dB headroom for safety
+            raw_probe_enabled: false, // Off by default: zero overhead on the render path
+            last_raw_probe: RawSignalProbe::default(),
+            node_state_sanitize: true, // The F-6 fix is on by default
             prev_buffer_tail: Vec::new(),
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
@@ -5167,6 +5222,302 @@ impl UnifiedSignalGraph {
     /// Get current master limiter ceiling
     pub fn get_master_limiter_ceiling(&self) -> f32 {
         self.master_limiter_ceiling
+    }
+
+    /// Enable/disable the pre-sanitisation invariant probe (G5 / I1, rt F-6).
+    ///
+    /// When enabled, each [`process_buffer_dag`](Self::process_buffer_dag) call
+    /// records the raw pre-limiter/pre-flush signal metrics into
+    /// [`last_raw_probe`](Self::last_raw_probe). This lets tests observe the RAW
+    /// internal signal instead of the sanitised `0.0` the output guard produces,
+    /// so NaN/clip gates stop being tautological. Off by default (zero overhead on
+    /// the production render path).
+    pub fn enable_raw_probe(&mut self, enabled: bool) {
+        self.raw_probe_enabled = enabled;
+        if !enabled {
+            self.last_raw_probe = RawSignalProbe::default();
+        }
+    }
+
+    /// Whether the raw pre-sanitisation probe is active.
+    pub fn raw_probe_enabled(&self) -> bool {
+        self.raw_probe_enabled
+    }
+
+    /// Snapshot of the most recent raw pre-sanitisation probe (see [`RawSignalProbe`]).
+    /// Only meaningful after a `process_buffer*` call while the probe is enabled.
+    pub fn last_raw_probe(&self) -> RawSignalProbe {
+        self.last_raw_probe.clone()
+    }
+
+    /// Flush a node's internal recursive state back to a safe zero state (G5 / rt F-6).
+    ///
+    /// Called from the DAG loop when a node's output for the block was caught
+    /// non-finite. The Phase 4c output guard only sanitises the *final* buffer; a
+    /// resonant filter, feedback delay/reverb, FM loop, or physical-model waveguide
+    /// whose own state has gone NaN/Inf would keep emitting non-finite forever
+    /// (stuck-silence until reload). Resetting the recursive state lets the node
+    /// recover to producing finite audio on the next block.
+    ///
+    /// Buffers are zeroed **in place** (preserving their length / delay time) rather
+    /// than reallocated, and scalar integrator/history/phase state is zeroed. Nodes
+    /// with no recursive state cannot get stuck (their next sample recomputes from
+    /// clean inputs), so they need no handling here.
+    fn sanitize_node_internal_state(&mut self, node_id: usize) {
+        let sr = self.sample_rate;
+        let node_rc = match self.nodes.get_mut(node_id) {
+            Some(Some(rc)) => rc,
+            _ => return,
+        };
+        let node = Rc::make_mut(node_rc);
+        match node {
+            // --- Chamberlin state-variable filters (FilterState: x1/x2/y1/y2 + coeffs) ---
+            SignalNode::LowPass { state, .. }
+            | SignalNode::HighPass { state, .. }
+            | SignalNode::BandPass { state, .. }
+            | SignalNode::DJFilter { state, .. }
+            | SignalNode::Notch { state, .. } => {
+                *state = FilterState::default();
+            }
+
+            SignalNode::SVF { state, .. } => {
+                *state = SVFState::default();
+            }
+
+            // --- Biquad-family: zero history, keep finite coefficients ---
+            SignalNode::Biquad { state, .. }
+            | SignalNode::Resonz { state, .. }
+            | SignalNode::RLPF { state, .. }
+            | SignalNode::RHPF { state, .. } => {
+                state.x1 = 0.0;
+                state.x2 = 0.0;
+                state.y1 = 0.0;
+                state.y2 = 0.0;
+                // Coefficients are derived from clamped params so are normally finite;
+                // if one blew up, fall back to a unity (passthrough) response.
+                if !(state.b0.is_finite()
+                    && state.b1.is_finite()
+                    && state.b2.is_finite()
+                    && state.a1.is_finite()
+                    && state.a2.is_finite())
+                {
+                    *state = BiquadState::default();
+                }
+            }
+
+            SignalNode::MoogLadder { state, .. } => {
+                *state = MoogLadderState::default();
+            }
+
+            SignalNode::ParametricEQ { state, .. } => {
+                state.low_band = FilterState::default();
+                state.mid_band = FilterState::default();
+                state.high_band = FilterState::default();
+            }
+
+            SignalNode::Allpass { state, .. } => {
+                *state = AllpassState::default();
+            }
+
+            // --- Delay lines (buffer + write index) ---
+            SignalNode::Delay { buffer, write_idx, .. }
+            | SignalNode::MultiTapDelay { buffer, write_idx, .. } => {
+                buffer.iter_mut().for_each(|s| *s = 0.0);
+                *write_idx = 0;
+            }
+
+            SignalNode::Comb { buffer, write_pos, .. } => {
+                buffer.iter_mut().for_each(|s| *s = 0.0);
+                *write_pos = 0;
+            }
+
+            SignalNode::PingPongDelay { buffer_l, buffer_r, write_idx, .. } => {
+                buffer_l.iter_mut().for_each(|s| *s = 0.0);
+                buffer_r.iter_mut().for_each(|s| *s = 0.0);
+                *write_idx = 0;
+            }
+
+            SignalNode::TapeDelay { state, .. } => {
+                state.buffer.iter_mut().for_each(|s| *s = 0.0);
+                state.write_idx = 0;
+                state.wow_phase = 0.0;
+                state.flutter_phase = 0.0;
+                state.lpf_state = 0.0;
+            }
+
+            // --- Reverbs (feedback delay networks) ---
+            SignalNode::Reverb { state, .. } => {
+                *state = ReverbState::new(sr);
+            }
+
+            SignalNode::DattorroReverb { state, .. } => {
+                let dsr = state.sample_rate;
+                *state = DattorroState::new(dsr);
+            }
+
+            // --- Modulation delays ---
+            SignalNode::Chorus { state, .. } => {
+                state.delay_buffer.iter_mut().for_each(|s| *s = 0.0);
+                state.write_idx = 0;
+                state.lfo_phase = 0.0;
+            }
+
+            SignalNode::Flanger { state, .. } => {
+                state.delay_buffer.iter_mut().for_each(|s| *s = 0.0);
+                state.write_idx = 0;
+                state.lfo_phase = 0.0;
+                state.feedback_sample = 0.0;
+            }
+
+            SignalNode::Phaser {
+                phase,
+                allpass_z1,
+                allpass_y1,
+                feedback_sample,
+                ..
+            } => {
+                allpass_z1.iter_mut().for_each(|s| *s = 0.0);
+                allpass_y1.iter_mut().for_each(|s| *s = 0.0);
+                *feedback_sample = 0.0;
+                if !phase.is_finite() {
+                    *phase = 0.0;
+                }
+            }
+
+            SignalNode::Vibrato { phase, delay_buffer, buffer_pos, .. } => {
+                delay_buffer.iter_mut().for_each(|s| *s = 0.0);
+                *buffer_pos = 0;
+                if !phase.is_finite() {
+                    *phase = 0.0;
+                }
+            }
+
+            // --- Physical models (feedback delay lines) ---
+            SignalNode::KarplusStrong { state, .. } => {
+                state.delay_line.iter_mut().for_each(|s| *s = 0.0);
+                state.write_pos = 0;
+            }
+
+            SignalNode::Waveguide { state, .. } => {
+                state.forward_delay.iter_mut().for_each(|s| *s = 0.0);
+                state.backward_delay.iter_mut().for_each(|s| *s = 0.0);
+                state.forward_pos = 0;
+                state.backward_pos = 0;
+            }
+
+            // --- Oscillator phase accumulators: reset only if non-finite ---
+            SignalNode::Oscillator { phase, last_sample, .. } => {
+                if !phase.borrow().is_finite() {
+                    *phase.borrow_mut() = 0.0;
+                }
+                if !last_sample.borrow().is_finite() {
+                    *last_sample.borrow_mut() = 0.0;
+                }
+            }
+
+            SignalNode::Pulse { phase, .. } => {
+                if !phase.is_finite() {
+                    *phase = 0.0;
+                }
+            }
+
+            // Nodes with no recursive internal state cannot get stuck non-finite:
+            // once their (now-sanitised) inputs are finite, their next output is too.
+            _ => {}
+        }
+    }
+
+    /// Enable/disable the G5 / rt F-6 internal-state sanitisation (on by default).
+    ///
+    /// When disabled, a node whose recursive state goes non-finite keeps emitting
+    /// NaN/Inf forever (the pre-fix `main` behaviour: stuck-silence). Exposed so the
+    /// stress harness / tests can reproduce that regression deterministically and
+    /// prove the fix restores recovery.
+    pub fn set_node_state_sanitize(&mut self, on: bool) {
+        self.node_state_sanitize = on;
+    }
+
+    /// TEST SUPPORT (G5 / rt F-6): id of the first node carrying recursive filter
+    /// state (LowPass / HighPass / BandPass / Notch / DJFilter). Lets tests target a
+    /// filter's internal state without hard-coding node ids.
+    #[doc(hidden)]
+    pub fn debug_find_lowpass_node(&self) -> Option<usize> {
+        self.nodes.iter().enumerate().find_map(|(id, opt)| {
+            opt.as_ref().and_then(|rc| {
+                matches!(
+                    &**rc,
+                    SignalNode::LowPass { .. }
+                        | SignalNode::HighPass { .. }
+                        | SignalNode::BandPass { .. }
+                        | SignalNode::Notch { .. }
+                        | SignalNode::DJFilter { .. }
+                )
+                .then_some(id)
+            })
+        })
+    }
+
+    /// TEST SUPPORT (G5 / rt F-6): force a stateful node's internal recursive state
+    /// to `NaN`, simulating a numerical blow-up (denormal cascade, feedback runaway,
+    /// or a misbehaving plugin) without needing a graph that is arithmetically
+    /// guaranteed to diverge. Returns `true` if the node had resettable state that
+    /// was corrupted. Intended only for tests of the sanitisation/recovery path.
+    #[doc(hidden)]
+    pub fn debug_force_node_state_nan(&mut self, node_id: usize) -> bool {
+        let node_rc = match self.nodes.get_mut(node_id) {
+            Some(Some(rc)) => rc,
+            _ => return false,
+        };
+        let node = Rc::make_mut(node_rc);
+        let nan = f32::NAN;
+        match node {
+            SignalNode::LowPass { state, .. }
+            | SignalNode::HighPass { state, .. }
+            | SignalNode::BandPass { state, .. }
+            | SignalNode::DJFilter { state, .. }
+            | SignalNode::Notch { state, .. } => {
+                state.y1 = nan;
+                state.x1 = nan;
+                state.y2 = nan;
+                true
+            }
+            SignalNode::SVF { state, .. } => {
+                state.low = nan;
+                state.band = nan;
+                true
+            }
+            SignalNode::Biquad { state, .. }
+            | SignalNode::Resonz { state, .. }
+            | SignalNode::RLPF { state, .. }
+            | SignalNode::RHPF { state, .. } => {
+                state.y1 = nan;
+                state.y2 = nan;
+                true
+            }
+            SignalNode::MoogLadder { state, .. } => {
+                state.stage1 = nan;
+                state.stage4 = nan;
+                true
+            }
+            SignalNode::Allpass { state, .. } => {
+                state.x1 = nan;
+                state.y1 = nan;
+                true
+            }
+            SignalNode::Delay { buffer, .. } | SignalNode::MultiTapDelay { buffer, .. } => {
+                if let Some(s) = buffer.first_mut() {
+                    *s = nan;
+                }
+                true
+            }
+            SignalNode::Comb { buffer, .. } => {
+                if let Some(s) = buffer.first_mut() {
+                    *s = nan;
+                }
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Enable shared state for parallel rendering
@@ -7829,6 +8180,16 @@ impl UnifiedSignalGraph {
         // Key: node_id, Value: mono buffer
         let mut current_buffers: HashMap<usize, Vec<f32>> = HashMap::new();
 
+        // G5 / rt F-6: raw pre-sanitisation accounting. `first_nonfinite_node` is the
+        // originating node whose output first went non-finite this block; it is used
+        // both to decide which node's internal state to flush and (with the count) to
+        // populate the raw probe. Counting happens at the node-output boundary because
+        // the scrub below removes the non-finite samples before they reach the
+        // buffer-level probe point — so the buffer scan alone would read a tautological
+        // zero. Tracked unconditionally (the non-finite branch is a cold path).
+        let mut first_nonfinite_node: Option<usize> = None;
+        let mut raw_nonfinite_count: usize = 0;
+
         // Clear the DAG buffer cache for this block and enter DAG processing mode
         self.dag_buffer_cache.clear();
         self.in_dag_processing = true;
@@ -7901,6 +8262,39 @@ impl UnifiedSignalGraph {
                     buffer_start_cycle,
                     sample_increment,
                 );
+
+                // G5 / rt F-6: sanitize internal node state on non-finite output.
+                //
+                // The Phase 4c output guard only zeroes the *final* buffer — a node
+                // whose own recursive state (resonant filter, feedback delay/reverb,
+                // FM loop) has gone NaN/Inf keeps emitting non-finite forever, so the
+                // guard produces permanent silence (stuck voice/bus until reload).
+                //
+                // Here we catch it at the node-output boundary: if this node emitted
+                // any non-finite sample we (1) record the originating node id, (2)
+                // flush the node's internal state back to a safe zero state so it can
+                // recover next block, and (3) scrub the non-finite samples out of the
+                // buffer *before* it is cached — so downstream nodes and z^-1 feedback
+                // (which read `current_buffers` / `dag_buffer_cache`) never see NaN.
+                // Common case is a single short-circuiting `is_finite` pass; the
+                // expensive count + reset + scrub only runs on the cold blow-up path.
+                if node_output.iter().any(|s| !s.is_finite()) {
+                    raw_nonfinite_count += node_output.iter().filter(|s| !s.is_finite()).count();
+                    if first_nonfinite_node.is_none() {
+                        first_nonfinite_node = Some(node_id);
+                    }
+                    // The sanitize+scrub is the actual F-6 fix. It can be disabled via
+                    // `set_node_state_sanitize(false)` so tests can reproduce the
+                    // pre-fix `main` behaviour (stuck-silence) deterministically.
+                    if self.node_state_sanitize {
+                        self.sanitize_node_internal_state(node_id);
+                        for s in node_output.iter_mut() {
+                            if !s.is_finite() {
+                                *s = 0.0;
+                            }
+                        }
+                    }
+                }
 
                 // Store output for downstream nodes
                 current_buffers.insert(node_id, node_output.clone());
@@ -8011,6 +8405,49 @@ impl UnifiedSignalGraph {
             OutputMixMode::None => {
                 // Direct sum - no gain compensation
             }
+        }
+
+        // Pre-sanitisation invariant probe (G5 / I1, rt F-6, test-gap P0-C).
+        // Sampled here — after Phase-4 mixing but BEFORE the Phase 4b limiter and the
+        // Phase 4c NaN/denormal flush — so tests can assert on the RAW signal instead
+        // of the sanitised `0.0` the guard produces. `raw_peak`/`raw_max_delta` are read
+        // from the buffer (finite blow-ups survive to here; only NaN/Inf were scrubbed
+        // per-node above), while `raw_nonfinite`/`first_nonfinite_node` come from the
+        // node-boundary accounting. Off by default — zero overhead on the render path.
+        if self.raw_probe_enabled {
+            let mut raw_peak = 0.0f32;
+            let mut raw_max_delta = 0.0f32;
+            let mut prev: Option<f32> = None;
+            let mut saw_nonfinite_in_buffer = false;
+            for &s in buffer.iter() {
+                if s.is_finite() {
+                    let a = s.abs();
+                    if a > raw_peak {
+                        raw_peak = a;
+                    }
+                    if let Some(p) = prev {
+                        let d = (s - p).abs();
+                        if d > raw_max_delta {
+                            raw_max_delta = d;
+                        }
+                    }
+                    prev = Some(s);
+                } else {
+                    saw_nonfinite_in_buffer = true;
+                }
+            }
+            // A non-finite that survived per-node scrubbing (e.g. produced by the
+            // output-mixing stage itself) still counts as a raw invariant breach and
+            // forces the peak to infinity so a blow-up is never reported as bounded.
+            if saw_nonfinite_in_buffer {
+                raw_peak = f32::INFINITY;
+            }
+            self.last_raw_probe = RawSignalProbe {
+                raw_nonfinite: raw_nonfinite_count,
+                raw_peak,
+                raw_max_delta,
+                first_nonfinite_node,
+            };
         }
 
         // Phase 4b: Apply master limiter (safety limiter to protect speakers/ears)
