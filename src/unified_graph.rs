@@ -4468,8 +4468,10 @@ fn synthesize_bus_buffer_parallel(
         buffer.push(sample_value);
     }
 
-    // DEBUG: Check if buffer contains audio
-    if std::env::var("DEBUG_BUS_SYNTHESIS").is_ok() {
+    // DEBUG: Check if buffer contains audio.
+    // Free function (no `self`); this path is bus-synthesis prep (per-cycle, not
+    // the per-buffer render hot path), so a direct counted read is fine here.
+    if read_env_flag("DEBUG_BUS_SYNTHESIS") {
         let rms: f32 = buffer.iter().map(|&s| s * s).sum::<f32>() / buffer.len() as f32;
         let rms = rms.sqrt();
         eprintln!(
@@ -4911,6 +4913,135 @@ impl LiveClock {
     }
 }
 
+/// Number of environment-variable flag lookups performed by this module.
+///
+/// Every `env::var` read in `unified_graph.rs` routes through [`read_env_flag`],
+/// so this counter is authoritative for the whole module. A single glibc
+/// `getenv` takes a process-global lock + a linear `environ` scan, which is far
+/// too expensive to pay on the per-buffer render path (rt F-5 / pt-F9). The
+/// scratch-arena stress test asserts this counter stays FLAT across N steady
+/// render buffers, i.e. the render path performs **zero** per-buffer `env::var`
+/// lookups (all flag reads happen once, at graph build).
+pub static ENV_FLAG_READS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Number of times a DAG plan (dependency map + topological order + parallel
+/// batches + bus/output index sets) was (re)built. Building the plan is
+/// `O(N^2)` for big patches; the fix caches it and rebuilds only when the graph
+/// structure changes (compile / hot-reload). The stress test asserts this stays
+/// FLAT across steady render buffers — the plan is compiled once, not per buffer.
+pub static DAG_PLAN_BUILDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Number of fresh per-node scratch buffers heap-allocated by `process_buffer_dag`
+/// / `eval_node_buffer_dag`. With the scratch pool warm this is 0 in steady
+/// state (buffers are checked out of and recycled back into the pool keyed by
+/// node id). The stress test asserts it stays FLAT after warmup — the render
+/// path performs **no** per-buffer heap allocation for node scratch.
+pub static DAG_SCRATCH_ALLOCS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Read a boolean environment flag, counting the read in [`ENV_FLAG_READS`].
+///
+/// The counting is the whole point: it makes "zero per-buffer `env::var`"
+/// mechanically testable. On the render path we never call this — we read a
+/// cached [`DebugFlags`] bool instead — so the counter proves the hot path is
+/// env-free.
+#[inline]
+fn read_env_flag(name: &str) -> bool {
+    ENV_FLAG_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    std::env::var(name).is_ok()
+}
+
+/// Debug/behaviour env flags, read exactly once at graph build and cached as
+/// plain `bool` fields so the per-buffer/per-sample render path never touches
+/// `env::var` (rt F-5). `ENABLE_HYBRID_ARCH` is the only behaviour-affecting
+/// flag; the rest gate `eprintln!` diagnostics. `timing_transfer` gates the
+/// swap-time timing log (pt-F9) so hot-reloads don't pay per-swap `eprintln!`
+/// jitter unless explicitly requested.
+#[derive(Clone, Copy, Default)]
+struct DebugFlags {
+    dag: bool,
+    voice_buffers: bool,
+    voice_dag: bool,
+    unit_delay: bool,
+    output: bool,
+    output_buffer: bool,
+    pattern: bool,
+    overflow: bool,
+    profile_cache: bool,
+    profile_buffer: bool,
+    asr: bool,
+    source_node: bool,
+    sample_events: bool,
+    sample_buffer: bool,
+    cut_groups: bool,
+    bus_lookup: bool,
+    voice_trigger: bool,
+    voice_cache: bool,
+    fx_state: bool,
+    osc_freq: bool,
+    osc_freq_old: bool,
+    enable_hybrid_arch: bool,
+    timing_transfer: bool,
+}
+
+impl DebugFlags {
+    /// Read every flag from the environment exactly once. Called at graph build
+    /// (see [`UnifiedSignalGraph::new`]); the render path uses the cached values.
+    fn from_env() -> Self {
+        DebugFlags {
+            dag: read_env_flag("DEBUG_DAG"),
+            voice_buffers: read_env_flag("DEBUG_VOICE_BUFFERS"),
+            voice_dag: read_env_flag("DEBUG_VOICE_DAG"),
+            unit_delay: read_env_flag("DEBUG_UNIT_DELAY"),
+            output: read_env_flag("DEBUG_OUTPUT"),
+            output_buffer: read_env_flag("DEBUG_OUTPUT_BUFFER"),
+            pattern: read_env_flag("DEBUG_PATTERN"),
+            overflow: read_env_flag("DEBUG_OVERFLOW"),
+            profile_cache: read_env_flag("PROFILE_CACHE"),
+            profile_buffer: read_env_flag("PROFILE_BUFFER"),
+            asr: read_env_flag("DEBUG_ASR"),
+            source_node: read_env_flag("DEBUG_SOURCE_NODE"),
+            sample_events: read_env_flag("DEBUG_SAMPLE_EVENTS"),
+            sample_buffer: read_env_flag("DEBUG_SAMPLE_BUFFER"),
+            cut_groups: read_env_flag("DEBUG_CUT_GROUPS"),
+            bus_lookup: read_env_flag("DEBUG_BUS_LOOKUP"),
+            voice_trigger: read_env_flag("DEBUG_VOICE_TRIGGER"),
+            voice_cache: read_env_flag("DEBUG_VOICE_CACHE"),
+            fx_state: read_env_flag("DEBUG_FX_STATE"),
+            osc_freq: read_env_flag("DEBUG_OSC_FREQ"),
+            osc_freq_old: read_env_flag("DEBUG_OSC_FREQ_OLD"),
+            enable_hybrid_arch: read_env_flag("ENABLE_HYBRID_ARCH"),
+            timing_transfer: read_env_flag("DEBUG_TIMING_TRANSFER"),
+        }
+    }
+}
+
+/// Immutable, reusable execution plan for the block-based DAG render path.
+///
+/// Derived purely from the graph *structure* (nodes, their input wiring, buses,
+/// and outputs), all of which are frozen once a graph starts rendering — a
+/// live edit compiles a brand-new graph rather than mutating this one. So the
+/// plan is compiled once (at first render or after a structural change) and
+/// reused for every subsequent buffer, eliminating the per-buffer
+/// `build_dag_dependencies` + `topological_order` + `parallel_batches` cost
+/// (rt F-5 / pt-F9). [`DagPlan::fingerprint`] is a cheap structural signature
+/// checked each buffer to detect (the practically-never) case that the graph
+/// changed under a live plan.
+#[derive(Clone, Default)]
+struct DagPlan {
+    /// node_id -> input node ids (from `build_dag_dependencies`).
+    deps: HashMap<usize, Vec<usize>>,
+    /// Filtered topological execution order (buses+outputs, or reachable-from-output).
+    topo_order: Vec<usize>,
+    /// Parallel batches of `topo_order` (independent nodes grouped).
+    batches: Vec<Vec<usize>>,
+    /// Set of bus node ids (empty => no-bus fast path).
+    bus_node_ids: std::collections::HashSet<usize>,
+    /// Numbered output channels (channel -> node) captured in a stable Vec.
+    output_channels: Vec<(usize, NodeId)>,
+    /// Cheap structural signature; a mismatch forces a rebuild.
+    fingerprint: u64,
+}
+
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph (Rc for cheap cloning - eliminates deep clone overhead)
@@ -5009,6 +5140,35 @@ pub struct UnifiedSignalGraph {
     /// When true, bus references to nodes not yet in dag_buffer_cache return 0.0
     /// instead of recursively calling eval_node (which would cause stack overflow).
     in_dag_processing: bool,
+
+    /// Debug/behaviour env flags, read once at graph build (rt F-5). The render
+    /// path reads these cached bools instead of calling `env::var` per buffer.
+    debug_flags: DebugFlags,
+
+    /// When true, `process_buffer_dag` reuses a compiled [`DagPlan`] and a pooled
+    /// scratch arena across buffers instead of rebuilding the plan and allocating
+    /// fresh node buffers every buffer (rt F-5). Default `true`. Tests flip it off
+    /// via [`Self::set_dag_scratch_reuse`] to render the exact pre-fix code path
+    /// and prove the optimised path is bit-for-bit identical.
+    dag_scratch_reuse: bool,
+
+    /// Compiled, reusable DAG execution plan (see [`DagPlan`]). Rebuilt only when
+    /// the structural fingerprint changes. Held as an `Option` so it can be moved
+    /// out (`take`) for the duration of a block — the block borrows `&mut self`
+    /// freely — then moved back.
+    dag_plan: Option<DagPlan>,
+
+    /// Pool of reusable mono scratch buffers for the DAG render path, keyed by
+    /// nothing (any buffer fits since they are all `buffer_size` long). Checked
+    /// out via `dag_checkout_buf` (zeroed) and returned via `dag_recycle_buf` so
+    /// steady-state rendering never heap-allocates node scratch.
+    dag_scratch_pool: Vec<Vec<f32>>,
+
+    /// Persistent storage for `process_buffer_dag`'s per-node output map. Moved
+    /// out with `mem::take` at block start and back at block end so the map's
+    /// bucket allocation is reused across buffers (its inner buffers cycle
+    /// through the pool / `prev_node_buffers`).
+    dag_current_buffers: HashMap<usize, Vec<f32>>,
 
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
@@ -5198,6 +5358,11 @@ impl Clone for UnifiedSignalGraph {
             dag_zero_buffer: vec![0.0; self.buffer_size], // Sized to match buffer_size
             dag_buffer_cache: HashMap::new(), // Fresh DAG buffer cache
             in_dag_processing: false,
+            debug_flags: self.debug_flags, // Copy cached flags (no re-read of env)
+            dag_scratch_reuse: self.dag_scratch_reuse,
+            dag_plan: None,                // Rebuilt on first render of the clone
+            dag_scratch_pool: Vec::new(),  // Fresh pool for the cloned instance
+            dag_current_buffers: HashMap::new(),
             sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
@@ -5294,6 +5459,11 @@ impl UnifiedSignalGraph {
             dag_zero_buffer: vec![0.0; 512], // Default buffer size
             dag_buffer_cache: HashMap::new(),
             in_dag_processing: false,
+            debug_flags: DebugFlags::from_env(), // Read env flags ONCE at build (rt F-5)
+            dag_scratch_reuse: true,             // Reuse plan + pooled buffers by default
+            dag_plan: None,                      // Compiled lazily on first render
+            dag_scratch_pool: Vec::new(),
+            dag_current_buffers: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
@@ -6553,20 +6723,23 @@ impl UnifiedSignalGraph {
         // => new_offset = old_cycle_pos - old_elapsed * new_cps
         self.cycle_offset = old_cycle_pos - old_elapsed * self.cps as f64;
 
-        // DEBUG: Log timing transfer details
-        eprintln!("🔍 TIMING TRANSFER:");
-        eprintln!(
-            "   Old: elapsed={:.4}s, cps={:.2}, offset={:.4}, position={:.4}",
-            old_elapsed, old_graph.cps, old_graph.cycle_offset, old_cycle_pos
-        );
-        eprintln!(
-            "   New: cps={:.2}, offset={:.4}, will continue from position={:.4}",
-            self.cps, self.cycle_offset, old_cycle_pos
-        );
-        eprintln!(
-            "   Wall-clock mode: old={}, new={}",
-            old_graph.use_wall_clock, self.use_wall_clock
-        );
+        // DEBUG: Log timing transfer details (pt-F9: gated so hot-reloads don't
+        // pay per-swap `eprintln!` jitter unless DEBUG_TIMING_TRANSFER is set).
+        if self.debug_flags.timing_transfer {
+            eprintln!("🔍 TIMING TRANSFER:");
+            eprintln!(
+                "   Old: elapsed={:.4}s, cps={:.2}, offset={:.4}, position={:.4}",
+                old_elapsed, old_graph.cps, old_graph.cycle_offset, old_cycle_pos
+            );
+            eprintln!(
+                "   New: cps={:.2}, offset={:.4}, will continue from position={:.4}",
+                self.cps, self.cycle_offset, old_cycle_pos
+            );
+            eprintln!(
+                "   Wall-clock mode: old={}, new={}",
+                old_graph.use_wall_clock, self.use_wall_clock
+            );
+        }
 
         // NOTE: We keep self.cps as-is (from compile_program's tempo: statement)
         // This allows tempo changes to take effect immediately!
@@ -6627,11 +6800,13 @@ impl UnifiedSignalGraph {
             }
         }
 
-        eprintln!(
-            "🔧 Updated {} nodes with cycle position {:.4}",
-            self.nodes.iter().filter(|n| n.is_some()).count(),
-            old_cycle_pos
-        );
+        if self.debug_flags.timing_transfer {
+            eprintln!(
+                "🔧 Updated {} nodes with cycle position {:.4}",
+                self.nodes.iter().filter(|n| n.is_some()).count(),
+                old_cycle_pos
+            );
+        }
 
         // Carry render continuity so the Phase-4d boundary crossfade smooths the
         // swap seam on THIS graph's first buffer (audit live-transition-2026-07
@@ -6803,7 +6978,7 @@ impl UnifiedSignalGraph {
             }
         }
 
-        if std::env::var("DEBUG_FX_STATE").is_ok() {
+        if self.debug_flags.fx_state {
             eprintln!("[FX_STATE] Extracted {} FX states", state_map.len());
             for (key, _state) in &state_map {
                 eprintln!("  - {:?}", key);
@@ -8153,6 +8328,158 @@ impl UnifiedSignalGraph {
     // Buffer-Passing Graph Processing (Modular Synthesis Architecture)
     // ========================================================================
 
+    /// Enable/disable the DAG scratch-arena reuse (cached plan + pooled buffers).
+    ///
+    /// `true` (the default) is the optimised render path. `false` reproduces the
+    /// exact pre-fix behaviour — rebuild the plan and allocate fresh node buffers
+    /// every buffer — which the stress test uses both to demonstrate the pre-fix
+    /// per-buffer cost and to prove the optimised path is bit-for-bit identical.
+    pub fn set_dag_scratch_reuse(&mut self, enabled: bool) {
+        self.dag_scratch_reuse = enabled;
+    }
+
+    /// Check out a zeroed `buffer_size`-length mono scratch buffer.
+    ///
+    /// Reuses a buffer from [`Self::dag_scratch_pool`] when reuse is enabled and
+    /// the pool is non-empty; otherwise heap-allocates a fresh one (counted in
+    /// [`DAG_SCRATCH_ALLOCS`]). `clear` + `resize` keeps the existing capacity, so
+    /// a warm pool never reallocates on the render path.
+    #[inline]
+    fn dag_checkout_buf(&mut self, buffer_size: usize) -> Vec<f32> {
+        if self.dag_scratch_reuse {
+            if let Some(mut b) = self.dag_scratch_pool.pop() {
+                b.clear();
+                b.resize(buffer_size, 0.0);
+                return b;
+            }
+        }
+        DAG_SCRATCH_ALLOCS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        vec![0.0; buffer_size]
+    }
+
+    /// Return a scratch buffer to the pool (drops it when reuse is disabled, so
+    /// the pre-fix path stays alloc-per-buffer and never accumulates a pool).
+    #[inline]
+    fn dag_recycle_buf(&mut self, buf: Vec<f32>) {
+        if self.dag_scratch_reuse {
+            self.dag_scratch_pool.push(buf);
+        }
+    }
+
+    /// Empty `dag_buffer_cache` at block start, recycling its buffers into the
+    /// scratch pool (equivalent to the old `dag_buffer_cache.clear()` but reusing
+    /// the allocations). Split-borrow of two disjoint fields.
+    #[inline]
+    fn recycle_dag_buffer_cache(&mut self) {
+        if self.dag_scratch_reuse {
+            let pool = &mut self.dag_scratch_pool;
+            for (_, buf) in self.dag_buffer_cache.drain() {
+                pool.push(buf);
+            }
+        } else {
+            self.dag_buffer_cache.clear();
+        }
+    }
+
+    /// Cheap structural signature of the graph. Order-independent (sums node ids
+    /// rather than hashing HashMap iteration order) and complete enough to catch
+    /// any node/bus/output change that could invalidate a cached [`DagPlan`].
+    /// Graph structure is frozen during rendering, so in practice this never
+    /// changes between buffers — the check is a guard, not a hot rebuild trigger.
+    fn dag_structural_fingerprint(&self) -> u64 {
+        let mut fp: u64 = 0xcbf29ce484222325; // FNV offset basis
+        let mut mix = |v: u64| {
+            fp ^= v;
+            fp = fp.wrapping_mul(0x100000001b3); // FNV prime
+        };
+        mix(self.nodes.len() as u64);
+        mix(self.buses.len() as u64);
+        mix(self.buses.values().map(|n| n.0 as u64).sum());
+        mix(self.outputs.len() as u64);
+        mix(self.outputs.values().map(|n| n.0 as u64).sum());
+        mix(self.output.map(|n| n.0 as u64 + 1).unwrap_or(0));
+        fp
+    }
+
+    /// Build the immutable [`DagPlan`] from the current graph structure. Counted
+    /// in [`DAG_PLAN_BUILDS`] so the stress test can assert it runs once, not per
+    /// buffer.
+    fn build_dag_plan(&self) -> DagPlan {
+        DAG_PLAN_BUILDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        let deps = self.build_dag_dependencies();
+        let full_topo_order = self.topological_order(&deps);
+
+        let bus_node_ids: std::collections::HashSet<usize> =
+            self.buses.values().map(|id| id.0).collect();
+        let output_node_id = self.output.map(|id| id.0);
+        let numbered_output_ids: std::collections::HashSet<usize> =
+            self.outputs.values().map(|id| id.0).collect();
+
+        let topo_order: Vec<usize> = if bus_node_ids.is_empty() {
+            let reachable = self.nodes_reachable_from_output(&deps);
+            full_topo_order
+                .into_iter()
+                .filter(|node_id| reachable.contains(node_id))
+                .collect()
+        } else {
+            full_topo_order
+                .into_iter()
+                .filter(|&node_id| {
+                    bus_node_ids.contains(&node_id)
+                        || Some(node_id) == output_node_id
+                        || numbered_output_ids.contains(&node_id)
+                })
+                .collect()
+        };
+
+        let batches = self.parallel_batches(&topo_order, &deps);
+
+        let output_channels: Vec<(usize, NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
+
+        DagPlan {
+            deps,
+            topo_order,
+            batches,
+            bus_node_ids,
+            output_channels,
+            fingerprint: self.dag_structural_fingerprint(),
+        }
+    }
+
+    /// Take an up-to-date [`DagPlan`] out of the graph for the duration of a block.
+    ///
+    /// With reuse enabled, returns the cached plan (rebuilding only if the
+    /// structural fingerprint changed); the caller MUST return it via
+    /// [`Self::restore_dag_plan`]. With reuse disabled, returns a freshly built
+    /// plan every call (the pre-fix behaviour) and stores nothing.
+    fn take_dag_plan(&mut self) -> DagPlan {
+        if !self.dag_scratch_reuse {
+            return self.build_dag_plan();
+        }
+        let fp = self.dag_structural_fingerprint();
+        let cached_ok = self
+            .dag_plan
+            .as_ref()
+            .map(|p| p.fingerprint == fp)
+            .unwrap_or(false);
+        if cached_ok {
+            self.dag_plan.take().unwrap()
+        } else {
+            self.build_dag_plan()
+        }
+    }
+
+    /// Return a plan taken via [`Self::take_dag_plan`] to the cache (no-op when
+    /// reuse is disabled — the pre-fix path throws the plan away each buffer).
+    #[inline]
+    fn restore_dag_plan(&mut self, plan: DagPlan) {
+        if self.dag_scratch_reuse {
+            self.dag_plan = Some(plan);
+        }
+    }
+
     /// Process audio buffer using dependency-ordered buffer passing
     ///
     /// This is the new modular synthesis architecture where:
@@ -8177,7 +8504,7 @@ impl UnifiedSignalGraph {
 
         static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let call = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if std::env::var("DEBUG_DAG").is_ok() && call < 3 {
+        if self.debug_flags.dag && call < 3 {
             eprintln!("process_buffer_dag called #{}", call);
         }
 
@@ -8226,7 +8553,7 @@ impl UnifiedSignalGraph {
             .borrow_mut()
             .process_buffer_vec(buffer_size, self.max_node_id);
 
-        if std::env::var("DEBUG_VOICE_BUFFERS").is_ok() {
+        if self.debug_flags.voice_buffers {
             let non_empty: Vec<_> = self.voice_buffers.buffers.iter().enumerate()
                 .filter(|(_, b)| !b.is_empty() && b.iter().any(|&x| x != 0.0))
                 .map(|(i, b)| (i, b.len(), b.iter().take(5).cloned().collect::<Vec<_>>()))
@@ -8394,55 +8721,20 @@ impl UnifiedSignalGraph {
             }
         }
 
-        // Phase 1: Build dependency graph
-        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building dependencies..."); }
-        let deps = self.build_dag_dependencies();
-        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building topo order..."); }
-        let full_topo_order = self.topological_order(&deps);
+        // Phase 1: Obtain the DAG execution plan (dependency map + filtered
+        // topological order + parallel batches + bus/output index sets). Compiled
+        // once and reused across buffers when scratch reuse is enabled; rebuilt
+        // every buffer when disabled (the exact pre-fix path). See `build_dag_plan`
+        // / `take_dag_plan`. `plan` is a local for the block's duration and is
+        // returned to the cache via `restore_dag_plan` at block end.
+        if self.debug_flags.dag { eprintln!("  Building/loading DAG plan..."); }
+        let plan = self.take_dag_plan();
 
-        // Filter topo order based on whether we have buses:
-        // - With buses: only process bus nodes and output. Intermediate expression nodes
-        //   are evaluated inline when their containing bus is processed. This is critical
-        //   for self-referential buses (z^-1 feedback) to work correctly.
-        // - Without buses: process all nodes. This is the simple case with no feedback.
-        let bus_node_ids: std::collections::HashSet<usize> =
-            self.buses.values().map(|id| id.0).collect();
-        let output_node_id = self.output.map(|id| id.0);
-
-        // Collect numbered output node IDs (out1, out2, etc.)
-        let numbered_output_ids: std::collections::HashSet<usize> =
-            self.outputs.values().map(|id| id.0).collect();
-
-        let topo_order: Vec<usize> = if bus_node_ids.is_empty() {
-            // No buses - only process nodes reachable from output
-            // This prevents orphaned nodes (like unmodified SynthPatterns after # n modifier)
-            // from producing unwanted audio
-            let reachable = self.nodes_reachable_from_output(&deps);
-            full_topo_order
-                .into_iter()
-                .filter(|node_id| reachable.contains(node_id))
-                .collect()
-        } else {
-            // Has buses - only process buses, main output, and numbered outputs
-            full_topo_order
-                .into_iter()
-                .filter(|&node_id| {
-                    bus_node_ids.contains(&node_id)
-                        || Some(node_id) == output_node_id
-                        || numbered_output_ids.contains(&node_id)
-                })
-                .collect()
-        };
-
-        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Building batches..."); }
-        let batches = self.parallel_batches(&topo_order, &deps);
-        if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Starting batch processing..."); }
-
-        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count == 0 {
+        if self.debug_flags.unit_delay && self.sample_count == 0 {
             eprintln!("=== DAG Processing ===");
-            eprintln!("deps: {:?}", deps);
-            eprintln!("topo_order: {:?}", topo_order);
-            eprintln!("batches: {:?}", batches);
+            eprintln!("deps: {:?}", plan.deps);
+            eprintln!("topo_order: {:?}", plan.topo_order);
+            eprintln!("batches: {:?}", plan.batches);
             eprintln!("buses: {:?}", self.buses);
             eprintln!("output: {:?}", self.output);
             // Print node types (abbreviated)
@@ -8462,9 +8754,14 @@ impl UnifiedSignalGraph {
             }
         }
 
-        // Temporary storage for this block's node outputs
-        // Key: node_id, Value: mono buffer
-        let mut current_buffers: HashMap<usize, Vec<f32>> = HashMap::new();
+        // Temporary storage for this block's node outputs (key: node_id).
+        // Reuse the persistent map's bucket allocation across buffers via
+        // `mem::take` (restored at block end). It is drained empty into
+        // `prev_node_buffers` at the end of every block, so it starts empty here;
+        // its inner buffers cycle through the scratch pool.
+        let mut current_buffers: HashMap<usize, Vec<f32>> =
+            std::mem::take(&mut self.dag_current_buffers);
+        current_buffers.clear();
 
         // G5 / rt F-6: raw pre-sanitisation accounting. `first_nonfinite_node` is the
         // originating node whose output first went non-finite this block; it is used
@@ -8476,28 +8773,35 @@ impl UnifiedSignalGraph {
         let mut first_nonfinite_node: Option<usize> = None;
         let mut raw_nonfinite_count: usize = 0;
 
-        // Clear the DAG buffer cache for this block and enter DAG processing mode
-        self.dag_buffer_cache.clear();
+        // Clear the DAG buffer cache for this block and enter DAG processing mode.
+        // Recycle its buffers into the scratch pool rather than dropping them.
+        self.recycle_dag_buffer_cache();
         self.in_dag_processing = true;
 
         // Pre-allocate buffers for ALL buses BEFORE processing any nodes.
         // This is critical for self-referential buses (z^-1 feedback) to work.
-        // UnitDelay nodes need the bus's buffer to exist so they can read previous samples.
-        for &bus_node_id in self.buses.values() {
-            self.dag_buffer_cache
-                .insert(bus_node_id.0, vec![0.0; buffer_size]);
+        // UnitDelay nodes need the bus's buffer to exist so they can read previous
+        // samples. Iterate `plan.bus_node_ids` (a local) so `dag_checkout_buf`
+        // (&mut self) doesn't conflict with borrowing `self.buses`.
+        for &bus_node_id in &plan.bus_node_ids {
+            let z = self.dag_checkout_buf(buffer_size);
+            if let Some(old) = self.dag_buffer_cache.insert(bus_node_id, z) {
+                self.dag_recycle_buf(old);
+            }
         }
         // Also pre-allocate for output node if different from buses
         if let Some(output_id) = self.output {
             if !self.dag_buffer_cache.contains_key(&output_id.0) {
-                self.dag_buffer_cache
-                    .insert(output_id.0, vec![0.0; buffer_size]);
+                let z = self.dag_checkout_buf(buffer_size);
+                if let Some(old) = self.dag_buffer_cache.insert(output_id.0, z) {
+                    self.dag_recycle_buf(old);
+                }
             }
         }
 
         // Phase 2: Process batches (sequential between batches)
-        for (batch_idx, batch) in batches.iter().enumerate() {
-            if std::env::var("DEBUG_DAG").is_ok() { eprintln!("  Processing batch {}...", batch_idx); }
+        for (batch_idx, batch) in plan.batches.iter().enumerate() {
+            if self.debug_flags.dag { eprintln!("  Processing batch {}...", batch_idx); }
             // Process each node in the batch
             // (Phase 5 will parallelize this with rayon)
             for &node_id in batch {
@@ -8510,13 +8814,13 @@ impl UnifiedSignalGraph {
                     false
                 };
                 if is_unit_delay {
-                    if std::env::var("DEBUG_DAG").is_ok() {
+                    if self.debug_flags.dag {
                         eprintln!("    Skipping UnitDelay node {}", node_id);
                     }
                     continue;
                 }
 
-                if std::env::var("DEBUG_DAG").is_ok() {
+                if self.debug_flags.dag {
                     let node_type = if let Some(Some(node_rc)) = self.nodes.get(node_id) {
                         match &**node_rc {
                             SignalNode::LowPass { .. } => "LowPass",
@@ -8533,16 +8837,25 @@ impl UnifiedSignalGraph {
                     };
                     eprintln!("    Processing node {} ({}), output={:?}...", node_id, node_type, self.output);
                 }
-                // Gather input buffers from predecessors
-                let input_ids = deps.get(&node_id).cloned().unwrap_or_default();
+                // Gather input buffers from predecessors. `eval_node_buffer_dag`
+                // ignores these params (it reads predecessors via dag_buffer_cache /
+                // prev_node_buffers), so pass a borrowed slice from the cached plan
+                // with no per-node clone.
+                let empty_ids: [usize; 0] = [];
+                let input_ids: &[usize] = plan
+                    .deps
+                    .get(&node_id)
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&empty_ids);
 
-                // Allocate output buffer for this node
-                let mut node_output = vec![0.0; buffer_size];
+                // Check out a zeroed output buffer for this node (pooled — no
+                // per-buffer allocation once the pool is warm).
+                let mut node_output = self.dag_checkout_buf(buffer_size);
 
                 // Process this node
                 self.eval_node_buffer_dag(
                     node_id,
-                    &input_ids,
+                    input_ids,
                     &current_buffers,
                     &mut node_output,
                     buffer_start_cycle,
@@ -8582,26 +8895,34 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                // Store output for downstream nodes
-                current_buffers.insert(node_id, node_output.clone());
+                // Store output for downstream nodes. `current_buffers` needs its
+                // own copy (dag_buffer_cache takes `node_output` by move below), so
+                // check out a pooled buffer and copy into it instead of cloning.
+                let mut cache_copy = self.dag_checkout_buf(buffer_size);
+                cache_copy.copy_from_slice(&node_output);
+                if let Some(old) = current_buffers.insert(node_id, cache_copy) {
+                    self.dag_recycle_buf(old);
+                }
 
                 // CRITICAL: Also update dag_buffer_cache so eval_signal_at_time can find cached values.
                 // This is necessary for all nodes, not just buses, because later nodes may reference
-                // earlier nodes through their input signals.
-                self.dag_buffer_cache.insert(node_id, node_output);
+                // earlier nodes through their input signals. Recycle the z^-1
+                // pre-alloc buffer that eval_node_buffer_dag inserted for this node.
+                if let Some(old) = self.dag_buffer_cache.insert(node_id, node_output) {
+                    self.dag_recycle_buf(old);
+                }
             }
         }
 
         // Phase 3: Copy output to buffer (stereo interleave)
         // Check hushed_channels before outputting
 
-        // Collect numbered outputs first to avoid borrow checker issues
-        let output_channels: Vec<(usize, NodeId)> = self.outputs.iter()
-            .map(|(&ch, &node)| (ch, node))
-            .collect();
+        // Numbered outputs come from the cached plan (avoids a per-buffer collect
+        // and the borrow-checker dance with `self.outputs`).
+        let output_channels: &[(usize, NodeId)] = &plan.output_channels;
 
         // DEBUG: Log numbered outputs if enabled
-        if std::env::var("DEBUG_OUTPUT").is_ok() && !output_channels.is_empty() {
+        if self.debug_flags.output && !output_channels.is_empty() {
             eprintln!("[DAG] Numbered outputs: {:?}", output_channels);
             eprintln!("[DAG] current_buffers keys: {:?}", current_buffers.keys().collect::<Vec<_>>());
         }
@@ -8624,7 +8945,7 @@ impl UnifiedSignalGraph {
             if !self.hushed_channels.contains(&0) {
                 num_active_channels += 1;
                 if let Some(mono_buf) = current_buffers.get(&out_id) {
-                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                    if self.debug_flags.output_buffer {
                         let sum: f32 = mono_buf.iter().sum();
                         eprintln!("[OUTPUT_BUFFER] out_id={}, buffer len={}, sum={}", out_id, mono_buf.len(), sum);
                     }
@@ -8635,7 +8956,7 @@ impl UnifiedSignalGraph {
                         buffer[i * 2 + 1] = sample; // Right
                     }
                 } else {
-                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                    if self.debug_flags.output_buffer {
                         eprintln!("[OUTPUT_BUFFER] out_id={} NOT FOUND in current_buffers! keys: {:?}", out_id, current_buffers.keys().collect::<Vec<_>>());
                     }
                 }
@@ -8644,7 +8965,7 @@ impl UnifiedSignalGraph {
         }
 
         // Handle numbered outputs (out1, out2, etc.)
-        for (ch, node_id) in output_channels {
+        for &(ch, node_id) in output_channels {
             // Skip hushed channels
             if self.hushed_channels.contains(&ch) {
                 continue;
@@ -8810,12 +9131,26 @@ impl UnifiedSignalGraph {
             self.prev_buffer_tail.copy_from_slice(tail_slice);
         }
 
-        // Phase 5: Swap buffers for feedback support
-        // Move current buffers to prev_node_buffers for next block
-        self.prev_node_buffers.clear();
+        // Phase 5: Swap buffers for feedback support.
+        // Move this block's node buffers into prev_node_buffers so next block's
+        // UnitDelay/feedback reads see them. Recycle the previous feedback buffers
+        // (no longer needed) into the scratch pool rather than dropping them.
+        if self.dag_scratch_reuse {
+            let pool = &mut self.dag_scratch_pool;
+            for (_, buf) in self.prev_node_buffers.drain() {
+                pool.push(buf);
+            }
+        } else {
+            self.prev_node_buffers.clear();
+        }
         for (node_id, buf) in current_buffers.drain() {
             self.prev_node_buffers.insert(node_id, buf);
         }
+
+        // Return the (now-empty) node-output map to its persistent slot so its
+        // bucket allocation is reused next block, and return the plan to the cache.
+        self.dag_current_buffers = current_buffers;
+        self.restore_dag_plan(plan);
 
         // Exit DAG processing mode
         self.in_dag_processing = false;
@@ -8875,15 +9210,20 @@ impl UnifiedSignalGraph {
         }
 
         // Pre-allocate a buffer in dag_buffer_cache for self-referential feedback (z^-1)
-        // This allows UnitDelay to look at previous samples within the same buffer
-        self.dag_buffer_cache.insert(node_id, vec![0.0; buffer_size]);
+        // This allows UnitDelay to look at previous samples within the same buffer.
+        // Pooled checkout (zeroed) so this is not a per-node heap allocation; the
+        // caller (`process_buffer_dag`) recycles the replaced buffer.
+        let z = self.dag_checkout_buf(buffer_size);
+        if let Some(old) = self.dag_buffer_cache.insert(node_id, z) {
+            self.dag_recycle_buf(old);
+        }
 
         // Track which node we're processing so UnitDelay can find the right buffer
         self.current_dag_node_id = Some(node_id);
 
         // Check if this is a bus node
         let is_bus = self.buses.values().any(|&bid| bid.0 == node_id);
-        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 {
+        if self.debug_flags.unit_delay && self.sample_count < 20 {
             eprintln!("eval_node_buffer_dag: node_id={}, is_bus={}", node_id, is_bus);
         }
 
@@ -8952,7 +9292,7 @@ impl UnifiedSignalGraph {
             // (active_voice_count() is unreliable because voices can finish mid-buffer)
             let new_voice_idx = self.voice_manager.borrow_mut().take_last_triggered_voice_index();
             if let Some(voice_idx) = new_voice_idx {
-                if std::env::var("DEBUG_VOICE_DAG").is_ok() {
+                if self.debug_flags.voice_dag {
                     eprintln!("[VOICE_DAG] sample {} triggered voice_idx={}", i, voice_idx);
                 }
 
@@ -8972,7 +9312,7 @@ impl UnifiedSignalGraph {
 
                     if let Some(((left, right), source_node)) = voice_output {
                         let mono = (left + right) / std::f32::consts::SQRT_2;
-                        if std::env::var("DEBUG_VOICE_DAG").is_ok() {
+                        if self.debug_flags.voice_dag {
                             eprintln!("[VOICE_DAG] voice_idx={} produced mono={:.6}, source_node={}", voice_idx, mono, source_node);
                         }
                         self.voice_output_cache
@@ -8997,7 +9337,7 @@ impl UnifiedSignalGraph {
                 cache_buf[i] = sample;
             }
 
-            if std::env::var("DEBUG_UNIT_DELAY").is_ok() && is_bus && i < 5 {
+            if self.debug_flags.unit_delay && is_bus && i < 5 {
                 eprintln!("  bus sample[{}] = {}", i, sample);
             }
         }
@@ -9429,7 +9769,7 @@ impl UnifiedSignalGraph {
             }
         }
 
-        if std::env::var("DEBUG_FX_STATE").is_ok() || transferred > 0 {
+        if self.debug_flags.fx_state || transferred > 0 {
             eprintln!("[FX_STATE] Transferred {} FX states", transferred);
         }
     }
@@ -11226,7 +11566,7 @@ impl UnifiedSignalGraph {
     /// Evaluate a signal at a specific cycle position
     /// This allows per-event DSP parameter evaluation
     fn eval_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
-        if std::env::var("DEBUG_DAG").is_ok() && self.sample_count < 2 && self.current_sample_idx == 0 {
+        if self.debug_flags.dag && self.sample_count < 2 && self.current_sample_idx == 0 {
             if let Signal::Node(id) = signal {
                 eprintln!("        eval_signal_at_time: Node({}), call_stack_len={}", id.0, self.eval_call_stack.len());
             }
@@ -11341,7 +11681,7 @@ impl UnifiedSignalGraph {
                             };
 
                         // DEBUG: Log pattern signal evaluation
-                        if std::env::var("DEBUG_PATTERN").is_ok()
+                        if self.debug_flags.pattern
                             && self.sample_count < 44200
                             && self.sample_count.is_multiple_of(2200)
                         {
@@ -11503,7 +11843,7 @@ impl UnifiedSignalGraph {
         // Use call_stack size as recursion depth indicator
         let depth = self.eval_call_stack.len();
         if depth > 100 {
-            if std::env::var("DEBUG_OVERFLOW").is_ok() {
+            if self.debug_flags.overflow {
                 eprintln!("DEEP eval_node: node_id={}, call_stack_len={}, stack={:?}",
                     node_id.0, depth, self.eval_call_stack);
             }
@@ -11555,7 +11895,7 @@ impl UnifiedSignalGraph {
 
         // Check cache first (for non-stateful nodes, cleared per buffer)
         if let Some(&cached) = self.value_cache.get(node_id) {
-            if std::env::var("PROFILE_CACHE").is_ok() {
+            if self.debug_flags.profile_cache {
                 CACHE_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             return cached;
@@ -11570,7 +11910,7 @@ impl UnifiedSignalGraph {
         // Add this node to call stack before evaluating
         self.eval_call_stack.insert(node_id.0);
 
-        if std::env::var("PROFILE_CACHE").is_ok() {
+        if self.debug_flags.profile_cache {
             CACHE_MISSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
 
@@ -11603,7 +11943,7 @@ impl UnifiedSignalGraph {
                 pending_freq,
                 last_sample,
             } => {
-                if std::env::var("DEBUG_DAG").is_ok() && self.sample_count < 5 && self.current_sample_idx == 0 {
+                if self.debug_flags.dag && self.sample_count < 5 && self.current_sample_idx == 0 {
                     eprintln!("      Oscillator evaluating freq: {:?}", freq);
                 }
                 let requested_freq = self.eval_signal(freq);
@@ -11915,7 +12255,7 @@ impl UnifiedSignalGraph {
                         // Determine which buffer to use for feedback:
                         // - If we're currently processing the bus node, use THAT buffer
                         // - Otherwise, use the bus node's buffer if it exists
-                        if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 && self.current_sample_idx < 5 {
+                        if self.debug_flags.unit_delay && self.sample_count < 20 && self.current_sample_idx < 5 {
                             eprintln!(
                                 "UnitDelay[{}] sample={}: current_dag_node_id={:?}, bus_node_id={}, node_id={}",
                                 bus_name, self.current_sample_idx, self.current_dag_node_id, bus_node_id.0, node_id.0
@@ -11940,7 +12280,7 @@ impl UnifiedSignalGraph {
                                     .get(self.current_sample_idx - 1)
                                     .copied()
                                     .unwrap_or(0.0);
-                                if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 && self.current_sample_idx < 5 {
+                                if self.debug_flags.unit_delay && self.sample_count < 20 && self.current_sample_idx < 5 {
                                     eprintln!("  -> returning cache[{}][{}] = {}", feedback_node_id, self.current_sample_idx - 1, val);
                                 }
                                 return val;
@@ -11950,7 +12290,7 @@ impl UnifiedSignalGraph {
                             if let Some(prev_buffer) = self.prev_node_buffers.get(&feedback_node_id)
                             {
                                 let val = prev_buffer.last().copied().unwrap_or(0.0);
-                                if std::env::var("DEBUG_UNIT_DELAY").is_ok() && self.sample_count < 20 {
+                                if self.debug_flags.unit_delay && self.sample_count < 20 {
                                     eprintln!("  -> returning prev_block = {}", val);
                                 }
                                 return val;
@@ -12211,7 +12551,7 @@ impl UnifiedSignalGraph {
                 let release_time = self.eval_signal(release).max(0.0001);
 
                 // DEBUG: Log ASR parameters on first sample
-                if std::env::var("DEBUG_ASR").is_ok() && self.sample_count < 10 {
+                if self.debug_flags.asr && self.sample_count < 10 {
                     eprintln!(
                         "ASR DEBUG sample {}: gate={:.4}, attack_time={:.4}, release_time={:.4}, sample_rate={}",
                         self.sample_count, gate_val, attack_time, release_time, self.sample_rate
@@ -15127,7 +15467,7 @@ impl UnifiedSignalGraph {
                 let mut current_value = *last_value; // Default to last value
 
                 // DEBUG: Log all pattern queries
-                if std::env::var("DEBUG_PATTERN").is_ok()
+                if self.debug_flags.pattern
                     && self.sample_count < 200
                     && self.sample_count.is_multiple_of(20)
                 {
@@ -15166,7 +15506,7 @@ impl UnifiedSignalGraph {
                         }
 
                         // DEBUG: Log rests
-                        if std::env::var("DEBUG_PATTERN").is_ok() && *last_value != 0.0 {
+                        if self.debug_flags.pattern && *last_value != 0.0 {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: REST (was {})",
                                 pattern_str,
@@ -15192,7 +15532,7 @@ impl UnifiedSignalGraph {
                         }
 
                         // DEBUG: Log pattern value changes
-                        if std::env::var("DEBUG_PATTERN").is_ok() && current_value != *last_value {
+                        if self.debug_flags.pattern && current_value != *last_value {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
                                 pattern_str,
@@ -15290,7 +15630,7 @@ impl UnifiedSignalGraph {
                 end,
             } => {
                 // DEBUG: Log Sample node evaluation (disabled - too verbose)
-                // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
+                // if self.debug_flags.sample_events && self.sample_count < 100 {
                 //     eprintln!(
                 //         "Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
                 //         pattern_str, self.sample_count, self.get_cycle_position()
@@ -15302,7 +15642,7 @@ impl UnifiedSignalGraph {
                 self.voice_manager
                     .borrow_mut()
                     .set_default_source_node(node_id.0);
-                if std::env::var("DEBUG_SOURCE_NODE").is_ok() {
+                if self.debug_flags.source_node {
                     eprintln!(
                         "[SOURCE_NODE] Sample node {} set as default source",
                         node_id.0
@@ -15350,7 +15690,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                        if self.debug_flags.sample_events {
                             eprintln!(
                                 "[DEDUP] Node {} reading last_trigger_time={:.6} from Sample node",
                                 node_id.0, *lt
@@ -15373,7 +15713,7 @@ impl UnifiedSignalGraph {
                 let mut latest_triggered_start = last_event_start;
 
                 // DEBUG: Log event processing (disabled - too verbose)
-                // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
+                // if self.debug_flags.sample_events && !events.is_empty() {
                 //     eprintln!(
                 //         "Sample node at cycle {:.3}: {} events",
                 //         self.get_cycle_position(),
@@ -15395,7 +15735,7 @@ impl UnifiedSignalGraph {
 
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
-                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
+                if self.debug_flags.sample_events && !events.is_empty() {
                     eprintln!(
                         "[SAMPLE_EVENTS] Node {} processing {} events",
                         node_id.0,
@@ -15410,7 +15750,7 @@ impl UnifiedSignalGraph {
                         continue;
                     }
 
-                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                    if self.debug_flags.sample_events {
                         eprintln!(
                             "[SAMPLE_EVENTS] Processing event: sample_name='{}', is_bus_trigger={}",
                             sample_name,
@@ -15442,7 +15782,7 @@ impl UnifiedSignalGraph {
                         && event_start_abs < self.get_cycle_position() + epsilon;
 
                     // DEBUG: Log event evaluation (disabled - too verbose)
-                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                    if self.debug_flags.sample_events {
                         eprintln!(
                             "  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
                             sample_name,
@@ -15455,7 +15795,7 @@ impl UnifiedSignalGraph {
 
                     if event_is_new {
                         // DEBUG: Log triggered events
-                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                        if self.debug_flags.sample_events {
                             let audio_time = self.sample_count as f64 / self.sample_rate as f64;
                             eprintln!(
                                 "  Triggering: '{}' at cycle {:.6} (cycle_pos={:.6}, sample={}, audio_time={:.6}s)",
@@ -15538,7 +15878,7 @@ impl UnifiedSignalGraph {
                         gain_val *= chord_gain_scale;
 
                         // DEBUG: Log chord notes
-                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                        if self.debug_flags.sample_events {
                             eprintln!(
                                 "    Chord notes for '{}': {:?} (gain scaled by {:.3})",
                                 sample_name, chord_notes, chord_gain_scale
@@ -15624,7 +15964,7 @@ impl UnifiedSignalGraph {
                         };
 
                         // DEBUG: Print cut group info
-                        if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
+                        if self.debug_flags.cut_groups {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
                                 final_sample_name, event_start_abs, cut_group_val, cut_group_opt);
                         }
@@ -15655,7 +15995,7 @@ impl UnifiedSignalGraph {
 
                             // Handle bus triggering vs regular sample loading
                             if is_bus_trigger {
-                                if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
+                                if self.debug_flags.bus_lookup {
                                     eprintln!(
                                         "[BUS] Looking up bus '{}', is_bus_trigger={}",
                                         actual_name, is_bus_trigger
@@ -15663,7 +16003,7 @@ impl UnifiedSignalGraph {
                                 }
                                 // Look up the bus
                                 if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
-                                    if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
+                                    if self.debug_flags.bus_lookup {
                                         eprintln!(
                                             "[BUS] Found bus '{}' -> node_id={}",
                                             actual_name, bus_node_id.0
@@ -15688,7 +16028,7 @@ impl UnifiedSignalGraph {
                                         };
 
                                     // DEBUG: Log synthesis voice triggering
-                                    if std::env::var("DEBUG_VOICE_TRIGGER").is_ok() {
+                                    if self.debug_flags.voice_trigger {
                                         eprintln!("    Triggering continuous synthesis voice: bus_node_id={}, gain={}, pan={}, source_node={}",
                                             bus_node_id.0, gain_val, pan_val, node_id.0);
                                     }
@@ -15719,7 +16059,7 @@ impl UnifiedSignalGraph {
                                 let sample_data_opt =
                                     self.sample_bank.borrow_mut().get_sample(&final_sample_name);
                                 // DEBUG: Log sample loading
-                                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok()
+                                if self.debug_flags.sample_events
                                     && self.sample_count < 20
                                 {
                                     eprintln!(
@@ -15918,7 +16258,7 @@ impl UnifiedSignalGraph {
                 // The old condition `|| cycle_changed` caused duplicate triggers
                 if latest_triggered_start > last_event_start {
                     // DEBUG: Log update
-                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
+                    if self.debug_flags.sample_events && self.sample_count < 20 {
                         eprintln!(
                             "  Updating last_trigger_time: {:.6} -> {:.6}",
                             last_event_start, latest_triggered_start
@@ -15950,7 +16290,7 @@ impl UnifiedSignalGraph {
                 let output = buffer_output + newly_triggered;
 
                 // Debug for samples 520-530 (second buffer, after synthesis should be mixed)
-                if std::env::var("DEBUG_VOICE_CACHE").is_ok()
+                if self.debug_flags.voice_cache
                     && self.sample_count >= 520
                     && self.sample_count < 530
                 {
@@ -19287,7 +19627,7 @@ impl UnifiedSignalGraph {
         // Produces audio immediately instead of waiting for sample triggers
         // Legacy RMS: 0.047, Hybrid RMS: 0.786 - not correctly timing
         // Set ENABLE_HYBRID_ARCH=1 to test the new path
-        if std::env::var("ENABLE_HYBRID_ARCH").is_ok() {
+        if self.debug_flags.enable_hybrid_arch {
             return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
         }
 
@@ -19308,7 +19648,7 @@ impl UnifiedSignalGraph {
         sample_increment: f64,
     ) {
         let buffer_size = buffer.len();
-        let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
+        let enable_profiling = self.debug_flags.profile_buffer;
 
         // Set cycle position to start of buffer
         self.cached_cycle_position = buffer_start_cycle;
@@ -19531,7 +19871,7 @@ impl UnifiedSignalGraph {
         self.voice_buffers = vb;
 
         // DEBUG: Check voice_buffers content
-        if std::env::var("DEBUG_VOICE_BUFFERS").is_ok() {
+        if self.debug_flags.voice_buffers {
             let non_empty: Vec<_> = self.voice_buffers.buffers.iter().enumerate()
                 .filter(|(_, b)| !b.is_empty())
                 .map(|(i, b)| (i, b.len(), b.iter().take(5).cloned().collect::<Vec<_>>()))
@@ -19584,7 +19924,7 @@ impl UnifiedSignalGraph {
                     self.eval_node_buffer(node_id, &mut temp_buffer);
 
                     // DEBUG
-                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                    if self.debug_flags.output_buffer {
                         let rms: f32 = (temp_buffer.iter().map(|x| x*x).sum::<f32>() / temp_buffer.len() as f32).sqrt();
                         let node_type = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
                             format!("{:?}", std::mem::discriminant(&**node_rc))
@@ -20440,13 +20780,13 @@ impl UnifiedSignalGraph {
                     };
 
                     // DEBUG: Log frequency calculation (only for first sample)
-                    if i == 0 && std::env::var("DEBUG_OSC_FREQ").is_ok() {
+                    if i == 0 && self.debug_flags.osc_freq {
                         eprintln!(
                             "[OSC_FREQ] semitone_offset={}, requested_freq={:.2}, final_freq={:.2}",
                             *semitone_offset, requested_freq, final_freq
                         );
                     }
-                    if i == 0 && std::env::var("DEBUG_OSC_FREQ_OLD").is_ok() {
+                    if i == 0 && self.debug_flags.osc_freq_old {
                         // Log when final_freq is close to 440 Hz (the base oscillator freq)
                         if (final_freq - 440.0).abs() < 5.0 {
                             eprintln!(
@@ -22907,7 +23247,7 @@ impl UnifiedSignalGraph {
                     if voice_buf.len() >= buffer_size {
                         output.copy_from_slice(&voice_buf[..buffer_size]);
                         // DEBUG
-                        if std::env::var("DEBUG_SAMPLE_BUFFER").is_ok() {
+                        if self.debug_flags.sample_buffer {
                             let rms: f32 = (output.iter().map(|x| x*x).sum::<f32>() / output.len() as f32).sqrt();
                             if rms > 0.001 {
                                 eprintln!("[SAMPLE_BUFFER] node={}, RMS={:.4}", node_idx, rms);
