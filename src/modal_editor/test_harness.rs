@@ -6,6 +6,7 @@
 use super::*;
 use crate::unified_graph::LiveClock;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::cell::RefMut;
 
 /// Test harness for scripting editor interactions
 pub struct EditorTestHarness {
@@ -14,8 +15,24 @@ pub struct EditorTestHarness {
     /// calls so a graph swap between calls continues from the current position —
     /// mirrors the single clock held by the real synth thread (mod.rs).
     live_clock: Option<LiveClock>,
-    /// Previously-rendered graph Arc, for the ABA-safe "did the graph swap?" check.
-    prev_graph: Option<Arc<Option<GraphCell>>>,
+    /// Heap address of the render-owned graph last rendered, for the ABA-safe
+    /// "did the graph swap?" check across `render_live_chunks` calls. Replaces the
+    /// old `Arc<Option<GraphCell>>` identity now that the graph is single-owner.
+    prev_graph_addr: Option<usize>,
+}
+
+impl EditorTestHarness {
+    /// Drive the headless render side once (pull the first graph / apply pending
+    /// swap / hush / panic commands, drop retired graphs) and return a handle to
+    /// the local render owner. In headless mode the harness *is* the render owner,
+    /// so this is where a queued swap actually lands on the graph. Returns `None`
+    /// only if the editor was not built headless (no local render side).
+    fn synced(&self) -> Option<RefMut<'_, LocalRender>> {
+        let rl_cell = self.editor.render_local.as_ref()?;
+        let mut rl = rl_cell.borrow_mut();
+        rl.sync();
+        Some(rl)
+    }
 }
 
 impl EditorTestHarness {
@@ -29,7 +46,7 @@ impl EditorTestHarness {
         Ok(Self {
             editor,
             live_clock: None,
-            prev_graph: None,
+            prev_graph_addr: None,
         })
     }
 
@@ -213,41 +230,25 @@ impl EditorTestHarness {
 
     /// Get CPS from the current graph (if loaded)
     pub fn get_cps(&self) -> Option<f32> {
-        let graph_snapshot = self.editor.graph.load();
-        if let Some(ref graph_cell) = **graph_snapshot {
-            if let Ok(g) = graph_cell.0.try_borrow() {
-                return Some(g.get_cps());
-            }
-        }
-        None
+        let rl = self.synced()?;
+        rl.cur.as_ref().map(|g| g.get_cps())
     }
 
     /// Get cycle position from the current graph (if loaded)
     pub fn get_cycle_position(&self) -> Option<f64> {
-        let graph_snapshot = self.editor.graph.load();
-        if let Some(ref graph_cell) = **graph_snapshot {
-            if let Ok(g) = graph_cell.0.try_borrow() {
-                return Some(g.get_cycle_position());
-            }
-        }
-        None
+        let rl = self.synced()?;
+        rl.cur.as_ref().map(|g| g.get_cycle_position())
     }
 
     /// Check if wall-clock timing is enabled
     pub fn is_wall_clock_enabled(&self) -> Option<bool> {
-        let graph_snapshot = self.editor.graph.load();
-        if let Some(ref graph_cell) = **graph_snapshot {
-            if let Ok(g) = graph_cell.0.try_borrow() {
-                return Some(g.use_wall_clock);
-            }
-        }
-        None
+        let rl = self.synced()?;
+        rl.cur.as_ref().map(|g| g.use_wall_clock)
     }
 
     /// Check if a graph is loaded
     pub fn has_graph(&self) -> bool {
-        let graph_snapshot = self.editor.graph.load();
-        graph_snapshot.is_some()
+        self.synced().map(|rl| rl.cur.is_some()).unwrap_or(false)
     }
 
     /// Set content directly (for test setup)
@@ -267,81 +268,69 @@ impl EditorTestHarness {
     ) -> Result<usize, String> {
         use std::time::{Duration, Instant};
 
-        let graph_snapshot = self.editor.graph.load();
-        if let Some(ref graph_cell) = **graph_snapshot {
-            let start = Instant::now();
-            let timeout = Duration::from_millis(timeout_ms);
-            let mut buffer = [0.0f32; 512];
-            let frames = buffer.len() / 2; // stereo-interleaved frames of cycle-time
-            let mut processed = 0;
-            // Sample-advancing live clock — the migrated synth code path
-            // (src/modal_editor/mod.rs). Advancing by samples emitted (NOT the wall
-            // clock) keeps the pattern on the sample grid even when rendered ahead
-            // of real time, fixing pt-F1 onset clustering.
-            let mut clock: Option<LiveClock> = None;
+        let mut rl = self.synced().ok_or("No render side (not headless)")?;
+        let graph = match rl.cur.as_mut() {
+            Some(g) => g,
+            None => return Err("No graph loaded".to_string()),
+        };
+        let start = Instant::now();
+        let timeout = Duration::from_millis(timeout_ms);
+        let mut buffer = [0.0f32; 512];
+        let frames = buffer.len() / 2; // stereo-interleaved frames of cycle-time
+        let mut processed = 0;
+        // Sample-advancing live clock — the migrated synth code path
+        // (src/modal_editor/mod.rs). Advancing by samples emitted (NOT the wall
+        // clock) keeps the pattern on the sample grid even when rendered ahead
+        // of real time, fixing pt-F1 onset clustering.
+        let mut clock: Option<LiveClock> = None;
 
-            for i in 0..num_chunks {
-                if start.elapsed() > timeout {
-                    return Err(format!(
-                        "Timeout after {} chunks ({}ms)! Possible infinite loop.",
-                        i,
-                        timeout_ms
-                    ));
-                }
-
-                let chunk_start = Instant::now();
-
-                match graph_cell.0.try_borrow_mut() {
-                    Ok(mut graph) => {
-                        if clock.is_none() {
-                            // Seed from the graph's compiled start position (honours
-                            // setCycle/resetCycles), like the synth loop's first graph.
-                            clock = Some(LiveClock::new(
-                                graph.sample_rate(),
-                                graph.get_cps(),
-                                graph.get_cycle_position(),
-                            ));
-                        }
-                        let c = clock.as_mut().unwrap();
-                        c.set_cps(graph.get_cps());
-                        let (start_cycle, increment, cps) = c.advance_buffer(frames);
-                        graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
-                        processed += 1;
-                    }
-                    Err(e) => {
-                        return Err(format!("Failed to borrow graph: {}", e));
-                    }
-                }
-
-                let chunk_time = chunk_start.elapsed();
-                // If any chunk takes > 100ms, something is very wrong
-                if chunk_time.as_millis() > 100 {
-                    return Err(format!(
-                        "Chunk {} took {:?} - exceeds real-time budget!",
-                        i, chunk_time
-                    ));
-                }
+        for i in 0..num_chunks {
+            if start.elapsed() > timeout {
+                return Err(format!(
+                    "Timeout after {} chunks ({}ms)! Possible infinite loop.",
+                    i, timeout_ms
+                ));
             }
 
-            Ok(processed)
-        } else {
-            Err("No graph loaded".to_string())
+            let chunk_start = Instant::now();
+
+            if clock.is_none() {
+                // Seed from the graph's compiled start position (honours
+                // setCycle/resetCycles), like the synth loop's first graph.
+                clock = Some(LiveClock::new(
+                    graph.sample_rate(),
+                    graph.get_cps(),
+                    graph.get_cycle_position(),
+                ));
+            }
+            let c = clock.as_mut().unwrap();
+            c.set_cps(graph.get_cps());
+            let (start_cycle, increment, cps) = c.advance_buffer(frames);
+            graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
+            processed += 1;
+
+            let chunk_time = chunk_start.elapsed();
+            // If any chunk takes > 100ms, something is very wrong
+            if chunk_time.as_millis() > 100 {
+                return Err(format!(
+                    "Chunk {} took {:?} - exceeds real-time budget!",
+                    i, chunk_time
+                ));
+            }
         }
+
+        Ok(processed)
     }
 
     /// Enable wall-clock timing on the graph (mimics modal editor behavior)
     pub fn enable_wall_clock_timing(&self) -> Result<(), String> {
-        let graph_snapshot = self.editor.graph.load();
-        if let Some(ref graph_cell) = **graph_snapshot {
-            match graph_cell.0.try_borrow_mut() {
-                Ok(mut graph) => {
-                    graph.enable_wall_clock_timing();
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to borrow graph: {}", e)),
+        let mut rl = self.synced().ok_or("No render side (not headless)")?;
+        match rl.cur.as_mut() {
+            Some(graph) => {
+                graph.enable_wall_clock_timing();
+                Ok(())
             }
-        } else {
-            Err("No graph loaded".to_string())
+            None => Err("No graph loaded".to_string()),
         }
     }
 
@@ -351,15 +340,11 @@ impl EditorTestHarness {
     /// [`process_audio_chunks`](Self::process_audio_chunks) and exercises the exact
     /// timing the real synth thread uses, so onsets land on the sample grid (pt-F1).
     pub fn process_audio_chunks_capture(&self, num_chunks: usize) -> Result<Vec<f32>, String> {
-        let graph_snapshot = self.editor.graph.load();
-        let graph_cell = match &**graph_snapshot {
-            Some(gc) => gc,
+        let mut rl = self.synced().ok_or("No render side (not headless)")?;
+        let graph = match rl.cur.as_mut() {
+            Some(g) => g,
             None => return Err("No graph loaded".to_string()),
         };
-        let mut graph = graph_cell
-            .0
-            .try_borrow_mut()
-            .map_err(|e| format!("Failed to borrow graph: {}", e))?;
 
         let mut buffer = [0.0f32; 512];
         let frames = buffer.len() / 2;
@@ -390,15 +375,11 @@ impl EditorTestHarness {
         &self,
         num_chunks: usize,
     ) -> Result<Vec<f32>, String> {
-        let graph_snapshot = self.editor.graph.load();
-        let graph_cell = match &**graph_snapshot {
-            Some(gc) => gc,
+        let mut rl = self.synced().ok_or("No render side (not headless)")?;
+        let graph = match rl.cur.as_mut() {
+            Some(g) => g,
             None => return Err("No graph loaded".to_string()),
         };
-        let mut graph = graph_cell
-            .0
-            .try_borrow_mut()
-            .map_err(|e| format!("Failed to borrow graph: {}", e))?;
         graph.enable_wall_clock_timing();
 
         let mut buffer = [0.0f32; 512];
@@ -419,24 +400,29 @@ impl EditorTestHarness {
 
     /// Render `num_chunks` mono chunks through the synth code path using the
     /// harness's **persistent** live clock (held across calls). A graph swap
-    /// between two calls (e.g. a Ctrl+X re-eval) is detected by Arc identity and
-    /// the swapped-in graph is seeded from the clock's current position — exactly
-    /// the reload-continuity path of the real synth thread (mod.rs). Returns the
-    /// mono (left-channel) audio.
+    /// between two calls (e.g. a Ctrl+X re-eval) is detected by the owned graph's
+    /// heap address and the swapped-in graph is seeded from the clock's current
+    /// position — exactly the reload-continuity path of the real synth thread
+    /// (mod.rs). Returns the mono (left-channel) audio.
     pub fn render_live_chunks(&mut self, num_chunks: usize) -> Result<Vec<f32>, String> {
-        let graph_snapshot = self.editor.graph.load_full();
-        let is_new_graph = match &self.prev_graph {
-            Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
-            None => true,
-        };
-        let graph_cell = match &*graph_snapshot {
-            Some(gc) => gc,
+        // Drive the local render owner (pulls the first graph / applies a pending
+        // swap into `cur`), then render the now-current graph.
+        let rl_cell = self
+            .editor
+            .render_local
+            .as_ref()
+            .ok_or("No render side (not headless)")?;
+        let mut rl = rl_cell.borrow_mut();
+        rl.sync();
+        let graph = match rl.cur.as_mut() {
+            Some(g) => g,
             None => return Err("No graph loaded".to_string()),
         };
-        let mut graph = graph_cell
-            .0
-            .try_borrow_mut()
-            .map_err(|e| format!("Failed to borrow graph: {}", e))?;
+
+        // ABA-safe swap detection: the render owner replaces the owned box on a
+        // swap, so a changed heap address means "the graph was swapped".
+        let cur_addr = &**graph as *const UnifiedSignalGraph as usize;
+        let is_new_graph = self.prev_graph_addr != Some(cur_addr);
 
         // Seed or rebase the clock for this graph once (matches the synth loop's
         // per-swap handling: first graph seeds the clock; a swapped-in graph is
@@ -471,8 +457,7 @@ impl EditorTestHarness {
                 out.push(buffer[i * 2]);
             }
         }
-        drop(graph);
-        self.prev_graph = Some(graph_snapshot);
+        self.prev_graph_addr = Some(cur_addr);
         Ok(out)
     }
 }

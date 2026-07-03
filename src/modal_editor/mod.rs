@@ -20,8 +20,8 @@ use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
 use crate::midi_input::{MidiEvent, MidiInputHandler, MidiMessageType, MidiRecorder};
 use crate::plugin_host::PluginInstanceManager;
+use crate::render_swap::{render_swap_channel_default, Cmd, CommandSender, Graveyard, RenderSwap};
 use crate::unified_graph::{LiveClock, UnifiedSignalGraph};
-use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -43,7 +43,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -52,11 +52,44 @@ use std::time::Duration as StdDuration;
 #[cfg(all(target_os = "linux", feature = "vst3"))]
 use rack::Vst3Gui;
 
-// Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
-// SAFETY: Each GraphCell instance is only accessed by one thread at a time.
-struct GraphCell(RefCell<UnifiedSignalGraph>);
-unsafe impl Send for GraphCell {}
-unsafe impl Sync for GraphCell {}
+/// Headless render side (test / no-audio-device mode).
+///
+/// In the audio build the render-owner state lives on the background synth
+/// thread (the single graph owner); there is no such thread in headless mode,
+/// so the editor keeps the render endpoints here and the test harness drives
+/// them on demand. This is still a **single owner** of the graph — there is no
+/// cross-thread graph access and no `RefCell<Graph>`/`unsafe impl Sync`.
+struct LocalRender {
+    /// One-shot handoff of the very first graph. It is installed **raw** (no
+    /// `absorb_state` transfer) so its compiled timing and fresh node trigger
+    /// state survive — matching the pre-migration "first load ⇒ no transfer".
+    init_rx: std::sync::mpsc::Receiver<Box<UnifiedSignalGraph>>,
+    /// Consumer of the render-owner command channel (subsequent swaps + hush /
+    /// panic), and producer of the graveyard (retired graphs).
+    rsw: RenderSwap<UnifiedSignalGraph>,
+    /// Graveyard consumer — drained here, since headless mode has no janitor.
+    graveyard: Graveyard<UnifiedSignalGraph>,
+    /// The single render-owned graph. `None` until the first graph is loaded.
+    cur: Option<Box<UnifiedSignalGraph>>,
+}
+
+impl LocalRender {
+    /// Pull the first graph (once it has arrived) and apply every pending
+    /// swap / hush / panic command to the owned graph — the headless equivalent
+    /// of the synth thread's buffer-boundary drain. Retired graphs are dropped
+    /// here (no janitor thread in headless mode).
+    fn sync(&mut self) {
+        if self.cur.is_none() {
+            if let Ok(g) = self.init_rx.try_recv() {
+                self.cur = Some(g);
+            }
+        }
+        if let Some(cur) = self.cur.as_mut() {
+            self.rsw.apply_pending_commands(cur);
+        }
+        self.graveyard.collect();
+    }
+}
 
 /// Modal live coding editor state
 pub struct ModalEditor {
@@ -72,8 +105,27 @@ pub struct ModalEditor {
     is_playing: bool,
     /// Error message (if any)
     error_message: Option<String>,
-    /// Shared audio graph (lock-free with ring buffer)
-    graph: Arc<ArcSwap<Option<GraphCell>>>,
+    /// Control-thread producer for the render-owner command channel. Compiled +
+    /// preloaded graphs (after the first), plus hush / panic, are sent here and
+    /// applied by the render owner at a buffer boundary — no cross-thread borrow,
+    /// no shared `RefCell<Graph>` (design §4, `render-owner` migration).
+    cmd_tx: CommandSender<UnifiedSignalGraph>,
+    /// One-shot sender for the very first graph. It is installed raw by the
+    /// render owner (bypassing state transfer) so its compiled timing and fresh
+    /// node trigger state survive the first load.
+    init_tx: std::sync::mpsc::Sender<Box<UnifiedSignalGraph>>,
+    /// Whether the first graph has been handed off (selects init vs. swap path).
+    first_graph_sent: bool,
+    /// Live cycle position published by the render owner (f64 stored as bits),
+    /// for UI / MIDI reads that must not touch the render-owned graph.
+    current_cycle_bits: Arc<AtomicU64>,
+    /// Headless render side — `Some` only when there is no synth thread (tests).
+    render_local: Option<RefCell<LocalRender>>,
+    /// VST3 plugin instances, shared with every compiled graph so plugin state
+    /// persists across swaps and the UI can reach plugins without the graph.
+    #[cfg(feature = "vst3")]
+    shared_real_plugins:
+        Arc<std::sync::Mutex<HashMap<String, crate::plugin_host::RealPluginInstance>>>,
     /// Audio stream (kept alive) - None in headless mode for testing
     _stream: Option<cpal::Stream>,
     /// Sample rate
@@ -207,8 +259,19 @@ impl ModalEditor {
         // eprintln!("🎵 Audio: {} Hz, {} channels, buffer: {} samples", sample_rate as u32, channels, synthesis_buffer_size);
         // eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
-        // Graph for background synthesis thread (lock-free swap)
-        let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+        // Render-owner swap channel: the control thread compiles + preloads a
+        // graph and hands it to the synth thread (the SOLE graph owner) through a
+        // bounded SPSC command ring; the synth thread applies swaps / hush / panic
+        // at a buffer boundary and retires the old graph to a graveyard drained by
+        // a janitor thread. There is no shared graph, so no cross-thread borrow and
+        // no `unsafe impl Sync` (design §4).
+        let (cmd_tx, render_swap, graveyard) =
+            render_swap_channel_default::<UnifiedSignalGraph>();
+        // One-shot handoff for the very first graph, installed raw (no transfer).
+        let (init_tx, init_rx) =
+            std::sync::mpsc::channel::<Box<UnifiedSignalGraph>>();
+        // Live cycle position published by the synth thread for UI / MIDI reads.
+        let current_cycle_bits = Arc::new(AtomicU64::new(0));
 
         // Underrun counter (shared between audio callback and UI)
         let underrun_count = Arc::new(AtomicUsize::new(0));
@@ -228,180 +291,162 @@ impl ModalEditor {
         let ring = HeapRb::<f32>::new(ring_buffer_size);
         let (mut ring_producer, mut ring_consumer) = ring.split();
 
-        // Background synthesis thread: continuously renders samples into ring buffer
-        let graph_clone_synth = Arc::clone(&graph);
+        // Janitor thread: drops retired graphs OFF the render thread. Dropping a
+        // graph frees voice buffers, sample Arcs and FX delay lines — unbounded
+        // work unfit for the render hot path (design §4.1). Daemon for the life of
+        // the process, like the synth thread.
+        let mut graveyard = graveyard;
+        thread::spawn(move || loop {
+            if graveyard.collect() == 0 {
+                thread::sleep(StdDuration::from_millis(50));
+            }
+        });
+
+        // Background synthesis thread: the SOLE owner of the live graph. There is
+        // no shared `ArcSwap<GraphCell>`, no `try_borrow_mut`, no cross-thread
+        // borrow (design §4.1). It waits for the first graph, then renders whole
+        // blocks into the ring, draining swap / hush / panic commands from the
+        // render-owner channel at each buffer boundary.
         let synth_time_us_clone = Arc::clone(&synth_time_us);
         let ring_fill_clone = Arc::clone(&ring_fill_percent);
+        let cycle_bits_synth = Arc::clone(&current_cycle_bits);
+        let mut render_swap = render_swap;
         thread::spawn(move || {
-            // Render in chunks of synthesis_buffer_size samples
+            // Render in chunks of synthesis_buffer_size samples (stereo-interleaved,
+            // so buffer.len()/2 frames of cycle-time per chunk).
             let mut buffer = vec![0.0f32; synthesis_buffer_size];
-            // Frames of cycle-time per chunk. process_buffer_at / process_buffer treat
-            // the buffer as stereo-interleaved (buffer.len()/2 frames), so advance the
-            // live clock by that many samples per chunk (matches src/main.rs).
             let frames = buffer.len() / 2;
-            // Sample-advancing live clock — THE single source of timing truth
-            // (pattern-timing audit T1 / pt-F1). Advancing by samples emitted (NOT the
-            // wall clock at render time) keeps the pattern on the sample grid even
-            // while this thread renders ahead into the ring, so there is no startup /
-            // post-underrun onset clustering. Tempo comes from the compiled graph; a
-            // C-x swap with a new tempo: rebases via LiveClock::set_cps without
-            // teleporting the position (pt-F2). Mirrors the phonon-live loop (main.rs).
+
+            // Phase 1: no graph yet. Feed silence so the ring never starves
+            // (matching the pre-migration "no graph ⇒ write silence" behavior),
+            // until the first graph arrives on the one-shot init channel.
+            let mut cur: Box<UnifiedSignalGraph> = loop {
+                match init_rx.try_recv() {
+                    Ok(g) => break g,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        if ring_producer.vacant_len() >= buffer.len() {
+                            buffer.fill(0.0);
+                            ring_producer.push_slice(&buffer);
+                            synth_time_us_clone.store(0, Ordering::Relaxed);
+                        } else {
+                            thread::sleep(StdDuration::from_micros(100));
+                        }
+                    }
+                    // Editor dropped before the first load — nothing left to render.
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => return,
+                }
+            };
+
+            // Phase 2: single-owner render loop. `cur` is a plain local — no Arc,
+            // no RefCell, no cross-thread borrow. The sample-advancing LiveClock is
+            // THE single source of timing truth (pt-F1); tempo follows the compiled
+            // graph, rebasing on change without teleporting the beat (pt-F2).
             let mut clock: Option<LiveClock> = None;
-            // Held so the previously-loaded graph Arc stays alive across iterations —
-            // makes the pointer-identity "did the graph swap?" check ABA-safe.
-            let mut prev_arc: Option<Arc<Option<GraphCell>>> = None;
-            let mut iterations = 0u64;
+            // Heap address of the owned graph. A swap replaces the box, so a changed
+            // address means "the graph was swapped" (ABA-safe: the retired graph
+            // stays alive in the graveyard until the janitor drops it).
+            let mut prev_ptr = cur.as_ref() as *const UnifiedSignalGraph;
             let mut renders = 0u64;
-            let mut sleeps = 0u64;
             let mut last_log = std::time::Instant::now();
 
             loop {
-                iterations += 1;
-
-                // Log stats every second to diagnose blocking
+                // Log render throughput once a second (log file, not the TUI).
                 if last_log.elapsed().as_secs() >= 1 {
-                    // Calculate required renders for realtime: ~86 buffers/second (44100 / 512)
-                    let required_renders = 86;
+                    let required_renders = 86; // ~44100 / 512 buffers per second
                     let status = if renders >= required_renders {
                         "✅"
                     } else {
                         "❌ UNDERRUN RISK"
                     };
                     eprintln!(
-                        "🔧 Synth: {} renders/s (need {}) {} | {} iters, {} sleeps",
-                        renders, required_renders, status, iterations, sleeps
+                        "🔧 Synth: {} renders/s (need {}) {}",
+                        renders, required_renders, status
                     );
-                    iterations = 0;
                     renders = 0;
-                    sleeps = 0;
                     last_log = std::time::Instant::now();
                 }
 
-                // Check if we have space in ring buffer
                 let space = ring_producer.vacant_len();
                 let total_size = ring_producer.capacity().get();
                 let fill_percent = ((total_size - space) * 100) / total_size;
                 ring_fill_clone.store(fill_percent, Ordering::Relaxed);
 
-                if space >= buffer.len() {
-                    // Render a chunk of audio. load_full() (owned Arc) so the graph
-                    // pointer stays valid for the ABA-safe swap check below.
-                    let graph_snapshot = graph_clone_synth.load_full();
-                    let is_new_graph = match &prev_arc {
-                        Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
-                        None => true,
-                    };
+                if space < buffer.len() {
+                    // Ring full — sleep briefly.
+                    thread::sleep(StdDuration::from_micros(100));
+                    continue;
+                }
 
-                    if let Some(ref graph_cell) = *graph_snapshot {
-                        // Measure synthesis performance
-                        let start = std::time::Instant::now();
+                let start = std::time::Instant::now();
 
-                        // Try to borrow - use try_borrow_mut to avoid panic!
-                        match graph_cell.0.try_borrow_mut() {
-                            Ok(mut graph) => {
-                                // Seed / rebase the live clock, then render with its
-                                // sample-advanced timing (single source of truth).
-                                match clock.as_mut() {
-                                    None => {
-                                        // First graph: seed from its compiled start
-                                        // position so setCycle/resetCycles are honoured.
-                                        clock = Some(LiveClock::new(
-                                            sample_rate,
-                                            graph.get_cps(),
-                                            graph.get_cycle_position(),
-                                        ));
-                                    }
-                                    Some(c) => {
-                                        // Follow the graph tempo, rebasing on change so
-                                        // the position never teleports (pt-F2).
-                                        c.set_cps(graph.get_cps());
-                                        if is_new_graph {
-                                            // Seed the swapped-in graph from the live
-                                            // clock so it continues from the current
-                                            // position instead of re-triggering events
-                                            // between the (wall-clock) transfer position
-                                            // and the sample-advanced position (no C-x burst).
-                                            graph.set_cycle_position(c.position());
-                                        }
-                                    }
-                                }
+                // Buffer boundary: apply pending swap / hush / panic to the owned
+                // graph. `absorb_state` runs the in-thread transfer, the pointer
+                // swap is atomic, and the retired graph goes to the graveyard — all
+                // as one uninterrupted step, so a swap only ever takes effect
+                // BETWEEN buffers and the graph is never rendered voiceless
+                // (design §4.1/§4.3, R1/R2/R3).
+                render_swap.apply_pending_commands(&mut cur);
+                let cur_ptr = cur.as_ref() as *const UnifiedSignalGraph;
+                let is_new_graph = !std::ptr::eq(cur_ptr, prev_ptr);
+                prev_ptr = cur_ptr;
 
-                                // Advance the clock by exactly this chunk and render
-                                // with that timing (single source of truth).
-                                let c = clock.as_mut().unwrap();
-                                let (start_cycle, increment, cps) = c.advance_buffer(frames);
-                                graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
-                                renders += 1;
-
-                                let elapsed_us = start.elapsed().as_micros() as usize;
-                                synth_time_us_clone.store(elapsed_us, Ordering::Relaxed);
-
-                                // DEBUG: Track peak synthesis times
-                                static MAX_SYNTH_US: std::sync::atomic::AtomicUsize =
-                                    std::sync::atomic::AtomicUsize::new(0);
-                                let prev_max = MAX_SYNTH_US.fetch_max(elapsed_us, Ordering::Relaxed);
-                                if elapsed_us > prev_max && elapsed_us > 11610 {
-                                    // Log when we exceed budget for first time at this level
-                                    let voice_count = graph.active_voice_count();
-                                    eprintln!(
-                                        "🔥 NEW PEAK: {} us ({:.1}ms) - {}% budget | voices: {}",
-                                        elapsed_us,
-                                        elapsed_us as f64 / 1000.0,
-                                        elapsed_us * 100 / 11610,
-                                        voice_count
-                                    );
-                                }
-
-                                // Write to ring buffer
-                                let written = ring_producer.push_slice(&buffer);
-                                if written < buffer.len() {
-                                    eprintln!(
-                                        "⚠️  Ring buffer full, dropped {} samples",
-                                        buffer.len() - written
-                                    );
-                                }
-                            }
-                            Err(_) => {
-                                // RefCell is borrowed - main thread is swapping graphs
-                                // CRITICAL FIX: Don't write silence! Just skip this iteration.
-                                // Missing one 512-sample chunk (11.6ms) won't cause underruns
-                                // with our 100ms buffer, but writing silence causes harsh
-                                // cutoffs during live code hot-swapping (C-x).
-                                // The next iteration will use the new graph seamlessly.
-                                use std::sync::atomic::{AtomicUsize, Ordering};
-                                static SWAP_SKIP_COUNT: AtomicUsize = AtomicUsize::new(0);
-                                let count = SWAP_SKIP_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-                                if count % 10 == 1 {
-                                    eprintln!("⚡ Skipped render during graph swap ({}x)", count);
-                                }
-                                // Don't increment renders counter, don't write to ring
-                                // buffer. Skip to the next iteration WITHOUT updating
-                                // prev_arc, so the swap is still detected (and the new
-                                // graph seeded from the clock) on the next attempt.
-                                continue;
-                            }
-                        }
-                    } else {
-                        // No graph (hushed/panic) - write silence
-                        // CRITICAL: Fill buffer with zeros, don't reuse old audio!
-                        buffer.fill(0.0);
-                        let written = ring_producer.push_slice(&buffer);
-                        synth_time_us_clone.store(0, Ordering::Relaxed);
-                        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-                        static NO_GRAPH_COUNT: AtomicUsize = AtomicUsize::new(0);
-                        let count = NO_GRAPH_COUNT.fetch_add(1, AtomicOrdering::Relaxed) + 1;
-                        if count.is_multiple_of(100) {
-                            eprintln!("⚠️  No graph loaded! ({}x)", count);
+                // Seed / rebase the live clock, then render with its sample-advanced
+                // timing (single source of truth).
+                match clock.as_mut() {
+                    None => {
+                        // First graph: seed from its compiled start position so
+                        // setCycle / resetCycles are honoured (installed raw, so its
+                        // timing is pristine).
+                        clock = Some(LiveClock::new(
+                            sample_rate,
+                            cur.get_cps(),
+                            cur.get_cycle_position(),
+                        ));
+                    }
+                    Some(c) => {
+                        // Follow the graph tempo, rebasing on change so the position
+                        // never teleports (pt-F2).
+                        c.set_cps(cur.get_cps());
+                        if is_new_graph {
+                            // Seed the swapped-in graph from the live clock so it
+                            // continues from the current position with no re-trigger
+                            // burst (no C-x burst).
+                            cur.set_cycle_position(c.position());
                         }
                     }
+                }
 
-                    // Remember this graph Arc so the next iteration can detect a swap
-                    // (ABA-safe: the Arc is kept alive here so its address can't be reused).
-                    prev_arc = Some(graph_snapshot);
-                } else {
-                    // Ring buffer is full, sleep briefly
-                    thread::sleep(StdDuration::from_micros(100));
-                    sleeps += 1;
+                let c = clock.as_mut().unwrap();
+                let (start_cycle, increment, cps) = c.advance_buffer(frames);
+                cur.process_buffer_at(&mut buffer, start_cycle, increment, cps);
+                // Publish the live cycle position for UI / MIDI reads (no graph borrow).
+                cycle_bits_synth.store(c.position().to_bits(), Ordering::Relaxed);
+                renders += 1;
+
+                let elapsed_us = start.elapsed().as_micros() as usize;
+                synth_time_us_clone.store(elapsed_us, Ordering::Relaxed);
+
+                // DEBUG: Track peak synthesis times (budget = 11610 µs / block).
+                static MAX_SYNTH_US: std::sync::atomic::AtomicUsize =
+                    std::sync::atomic::AtomicUsize::new(0);
+                let prev_max = MAX_SYNTH_US.fetch_max(elapsed_us, Ordering::Relaxed);
+                if elapsed_us > prev_max && elapsed_us > 11610 {
+                    let voice_count = cur.active_voice_count();
+                    eprintln!(
+                        "🔥 NEW PEAK: {} us ({:.1}ms) - {}% budget | voices: {}",
+                        elapsed_us,
+                        elapsed_us as f64 / 1000.0,
+                        elapsed_us * 100 / 11610,
+                        voice_count
+                    );
+                }
+
+                let written = ring_producer.push_slice(&buffer);
+                if written < buffer.len() {
+                    eprintln!(
+                        "⚠️  Ring buffer full, dropped {} samples",
+                        buffer.len() - written
+                    );
                 }
             }
         });
@@ -561,7 +606,13 @@ impl ModalEditor {
                     .to_string(),
             is_playing: false,
             error_message: None,
-            graph,
+            cmd_tx,
+            init_tx,
+            first_graph_sent: false,
+            current_cycle_bits,
+            render_local: None,
+            #[cfg(feature = "vst3")]
+            shared_real_plugins: Arc::new(std::sync::Mutex::new(HashMap::new())),
             _stream: Some(stream),
             sample_rate,
             flash_highlight: None,
@@ -622,7 +673,19 @@ impl ModalEditor {
     /// This allows running editor tests in CI environments without audio hardware
     pub fn new_headless() -> Result<Self, Box<dyn std::error::Error>> {
         let sample_rate = 44100.0;
-        let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+        // Render-owner swap channel + one-shot init channel, exactly as the audio
+        // build — but with no synth/janitor thread: the render side lives in
+        // `render_local` and the test harness drives it (still single-owner).
+        let (cmd_tx, rsw, graveyard) = render_swap_channel_default::<UnifiedSignalGraph>();
+        let (init_tx, init_rx) = std::sync::mpsc::channel::<Box<UnifiedSignalGraph>>();
+        let current_cycle_bits = Arc::new(AtomicU64::new(0));
+        let render_local = Some(RefCell::new(LocalRender {
+            init_rx,
+            rsw,
+            graveyard,
+            cur: None,
+        }));
+
         let underrun_count = Arc::new(AtomicUsize::new(0));
         let synth_time_us = Arc::new(AtomicUsize::new(0));
         let ring_fill_percent = Arc::new(AtomicUsize::new(100));
@@ -638,7 +701,13 @@ impl ModalEditor {
             status_message: "Headless test mode".to_string(),
             is_playing: false,
             error_message: None,
-            graph,
+            cmd_tx,
+            init_tx,
+            first_graph_sent: false,
+            current_cycle_bits,
+            render_local,
+            #[cfg(feature = "vst3")]
+            shared_real_plugins: Arc::new(std::sync::Mutex::new(HashMap::new())),
             _stream: None, // No audio stream in headless mode
             sample_rate,
             flash_highlight: None,
@@ -722,115 +791,55 @@ impl ModalEditor {
         // defines only plain `~name` buses with no `out`/`~master`/`dN` route. Those
         // buses auto-sum to output but are bounded by a −12 dB headroom gain (see
         // compositional_compiler.rs), so the swap can't blast at unity the way the old
-        // raw "mix all buses" fallback did. State transfer below runs as usual.
+        // raw "mix all buses" fallback did.
 
-        // CRITICAL: Check if we have an old graph to transfer timing from
-        // If we do, transfer will preserve wall-clock timing
-        // If we don't (first load), we need to initialize wall-clock timing
-        let has_old_graph = matches!(**self.graph.load(), Some(_));
+        // Share the persistent VST3 plugin map with the new graph so plugin state
+        // persists across swaps AND the UI can reach plugins without ever touching
+        // the render-owned graph (replaces the old cross-thread `graph.real_plugins`
+        // reads in poll_vst3_param_changes / open_plugin_guis).
+        #[cfg(feature = "vst3")]
+        {
+            new_graph.real_plugins = Arc::clone(&self.shared_real_plugins);
+        }
 
-        // Log new graph's CPS BEFORE any modifications
-        eprintln!("📊 New graph compiled with CPS: {}", new_graph.get_cps());
-
-        // ALWAYS enable wall-clock timing for live mode
-        // This must happen BEFORE transfer_session_timing (which also sets use_wall_clock=true)
-        // but we need a valid session_start_time even if transfer fails
+        // ALWAYS enable wall-clock timing for live mode. Done on the CONTROL thread
+        // (off the render hot path); the render owner's LiveClock remains the timing
+        // source of truth and the swap's `transfer_session_timing` preserves the beat.
         new_graph.enable_wall_clock_timing();
 
-        if !has_old_graph {
-            eprintln!("📊 First load - wall-clock timing initialized");
-        }
-
-        // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
-        // This ensures seamless hot-swapping:
-        // 1. Session timing transferred → global clock never drops the beat!
-        // 2. VoiceManager transferred → active voices continue playing → no click!
-        //
-        // Use try_borrow() with brief sleeps to avoid spinning CPU
-        let current_graph = self.graph.load();
-        eprintln!("📊 Current graph exists: {}", current_graph.is_some());
-        if let Some(ref old_graph_cell) = **current_graph {
-            let mut state_transferred = false;
-
-            // Retry with small sleeps - don't burn CPU with spin-loop!
-            // Audio buffer at 512 samples @ 44.1kHz = ~11.6ms per buffer
-            // We retry for ~25ms total (50 attempts × 0.5ms) to handle worst-case timing
-            for attempt in 0..50 {
-                match old_graph_cell.0.try_borrow_mut() {
-                    Ok(mut old_graph) => {
-                        eprintln!("📊 Transfer succeeded on attempt {}", attempt);
-                        eprintln!(
-                            "📊 Before transfer - old graph cycle position: {}",
-                            old_graph.get_cycle_position()
-                        );
-                        eprintln!(
-                            "📊 Before transfer - old graph CPS: {}",
-                            old_graph.get_cps()
-                        );
-
-                        // CRITICAL: Transfer session timing (wall-clock based)
-                        // This preserves the global clock - beat NEVER drops!
-                        new_graph.transfer_session_timing(&old_graph);
-
-                        eprintln!(
-                            "📊 After transfer - new graph cycle position: {}",
-                            new_graph.get_cycle_position()
-                        );
-                        eprintln!("📊 After transfer - new graph CPS: {}", new_graph.get_cps());
-
-                        // CRITICAL: Transfer FX state (delay buffers, reverb tails, etc.)
-                        // This preserves audio continuity - FX tails don't cut off!
-                        new_graph.transfer_fx_states(&old_graph);
-
-                        // CRITICAL: Transfer VoiceManager to preserve active voices!
-                        // This prevents the click from voices being cut off mid-sample
-                        new_graph.transfer_voice_manager(old_graph.take_voice_manager());
-
-                        // NOTE: VST3 plugins are now shared via Arc<Mutex> across graph clones
-                        // No explicit transfer needed - new_graph already shares real_plugins
-
-                        state_transferred = true;
-                        break;
-                    }
-                    Err(_) => {
-                        // Audio thread busy processing - sleep briefly and retry
-                        // 500 microseconds = 0.5ms, small enough to feel instant but prevents CPU burn
-                        std::thread::sleep(std::time::Duration::from_micros(500));
-                    }
-                }
-            }
-
-            if !state_transferred {
-                // Still couldn't get it after 10ms of retries - very rare, audio thread might be stuck
-                // CRITICAL: Even without transfer, we need valid timing!
-                // The new graph already has wall-clock enabled (from above), so it will
-                // use its own session_start_time. This means timing will restart from 0,
-                // which may cause a beat jump, but at least tempo won't double.
-                eprintln!("⚠️  Could not transfer state after retries!");
-                eprintln!("   New graph starting with fresh timing (beat may jump)");
-                eprintln!(
-                    "   New graph CPS: {}, wall-clock: {}",
-                    new_graph.get_cps(),
-                    new_graph.use_wall_clock
-                );
-            }
-        }
-
-        // CRITICAL: Preload all samples BEFORE swapping graph into audio thread
-        // This prevents disk I/O during audio processing (which causes underruns)
+        // CRITICAL: Preload all samples/plugins BEFORE the graph reaches the render
+        // owner. Disk I/O must stay on the control thread (design §4.4).
         new_graph.preload_samples();
 
-        // Hot-swap the graph atomically using lock-free ArcSwap
-        // Background synthesis thread will pick up new graph on next render
-        self.graph
-            .store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+        // Hand the finished graph to the render owner (design §4.1). The state
+        // transfer (session timing, FX tails, voices) now happens ON the render
+        // thread inside `absorb_state` at the buffer boundary — there is no
+        // cross-thread borrow, no 50×500µs retry loop, and no give-up window here.
+        if !self.first_graph_sent {
+            // First graph: install raw (no transfer) so its pristine compiled
+            // timing and fresh node trigger state survive the first load.
+            if self.init_tx.send(Box::new(new_graph)).is_err() {
+                return Err("render thread gone (init channel closed)".to_string());
+            }
+            self.first_graph_sent = true;
+        } else if let Err(rejected) = self.cmd_tx.swap(Box::new(new_graph)) {
+            // Command ring full (render thread behind) — extremely unlikely since
+            // swaps are human-paced. Drop the compiled graph; the next eval retries.
+            drop(rejected);
+            return Err("render thread busy (command ring full)".to_string());
+        }
 
-        // DON'T clear the ring buffer for live coding!
-        // Let it play out smoothly - the new graph will naturally take over.
-        // This prevents beat drops and maintains groove continuity.
-        // (Only clear ring for explicit "hush" command)
+        // In headless (test) mode there is no synth thread, so apply the handoff
+        // immediately into the local render side; the real audio build applies it
+        // on the synth thread at the next buffer boundary.
+        if let Some(rl) = self.render_local.as_ref() {
+            rl.borrow_mut().sync();
+        }
 
-        eprintln!("✅ Graph stored! Smooth transition to new code...");
+        // DON'T clear the ring buffer for live coding — let it play out smoothly so
+        // the beat/groove continues. (Only hush/panic clear the ring.)
+
+        eprintln!("✅ Graph handed to render owner; smooth transition to new code...");
 
         Ok(())
     }
@@ -2335,18 +2344,32 @@ impl ModalEditor {
 
     /// Hush - silence all sound
     fn hush(&mut self) {
-        // Clear the graph to silence all sound
-        self.graph.store(Arc::new(None));
-        // Clear ring buffer for instant silence
+        // Route the hush through the render-owner command channel: the render
+        // owner silences every output on its owned graph (`hush_all`) at the next
+        // buffer boundary — no graph store/None, no cross-thread borrow. (If no
+        // graph has loaded yet there is nothing to silence.)
+        if self.first_graph_sent {
+            let _ = self.cmd_tx.send(Cmd::Hush);
+            if let Some(rl) = self.render_local.as_ref() {
+                rl.borrow_mut().sync();
+            }
+        }
+        // Clear ring buffer for instant silence.
         self.should_clear_ring.store(true, Ordering::Relaxed);
         self.status_message = "🔇 Hushed - C-r to reload".to_string();
     }
 
     /// Panic - stop everything
     fn panic(&mut self) {
-        // Clear the graph to stop everything
-        self.graph.store(Arc::new(None));
-        // Clear ring buffer for instant silence
+        // Route the panic through the render-owner command channel: the render
+        // owner kills every voice and silences all outputs on its owned graph.
+        if self.first_graph_sent {
+            let _ = self.cmd_tx.send(Cmd::Panic);
+            if let Some(rl) = self.render_local.as_ref() {
+                rl.borrow_mut().sync();
+            }
+        }
+        // Clear ring buffer for instant silence.
         self.should_clear_ring.store(true, Ordering::Relaxed);
         self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
     }
@@ -2534,19 +2557,9 @@ impl ModalEditor {
             // Get tempo from current graph or use default 120 BPM
             let tempo = 120.0; // TODO: Get from graph.get_cps() * 60
 
-            // Get current cycle position from graph (for punch-in)
-            let current_cycle = {
-                let graph_arc = self.graph.load();
-                if let Some(ref graph_cell) = **graph_arc {
-                    if let Ok(graph) = graph_cell.0.try_borrow() {
-                        graph.get_cycle_position()
-                    } else {
-                        0.0 // Fallback if graph is borrowed
-                    }
-                } else {
-                    0.0 // No graph yet
-                }
-            };
+            // Get current cycle position (for punch-in) from the render owner's
+            // published position — never touches the render-owned graph.
+            let current_cycle = f64::from_bits(self.current_cycle_bits.load(Ordering::Relaxed));
 
             self.midi_recorder = Some(MidiRecorder::new(tempo));
             if let Some(ref mut recorder) = self.midi_recorder {
@@ -2592,19 +2605,14 @@ impl ModalEditor {
     /// Update recording status with current cycle position and live preview
     fn update_recording_status(&mut self) {
         if let Some(ref recorder) = self.midi_recorder {
-            // Get current cycle position and beats_per_cycle from graph
-            let (current_cycle, beats_per_cycle) = {
-                let graph_arc = self.graph.load();
-                if let Some(ref graph_cell) = **graph_arc {
-                    if let Ok(graph) = graph_cell.0.try_borrow() {
-                        (graph.get_cycle_position(), 4.0) // Default 4 beats per cycle
-                    } else {
-                        return; // Can't get cycle if graph is borrowed
-                    }
-                } else {
-                    return; // No graph yet
-                }
-            };
+            // No graph loaded yet — nothing to preview.
+            if !self.first_graph_sent {
+                return;
+            }
+            // Current cycle position from the render owner's published position
+            // (never touches the render-owned graph); 4 beats per cycle by default.
+            let current_cycle = f64::from_bits(self.current_cycle_bits.load(Ordering::Relaxed));
+            let beats_per_cycle = 4.0;
 
             // Generate live preview using the new methods
             let preview = recorder.live_preview(beats_per_cycle);
@@ -2793,26 +2801,22 @@ impl ModalEditor {
         // Collect all parameter changes first (to avoid borrow issues)
         let mut all_changes: Vec<(String, String, f64)> = Vec::new();
 
-        // Access the signal graph to get real_plugins
-        let graph_arc = self.graph.load();
-        if let Some(ref graph_cell) = **graph_arc {
-            if let Ok(graph) = graph_cell.0.try_borrow() {
-                if let Ok(mut real_plugins) = graph.real_plugins.try_lock() {
-                    for name in &gui_names {
-                        if let Some(plugin) = real_plugins.get_mut(name) {
-                            // Poll for parameter changes
-                            if let Ok(changes) = plugin.get_param_changes() {
-                                for (param_id, value) in changes {
-                                    // Get parameter name from plugin info
-                                    let param_name = if let Ok(info) = plugin.parameter_info(param_id as usize) {
-                                        info.name
-                                    } else {
-                                        format!("param_{}", param_id)
-                                    };
+        // Read the shared VST3 plugin map directly — no graph borrow. The map is
+        // shared with (and populated by) every compiled graph (see load_code).
+        if let Ok(mut real_plugins) = self.shared_real_plugins.try_lock() {
+            for name in &gui_names {
+                if let Some(plugin) = real_plugins.get_mut(name) {
+                    // Poll for parameter changes
+                    if let Ok(changes) = plugin.get_param_changes() {
+                        for (param_id, value) in changes {
+                            // Get parameter name from plugin info
+                            let param_name = if let Ok(info) = plugin.parameter_info(param_id as usize) {
+                                info.name
+                            } else {
+                                format!("param_{}", param_id)
+                            };
 
-                                    all_changes.push((name.clone(), param_name, value));
-                                }
-                            }
+                            all_changes.push((name.clone(), param_name, value));
                         }
                     }
                 }
@@ -3651,47 +3655,11 @@ impl ModalEditor {
         let target_plugin = self.get_vst_under_cursor();
         log_gui(&format!("Target plugin under cursor: {:?}", target_plugin));
 
-        // Get the current graph
-        let graph_guard = self.graph.load();
-        let graph_opt = graph_guard.as_ref();
-
-        if let Some(graph_cell) = graph_opt {
-            log_gui("Graph is loaded");
-
-            // Borrow the graph structure (still RefCell)
-            // Retry with backoff since audio thread uses it for ~11ms per callback
-            // Audio callback is ~11ms (512 samples at 44100Hz), so 50ms should catch a gap
-            let mut graph_borrow = None;
-            for attempt in 0..100 {
-                match graph_cell.0.try_borrow() {
-                    Ok(g) => {
-                        log_gui(&format!("Got graph borrow on attempt {}", attempt));
-                        graph_borrow = Some(g);
-                        break;
-                    }
-                    Err(_) => {
-                        if attempt < 99 {
-                            // Sleep 500us between attempts (~50ms total max)
-                            std::thread::sleep(std::time::Duration::from_micros(500));
-                        }
-                    }
-                }
-            }
-
-            let graph = match graph_borrow {
-                Some(g) => g,
-                None => {
-                    let msg = "Graph busy - audio processing in progress, try again";
-                    log_gui(msg);
-                    self.status_message = msg.to_string();
-                    self.plugin_browser.set_status(msg);
-                    return;
-                }
-            };
-
-            // Lock real_plugins (Mutex - will block until available)
-            // This properly waits for the audio thread to release the lock
-            let mut real_plugins = graph.real_plugins.lock().unwrap();
+        // Read the shared VST3 plugin map directly — no graph borrow, no
+        // try_borrow retry loop. The map is shared with (and populated by) every
+        // compiled graph (see load_code), so the render-owned graph is never touched.
+        {
+            let mut real_plugins = self.shared_real_plugins.lock().unwrap();
             log_gui(&format!("Loaded plugins: {:?}", real_plugins.keys().collect::<Vec<_>>()));
 
             if real_plugins.is_empty() {
@@ -3780,10 +3748,6 @@ impl ModalEditor {
             };
             self.status_message = msg.clone();
             self.plugin_browser.set_status(&msg);
-        } else {
-            let msg = "No audio graph loaded. Press C-x to evaluate code first.";
-            self.status_message = msg.to_string();
-            self.plugin_browser.set_status(msg);
         }
     }
 
