@@ -5,6 +5,37 @@ use phonon::unified_graph::UnifiedSignalGraph;
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use std::time::Instant;
 
+/// Whether wall-clock/elapsed budget assertions in this test should be enforced
+/// as hard failures. These measure real elapsed time, which inflates under CPU
+/// oversubscription (many `cargo test` binaries running concurrently) and causes
+/// false failures. Default (the shared `cargo test` lane): report-only. A
+/// dedicated real-time CI lane enforces them by setting
+/// `PHONON_STRESS_FORCE_RT_BUDGET=1` — the same knob the stress-harness budget
+/// gate uses.
+fn enforce_wallclock_budget() -> bool {
+    phonon::stress_harness::force_realtime_budget()
+}
+
+/// Report-only-by-default wall-clock budget check: like `assert!`, but only
+/// panics when running in the enforced real-time lane. Otherwise it prints the
+/// overrun and lets the test pass, so an oversubscribed runner does not
+/// false-fail on timing artifacts. Non-timing correctness assertions stay hard.
+macro_rules! assert_wallclock_budget {
+    ($cond:expr, $($arg:tt)+) => {{
+        if !($cond) {
+            if enforce_wallclock_budget() {
+                panic!($($arg)+);
+            } else {
+                eprintln!(
+                    "wall-clock budget overrun (report-only under load; set \
+                     PHONON_STRESS_FORCE_RT_BUDGET=1 to enforce): {}",
+                    format!($($arg)+)
+                );
+            }
+        }
+    }};
+}
+
 fn compile_code(code: &str, sample_rate: f32) -> UnifiedSignalGraph {
     let (_, statements) = parse_dsl(code).expect("Failed to parse DSL");
     let compiler = DslCompiler::new(sample_rate);
@@ -98,7 +129,8 @@ out $ ~drums + ~bass * 0.3
     println!("All times: {:?}", render_times.iter().map(|t| format!("{:.3}", t)).collect::<Vec<_>>());
 
     // Performance should be stable - last 10 shouldn't be more than 2x first 10
-    assert!(
+    // (report-only under CPU oversubscription; enforced in the real-time lane)
+    assert_wallclock_budget!(
         last_10_avg < first_10_avg * 2.0,
         "Performance degraded: first 10 avg = {:.3}ms, last 10 avg = {:.3}ms (> 2x)",
         first_10_avg, last_10_avg
@@ -200,7 +232,8 @@ out $ s "bd sn"
     println!("Times: {:?}", times.iter().map(|t| format!("{:.2}", t)).collect::<Vec<_>>());
 
     // Max shouldn't be more than 5x average (allows for some variance)
-    assert!(
+    // (report-only under CPU oversubscription; enforced in the real-time lane)
+    assert_wallclock_budget!(
         max_time < avg_time * 5.0,
         "Performance spike detected! avg={:.3}ms, max={:.3}ms (> 5x avg)",
         avg_time, max_time

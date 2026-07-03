@@ -16,6 +16,41 @@ use phonon::unified_graph::UnifiedSignalGraph;
 use std::time::Instant;
 
 // ============================================================================
+// Wall-clock budget gate (shared with the stress-harness fix)
+// ============================================================================
+
+/// Whether wall-clock/elapsed budget assertions in this test should be enforced
+/// as hard failures. These measure real elapsed time, which inflates under CPU
+/// oversubscription (many `cargo test` binaries running concurrently) and causes
+/// false failures. Default (the shared `cargo test` lane): report-only. A
+/// dedicated real-time CI lane enforces them by setting
+/// `PHONON_STRESS_FORCE_RT_BUDGET=1` — the same knob the stress-harness budget
+/// gate uses.
+fn enforce_wallclock_budget() -> bool {
+    phonon::stress_harness::force_realtime_budget()
+}
+
+/// Report-only-by-default wall-clock budget check: like `assert!`, but only
+/// panics when running in the enforced real-time lane. Otherwise it prints the
+/// overrun and lets the test pass, so an oversubscribed runner does not
+/// false-fail on timing artifacts. Non-timing correctness assertions stay hard.
+macro_rules! assert_wallclock_budget {
+    ($cond:expr, $($arg:tt)+) => {{
+        if !($cond) {
+            if enforce_wallclock_budget() {
+                panic!($($arg)+);
+            } else {
+                eprintln!(
+                    "wall-clock budget overrun (report-only under load; set \
+                     PHONON_STRESS_FORCE_RT_BUDGET=1 to enforce): {}",
+                    format!($($arg)+)
+                );
+            }
+        }
+    }};
+}
+
+// ============================================================================
 // Test Helpers
 // ============================================================================
 
@@ -1019,7 +1054,8 @@ out $ ~drums * 0.5 + ~bass * 0.3
     let max = times.iter().cloned().fold(0.0, f64::max);
 
     // Max shouldn't be more than 10x average (no huge spikes)
-    assert!(
+    // (report-only under CPU oversubscription; enforced in the real-time lane)
+    assert_wallclock_budget!(
         max < avg * 10.0,
         "Render time spikes detected: avg={:.3}ms, max={:.3}ms",
         avg,
@@ -1040,14 +1076,17 @@ fn test_no_infinite_loops_on_swap() {
 
     let mut graph = compile_code(codes[0], sample_rate);
 
+    // This budget is a *performance* bound, not the infinite-loop guard: a
+    // genuine infinite loop hangs inside render/swap and is caught by the outer
+    // test-runner timeout, never by an elapsed check between iterations. The
+    // real infinite-loop check is simply that all 100 iterations complete at
+    // all. Because the budget measures real wall-clock time it inflates under
+    // CPU oversubscription, so it is report-only by default and only enforced in
+    // the real-time lane (PHONON_STRESS_FORCE_RT_BUDGET=1).
     let timeout = std::time::Duration::from_secs(30);
     let start = Instant::now();
 
     for i in 0..100 {
-        if start.elapsed() > timeout {
-            panic!("Timeout! Possible infinite loop at swap {}", i);
-        }
-
         let code = codes[i % codes.len()];
         graph = swap_graph(&mut graph, code, sample_rate);
 
@@ -1055,11 +1094,11 @@ fn test_no_infinite_loops_on_swap() {
         let _ = render_audio(&mut graph, 512);
     }
 
-    // Should complete well within timeout (detects infinite loops, not performance)
-    assert!(
+    assert_wallclock_budget!(
         start.elapsed() < timeout,
-        "100 swaps took too long: {:?}",
-        start.elapsed()
+        "100 swaps took too long: {:?} (budget {:?})",
+        start.elapsed(),
+        timeout
     );
 }
 
