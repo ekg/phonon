@@ -5481,6 +5481,16 @@ impl UnifiedSignalGraph {
                     SignalNode::PitchShift { .. } => {
                         return true;
                     }
+                    // An oscillator whose frequency is a running/modulated signal has
+                    // path-dependent phase that `seek_to_sample` cannot restore for
+                    // parallel chunk rendering. Constant-frequency oscillators ARE
+                    // repositioned exactly in seek_to_sample, so only force sequential
+                    // when the frequency is not a compile-time constant.
+                    SignalNode::Oscillator { freq, .. } => {
+                        if self.signal_constant_value(freq).is_none() {
+                            return true;
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -5613,6 +5623,68 @@ impl UnifiedSignalGraph {
         if !self.use_wall_clock {
             let time_in_seconds = sample_index as f64 / self.sample_rate as f64;
             self.cached_cycle_position = time_in_seconds * self.cps as f64 + self.cycle_offset;
+        }
+
+        // CRITICAL: Reposition stateful Oscillator phase to match the seek point.
+        //
+        // Parallel offline rendering clones the graph and seeks each clone to the
+        // start of its block chunk. Oscillator phase is a running accumulator; a
+        // freshly cloned/seeked graph starts at phase 0 and only advances within its
+        // chunk. Without this repositioning a low-frequency LFO (e.g. `square 1`)
+        // never completes a cycle inside one chunk, so its output is frozen — this
+        // silently breaks pattern-controlled modulation (see test_lpf_square_lfo).
+        //
+        // For a constant-frequency oscillator the phase at sample N is deterministic:
+        //   phase = frac(N * freq / sample_rate)
+        // so we can restore it exactly. Oscillators whose frequency is modulated by
+        // another signal are path-dependent and cannot be repositioned this way; those
+        // graphs are forced onto the sequential render path via
+        // `has_sequential_dependencies()`, so we simply skip them here.
+        let sr = self.sample_rate as f64;
+        for node_opt in self.nodes.iter() {
+            if let Some(node_rc) = node_opt {
+                if let SignalNode::Oscillator {
+                    freq,
+                    semitone_offset,
+                    phase,
+                    ..
+                } = &**node_rc
+                {
+                    if let Some(base_freq) = self.signal_constant_value(freq) {
+                        let effective_freq = if *semitone_offset >= 1000.0 {
+                            // Absolute MIDI note -> Hz (A4 = 440Hz)
+                            let midi = *semitone_offset - 1000.0;
+                            440.0 * 2.0_f32.powf((midi - 69.0) / 12.0)
+                        } else if *semitone_offset != 0.0 {
+                            base_freq * 2.0_f32.powf(*semitone_offset / 12.0)
+                        } else {
+                            base_freq
+                        };
+                        let new_phase =
+                            (sample_index as f64 * effective_freq as f64 / sr).rem_euclid(1.0);
+                        *phase.borrow_mut() = new_phase as f32;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Resolve a `Signal` to a constant `f32` value if (and only if) it is a
+    /// compile-time constant — either an inline `Signal::Value` or a reference to a
+    /// `SignalNode::Constant`. Returns `None` for anything that depends on other
+    /// nodes/patterns (i.e. a modulated / time-varying signal), which therefore
+    /// cannot be resolved without evaluating the graph.
+    fn signal_constant_value(&self, signal: &Signal) -> Option<f32> {
+        match signal {
+            Signal::Value(v) => Some(*v),
+            Signal::Node(id) => match self.nodes.get(id.0) {
+                Some(Some(node_rc)) => match &**node_rc {
+                    SignalNode::Constant { value } => Some(*value),
+                    _ => None,
+                },
+                _ => None,
+            },
+            _ => None,
         }
     }
 

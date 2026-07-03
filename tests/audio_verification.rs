@@ -297,63 +297,11 @@ pub fn verify_pattern_modulation(
         samples
     };
 
-    // Use larger windows for slow modulation (500ms)
-    let window_duration_ms = 500.0;
-    let window_size = (spec.sample_rate as f32 * window_duration_ms / 1000.0) as usize;
-    let mut parameter_values: Vec<f32> = Vec::new();
-
-    for chunk in mono_samples.chunks(window_size) {
-        if chunk.len() < window_size / 2 {
-            continue; // Skip incomplete final chunk
-        }
-
-        let value = match parameter {
-            "frequency" => {
-                // Estimate dominant frequency via zero-crossing rate
-                let mut crossings = 0;
-                for i in 1..chunk.len() {
-                    if (chunk[i] >= 0.0) != (chunk[i - 1] >= 0.0) {
-                        crossings += 1;
-                    }
-                }
-                crossings as f32 * spec.sample_rate as f32 / (2.0 * chunk.len() as f32)
-            }
-            "amplitude" => {
-                // RMS amplitude
-                (chunk.iter().map(|x| x * x).sum::<f32>() / chunk.len() as f32).sqrt()
-            }
-            "spectral" => {
-                // FIXED: Use actual spectral centroid, not sample-to-sample differences
-                let (_, spectral_centroid) = analyze_spectrum(chunk, spec.sample_rate);
-                spectral_centroid
-            }
-            _ => return Err(format!("Unknown parameter: {}", parameter)),
-        };
-
-        parameter_values.push(value);
-    }
-
-    if parameter_values.len() < 2 {
-        return Err("Not enough data to detect modulation".to_string());
-    }
-
-    // Detect variance in parameter (for slow/smooth modulation)
-    let mean = parameter_values.iter().sum::<f32>() / parameter_values.len() as f32;
-    let mut variance = 0.0;
-    for &val in &parameter_values {
-        variance += (val - mean).powi(2);
-    }
-    variance /= parameter_values.len() as f32;
-    let std_dev = variance.sqrt();
-
-    // Calculate coefficient of variation (normalized measure of variance)
-    let coefficient_of_variation = if mean > 0.0 { std_dev / mean } else { 0.0 };
-
     // For spectral modulation, we expect at least 1.5% variation
     // (Lowered from 5% -> 2% -> 1.5% - spectral centroid is less sensitive to filter
     // cutoff changes than expected, especially for bandpass filters and resonance modulation)
-    // For amplitude, RMS measurement over 500ms windows averages out fast modulation,
-    // so we need a very low threshold (0.1% = 0.001)
+    // For amplitude, RMS measurement averages out fast modulation, so we need a very
+    // low threshold (0.1% = 0.001)
     let min_variation = match parameter {
         "spectral" => 0.015,  // 1.5% variation in spectral centroid
         "frequency" => 0.05,  // 5% variation in frequency
@@ -361,31 +309,110 @@ pub fn verify_pattern_modulation(
         _ => 0.015,
     };
 
-    if coefficient_of_variation < min_variation {
+    // A fixed analysis window ALIASES against periodic modulation: when the window
+    // length is an integer multiple of the parameter's half-period, every window
+    // averages to the same value and genuine modulation reads as perfectly flat.
+    // Concrete failure: a 1 Hz triangle/square LFO sampled with 500 ms windows lands
+    // exactly one half-period per window, so RMS/centroid is identical in every window
+    // (CoV = 0.000) even though the audio is modulating correctly. To be robust we
+    // analyze at several window sizes and accept the modulation if ANY of them resolves
+    // it. The coarsest window (500 ms) is tried FIRST and preserves the historic
+    // behavior for slow LFOs exactly; the finer windows only ADD acceptance paths for
+    // faster LFOs whose half-period divides 500 ms — so this can never reject a signal
+    // the old single-window check would have accepted.
+    let analyze_at = |window_ms: f32| -> Option<(f32, f32, f32, f32, f32, f32)> {
+        let window_size = (spec.sample_rate as f32 * window_ms / 1000.0) as usize;
+        if window_size == 0 {
+            return None;
+        }
+        let mut values: Vec<f32> = Vec::new();
+        for chunk in mono_samples.chunks(window_size) {
+            if chunk.len() < window_size / 2 {
+                continue; // Skip incomplete final chunk
+            }
+            let value = match parameter {
+                "frequency" => {
+                    // Estimate dominant frequency via zero-crossing rate
+                    let mut crossings = 0;
+                    for i in 1..chunk.len() {
+                        if (chunk[i] >= 0.0) != (chunk[i - 1] >= 0.0) {
+                            crossings += 1;
+                        }
+                    }
+                    crossings as f32 * spec.sample_rate as f32 / (2.0 * chunk.len() as f32)
+                }
+                "amplitude" => {
+                    // RMS amplitude
+                    (chunk.iter().map(|x| x * x).sum::<f32>() / chunk.len() as f32).sqrt()
+                }
+                "spectral" => {
+                    // Actual spectral centroid, not sample-to-sample differences
+                    let (_, spectral_centroid) = analyze_spectrum(chunk, spec.sample_rate);
+                    spectral_centroid
+                }
+                _ => return None,
+            };
+            values.push(value);
+        }
+        if values.len() < 2 {
+            return None;
+        }
+        let mean = values.iter().sum::<f32>() / values.len() as f32;
+        let variance =
+            values.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / values.len() as f32;
+        let std_dev = variance.sqrt();
+        let cov = if mean > 0.0 { std_dev / mean } else { 0.0 };
+        let min_val = values.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_val = values.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let range_ratio = if mean > 0.0 {
+            (max_val - min_val) / mean
+        } else {
+            0.0
+        };
+        Some((cov, range_ratio, mean, std_dev, min_val, max_val))
+    };
+
+    // Reject unknown parameter names up front (analyze_at returns None for them,
+    // which would otherwise masquerade as "not enough data").
+    if !matches!(parameter, "frequency" | "amplitude" | "spectral") {
+        return Err(format!("Unknown parameter: {}", parameter));
+    }
+
+    // 500 ms first (historic default), then finer windows to de-alias faster LFOs.
+    let window_sizes_ms = [500.0_f32, 250.0, 125.0];
+    let mut analyzed_any = false;
+    // Best (highest-CoV) window kept for diagnostics if nothing passes.
+    let mut best: Option<(f32, f32, f32, f32, f32, f32, f32)> = None; // (.., window_ms)
+    for &window_ms in &window_sizes_ms {
+        if let Some((cov, range_ratio, mean, std_dev, min_val, max_val)) = analyze_at(window_ms) {
+            analyzed_any = true;
+            // Accept as soon as one window resolves BOTH variance and range.
+            if cov >= min_variation && range_ratio >= min_variation * 2.0 {
+                return Ok(());
+            }
+            if best.map_or(true, |b| cov > b.0) {
+                best = Some((cov, range_ratio, mean, std_dev, min_val, max_val, window_ms));
+            }
+        }
+    }
+
+    if !analyzed_any {
+        return Err("Not enough data to detect modulation".to_string());
+    }
+
+    let (cov, range_ratio, mean, std_dev, min_val, max_val, window_ms) = best.unwrap();
+    if cov < min_variation {
         return Err(format!(
-            "Pattern modulation not detected! Parameter '{}' shows insufficient variation: mean={:.2}, std_dev={:.2}, CoV={:.3} (min required: {:.3})",
-            parameter, mean, std_dev, coefficient_of_variation, min_variation
+            "Pattern modulation not detected! Parameter '{}' shows insufficient variation: mean={:.2}, std_dev={:.2}, CoV={:.3} (min required: {:.3}; best across 500/250/125ms windows, best window {:.0}ms)",
+            parameter, mean, std_dev, cov, min_variation, window_ms
         ));
     }
 
-    // Also check for actual range changes (max - min should be significant)
-    let min_val = parameter_values
-        .iter()
-        .fold(f32::INFINITY, |a, &b| a.min(b));
-    let max_val = parameter_values
-        .iter()
-        .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    let range = max_val - min_val;
-    let range_ratio = if mean > 0.0 { range / mean } else { 0.0 };
-
-    if range_ratio < min_variation * 2.0 {
-        return Err(format!(
-            "Pattern modulation range too small! Parameter '{}' range={:.2} (min={:.2}, max={:.2}), mean={:.2}, range_ratio={:.3} (min required: {:.3})",
-            parameter, range, min_val, max_val, mean, range_ratio, min_variation * 2.0
-        ));
-    }
-
-    Ok(())
+    // CoV passed but the absolute range is too small.
+    Err(format!(
+        "Pattern modulation range too small! Parameter '{}' range={:.2} (min={:.2}, max={:.2}), mean={:.2}, range_ratio={:.3} (min required: {:.3})",
+        parameter, max_val - min_val, min_val, max_val, mean, range_ratio, min_variation * 2.0
+    ))
 }
 
 /// Advanced: Verify onset timing matches expected pattern
