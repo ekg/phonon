@@ -31,13 +31,13 @@ use phonon::compositional_parser::parse_program;
 #[cfg(unix)]
 use phonon::ipc::{AudioServer, IpcMessage};
 #[cfg(unix)]
+use phonon::render_swap::{render_swap_channel_default, Cmd, CommandSender};
+#[cfg(unix)]
 use phonon::unified_graph::UnifiedSignalGraph;
 #[cfg(unix)]
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 #[cfg(unix)]
 use ringbuf::{HeapProd, HeapRb};
-#[cfg(unix)]
-use std::cell::RefCell;
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(unix)]
@@ -166,14 +166,37 @@ impl GlobalClock {
     }
 }
 
-// Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
-// SAFETY: Each GraphCell instance is only accessed by one thread at a time.
+// The live `UnifiedSignalGraph` is NO LONGER shared across threads. It is owned
+// solely by the render (synth) thread as a plain `Box<UnifiedSignalGraph>` and
+// only ever handed off by *move* through the render-owner swap channel
+// (`phonon::render_swap`, design §4.1/§4.2). That deletes the previous
+// `GraphCell(RefCell<UnifiedSignalGraph>)` + hand-written `unsafe impl Send/Sync`
+// and the cross-thread `try_borrow_mut` race (C1) it papered over — ownership is
+// transferred, never shared.
+
+/// Enqueue a render-owner command from the control (IPC) thread, retrying briefly
+/// on backpressure.
+///
+/// The command ring is human-paced (default capacity 8) and the render thread
+/// drains it every buffer (~3 ms), so a full ring is effectively impossible; the
+/// bounded, non-blocking retry exists only so the control thread can NEVER block
+/// or yield to the render thread (R2). Returns `false` if the command still could
+/// not be enqueued after all retries (the caller logs it); the command — and any
+/// graph it owns — is dropped here on the control thread, off the audio path.
 #[cfg(unix)]
-struct GraphCell(RefCell<UnifiedSignalGraph>);
-#[cfg(unix)]
-unsafe impl Send for GraphCell {}
-#[cfg(unix)]
-unsafe impl Sync for GraphCell {}
+fn send_cmd_retry(tx: &mut CommandSender<UnifiedSignalGraph>, cmd: Cmd<UnifiedSignalGraph>) -> bool {
+    let mut cmd = cmd;
+    for _ in 0..64 {
+        match tx.send(cmd) {
+            Ok(()) => return true,
+            Err(returned) => {
+                cmd = returned;
+                thread::sleep(StdDuration::from_micros(200));
+            }
+        }
+    }
+    false
+}
 
 #[cfg(unix)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -250,8 +273,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let global_clock = Arc::new(ArcSwap::from_pointee(GlobalClock::new(sample_rate)));
     eprintln!("⏰ Global clock initialized (single source of timing truth)");
 
-    // Graph for background synthesis thread (lock-free swap)
-    let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+    // Render-owner swap channel (design §4.1/§4.2): the render (synth) thread is
+    // the SINGLE OWNER of the live graph. The control (IPC) thread compiles +
+    // preloads a graph off the render thread, then hands the finished, owned graph
+    // across by MOVE through `cmd_tx` (an SPSC command ring); the render thread
+    // pops it at a buffer boundary and pointer-swaps its owned graph. Retired
+    // graphs go to the graveyard for off-RT drop on the janitor thread. There is
+    // no `Arc`, no `RefCell`, no `ArcSwap<GraphCell>`, and no cross-thread borrow
+    // of the graph — which is exactly what removes the C1 race and the R1/R2/R3
+    // swap windows.
+    let (mut cmd_tx, render_swap, graveyard) =
+        render_swap_channel_default::<UnifiedSignalGraph>();
+    eprintln!("🔀 Render-owner swap channel initialized (single-owner graph handoff)");
 
     // Ring buffer: background synth writes, audio callback reads
     // Size: 2 seconds of audio = smooth playback even with synthesis spikes
@@ -264,86 +297,82 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let underrun_count = Arc::new(AtomicUsize::new(0));
     let underrun_count_synth = Arc::clone(&underrun_count);
 
-    // Background synthesis thread: continuously renders samples into ring buffer
-    let graph_clone_synth = Arc::clone(&graph);
+    // Background synthesis thread: the SINGLE OWNER of the live graph.
+    //
+    // It owns `cur: Box<UnifiedSignalGraph>` outright — no Arc, no RefCell, no
+    // cross-thread borrow. Compiled/preloaded graphs, hush, panic and tempo all
+    // arrive as ordered `Cmd`s through `render_swap` and are applied here, at the
+    // buffer boundary, BEFORE rendering (design §4.1/§4.3). Because the transfer
+    // (`absorb_state`) + pointer-swap run as one uninterrupted render-thread step,
+    // the C1 race and the R1/R2/R3 swap windows are gone by construction.
     let clock_clone_synth = Arc::clone(&global_clock);
     thread::spawn(move || {
+        let mut render_swap = render_swap;
         // Use configurable buffer size (can't use array with runtime size, use Vec)
         let mut buffer = vec![0.0f32; buffer_size];
         let mut last_underrun_logged = 0usize;
 
+        // Start with an empty graph. It renders silence (no output) until the
+        // first compiled graph arrives over the channel, replacing the previous
+        // `Option<GraphCell>::None` "no graph yet / hushed" state. Hush/panic are
+        // now applied on the owned graph (`hush_all` / `panic`) rather than by
+        // dropping it, so `cur` is always a valid, renderable graph.
+        let mut cur: Box<UnifiedSignalGraph> = Box::new(UnifiedSignalGraph::new(sample_rate));
+
         loop {
+            // Buffer boundary: apply ALL pending render-owner commands to the
+            // owned graph before rendering. A Swap absorbs live state from the
+            // outgoing graph (`absorb_state`: session timing, FX tails, voices),
+            // pointer-swaps `cur`, and ships the retired graph to the graveyard —
+            // never dropped on this thread. Hush/Panic/SetTempo act on `cur` in
+            // order. This is the whole race-free swap: no borrow crosses a thread.
+            render_swap.apply_pending_commands(&mut cur);
+
             // Check if we have space in ring buffer
             let space = ring_producer.vacant_len();
 
             if space >= buffer.len() {
-                // CRITICAL: Get timing from GlobalClock ONCE per buffer
-                // This is THE SINGLE SOURCE OF TRUTH for timing.
+                // CRITICAL: Get timing from GlobalClock ONCE per buffer.
+                // The GlobalClock remains THE external-clock timing authority for
+                // this path; `process_buffer_at` receives (position, increment,
+                // cps) from it and overrides the graph's internal cycle position.
                 // RT-SAFETY (F-3): lock-free `.load()` of the ArcSwap snapshot —
-                // no `.lock().unwrap()` on the render path. Cannot be poisoned,
-                // cannot priority-invert against the IPC tempo-update thread, and
-                // always returns a whole, consistent GlobalClock snapshot.
+                // no `.lock().unwrap()` on the render path.
                 let (buffer_start_cycle, sample_increment, cps) = {
                     let clock = clock_clone_synth.load();
                     clock.get_buffer_timing()
                 };
 
-                // Render a chunk of audio
-                let graph_snapshot = graph_clone_synth.load();
+                // DEBUG: Log buffer timing (enable with DEBUG_BUFFER_TIMING=1)
+                static DEBUG_COUNTER: std::sync::atomic::AtomicUsize =
+                    std::sync::atomic::AtomicUsize::new(0);
+                let counter = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if std::env::var("DEBUG_BUFFER_TIMING").is_ok() && counter.is_multiple_of(100) {
+                    eprintln!(
+                        "📊 Buffer {}: cycle={:.4}, incr={:.8}, cps={:.2}",
+                        counter, buffer_start_cycle, sample_increment, cps
+                    );
+                }
 
-                if let Some(ref graph_cell) = **graph_snapshot {
-                    // DEBUG: Log buffer timing (enable with DEBUG_BUFFER_TIMING=1)
-                    static DEBUG_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-                    let counter = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    if std::env::var("DEBUG_BUFFER_TIMING").is_ok() && counter.is_multiple_of(100) {
-                        eprintln!("📊 Buffer {}: cycle={:.4}, incr={:.8}, cps={:.2}",
-                            counter, buffer_start_cycle, sample_increment, cps);
-                    }
+                // Synthesize samples using optimized buffer processing.
+                // CRITICAL: Pass timing FROM GlobalClock TO the graph — the graph
+                // does NOT calculate timing, it receives it as a parameter. An
+                // empty or hushed graph renders silence, so no None branch remains.
+                cur.process_buffer_at(&mut buffer, buffer_start_cycle, sample_increment, cps);
 
-                    // Try to borrow — use try_borrow_mut to avoid a double-borrow
-                    // panic. The reload thread holds a try_borrow_mut() on this
-                    // same ArcSwap-shared graph across transfer_* while swapping;
-                    // an unconditional borrow_mut() here would panic → kill the
-                    // synth thread → ring drains → permanent silence. Mirror the
-                    // modal editor synth loop (src/modal_editor/mod.rs:280) and
-                    // skip the block on Err.
-                    match graph_cell.0.try_borrow_mut() {
-                        Ok(mut graph) => {
-                            // Synthesize samples using optimized buffer processing
-                            // CRITICAL: Pass timing FROM GlobalClock TO the graph
-                            // The graph does NOT calculate timing - it receives it as a parameter
-                            graph.process_buffer_at(
-                                &mut buffer,
-                                buffer_start_cycle,
-                                sample_increment,
-                                cps,
-                            );
-
-                            // Write to ring buffer
-                            let written = ring_producer.push_slice(&buffer);
-                            if written < buffer.len() {
-                                eprintln!(
-                                    "⚠️  Ring buffer full, dropped {} samples",
-                                    buffer.len() - written
-                                );
-                            }
-                        }
-                        Err(_) => {
-                            // Reload thread is mid-transfer on this graph. Skip
-                            // this block (write nothing) rather than panic — the
-                            // next buffer renders the swapped-in graph seamlessly.
-                        }
-                    }
-                } else {
-                    // No graph (hushed/panic) - write silence
-                    buffer.fill(0.0);
-                    ring_producer.push_slice(&buffer);
+                // Write to ring buffer
+                let written = ring_producer.push_slice(&buffer);
+                if written < buffer.len() {
+                    eprintln!(
+                        "⚠️  Ring buffer full, dropped {} samples",
+                        buffer.len() - written
+                    );
                 }
 
                 // Log underruns here (off the real-time callback path)
                 let current = underrun_count_synth.load(Ordering::Relaxed);
                 if current != last_underrun_logged {
-                    if current % 100 == 0 || current - last_underrun_logged >= 10 {
+                    if current.is_multiple_of(100) || current - last_underrun_logged >= 10 {
                         eprintln!("⚠️  Audio underrun #{}", current);
                     }
                     last_underrun_logged = current;
@@ -351,6 +380,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 // Ring buffer is full, sleep briefly
                 thread::sleep(StdDuration::from_micros(100));
+            }
+        }
+    });
+
+    // Graveyard janitor: drops retired graphs OFF the render thread (design §4.1).
+    // Dropping a `UnifiedSignalGraph` frees voice buffers, sample `Arc`s and FX
+    // delay lines — an unbounded free unfit for the audio path. This thread is
+    // low-priority: it sleeps when idle (swaps are seconds apart; a retired
+    // graph's drop is never urgent), so it never competes with the synth thread.
+    thread::spawn(move || {
+        let mut graveyard = graveyard;
+        loop {
+            let collected = graveyard.collect();
+            if collected == 0 {
+                thread::sleep(StdDuration::from_millis(25));
             }
         }
     });
@@ -553,54 +597,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             eprintln!("🔄 Graph swap: pos={:.4} -> {:.4} (delta={:.6}), cps={:.2} -> {:.2}",
                                                 old_pos, new_pos, new_pos - old_pos, old_cps, new_graph.cps);
 
-                                            // Enable wall-clock timing (needed for session timing
-                                            // and FX state transfer; process_buffer_at overrides
-                                            // the cycle position from GlobalClock anyway)
+                                            // Everything that touches disk or allocates stays on
+                                            // THIS (control) thread, off the render thread (design
+                                            // §4.4) — BEFORE the graph is handed off:
+                                            //  * enable_wall_clock_timing (needed by absorb_state's
+                                            //    session-timing/FX transfer; process_buffer_at
+                                            //    overrides the cycle position from GlobalClock).
+                                            //  * preload_samples — disk I/O; must never run on the
+                                            //    render thread (prevents dropouts on first-hit
+                                            //    samples after reload).
+                                            //  * preload_plugins — VST3/VST2 disk load kept off the
+                                            //    render thread (no-op without plugins).
                                             new_graph.enable_wall_clock_timing();
-
-                                            // Transfer state from old graph: FX tails, active
-                                            // voices, and session timing offset.
-                                            // Use try_borrow_mut with retries to avoid panicking
-                                            // if the audio callback is mid-buffer (same fallback
-                                            // pattern as modal editor load_code).
-                                            let current_graph = graph.load();
-                                            if let Some(ref old_graph_cell) = **current_graph {
-                                                let mut state_transferred = false;
-                                                for _attempt in 0..50 {
-                                                    match old_graph_cell.0.try_borrow_mut() {
-                                                        Ok(mut old_graph) => {
-                                                            new_graph.transfer_session_timing(&old_graph);
-                                                            new_graph.transfer_fx_states(&old_graph);
-                                                            new_graph.transfer_voice_manager(old_graph.take_voice_manager());
-                                                            state_transferred = true;
-                                                            break;
-                                                        }
-                                                        Err(_) => {
-                                                            std::thread::sleep(std::time::Duration::from_micros(500));
-                                                        }
-                                                    }
-                                                }
-                                                if !state_transferred {
-                                                    eprintln!("⚠️  Could not transfer state after retries — starting fresh");
-                                                }
-                                            }
-
-                                            // Preload samples before swap to avoid disk I/O
-                                            // in the audio callback (prevents dropouts on
-                                            // first-hit samples after reload)
                                             new_graph.preload_samples();
-
-                                            // Preload VST3/VST2 plugins on THIS (IPC) thread
-                                            // before the swap, so the first rendered buffer never
-                                            // blocks on plugin disk load. harden-render-locks added
-                                            // preload_plugins() + a one-time render-init fallback
-                                            // (ensure_prepared); wiring it here keeps disk load
-                                            // fully off the render thread. (No-op without plugins.)
                                             new_graph.preload_plugins();
 
-                                            // Swap in new graph (atomic, lock-free)
-                                            // Graph does NOT own timing - it receives timing from GlobalClock
-                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+                                            // Hand the finished, owned graph to the render thread by
+                                            // MOVE through the render-owner swap channel. The render
+                                            // thread runs the state transfer (transfer_session_timing
+                                            // + transfer_fx_states + transfer_voice_manager) via
+                                            // RenderGraph::absorb_state and pointer-swaps as ONE
+                                            // uninterrupted buffer-boundary step — so there is no
+                                            // cross-thread borrow, no 50×500µs try_borrow_mut retry
+                                            // loop, no "could not transfer state" give-up (R1), no
+                                            // synth starvation (R2), and no voiceless window (R3).
+                                            if !send_cmd_retry(&mut cmd_tx, Cmd::Swap(Box::new(new_graph))) {
+                                                eprintln!("⚠️  Swap channel full after retries — dropping this reload");
+                                            }
                                         }
                                         Err(e) => {
                                             eprintln!("❌ Compile error: {}", e);
@@ -615,22 +638,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         IpcMessage::Hush => {
                             eprintln!("🔇 Hush - silencing all outputs");
-                            graph.store(Arc::new(None));
+                            // Route hush through the render-owner channel (design
+                            // §4.2): the render thread applies `hush_all` to its
+                            // owned graph at the next boundary — silencing every
+                            // output channel — instead of dropping a shared graph.
+                            if !send_cmd_retry(&mut cmd_tx, Cmd::Hush) {
+                                eprintln!("⚠️  Swap channel full after retries — hush not applied");
+                            }
                         }
 
                         IpcMessage::Panic => {
                             eprintln!("🛑 Panic - stopping all synthesis");
-                            graph.store(Arc::new(None));
+                            // Route panic through the render-owner channel: the
+                            // render thread kills all voices and hushes all outputs
+                            // (`panic`) on its owned graph at the next boundary.
+                            if !send_cmd_retry(&mut cmd_tx, Cmd::Panic) {
+                                eprintln!("⚠️  Swap channel full after retries — panic not applied");
+                            }
                         }
 
                         IpcMessage::SetTempo { cps } => {
                             eprintln!("⏱️  Setting tempo to {} CPS", cps);
-                            // Update GlobalClock (THE SINGLE SOURCE OF TRUTH)
-                            // GlobalClock.set_cps() handles timing continuity automatically.
+                            // Update GlobalClock (THE external-clock timing authority
+                            // for this path; `process_buffer_at` re-derives position
+                            // and cps from it every buffer, maintaining continuity).
                             // RT-SAFETY (F-3): lock-free snapshot swap (single writer thread).
                             let mut clock = **global_clock.load();
                             clock.set_cps(cps);
                             global_clock.store(Arc::new(clock));
+                            // Also route the tempo through the render-owner channel so
+                            // the owned graph's own cps stays consistent (design §4.2
+                            // unifies control messages onto one ordered stream).
+                            if !send_cmd_retry(&mut cmd_tx, Cmd::SetTempo(cps as f64)) {
+                                eprintln!("⚠️  Swap channel full after retries — tempo not routed to graph");
+                            }
                         }
 
                         IpcMessage::Shutdown => {
@@ -716,5 +757,73 @@ mod tests {
         std::env::set_var("PHONON_BUFFER_SIZE", "-100");
         assert_eq!(get_buffer_size(), DEFAULT_BUFFER_SIZE);
         std::env::remove_var("PHONON_BUFFER_SIZE");
+    }
+
+    /// RMS helper for the render-owner wiring test below.
+    fn rms(buf: &[f32]) -> f32 {
+        (buf.iter().map(|s| s * s).sum::<f32>() / buf.len() as f32).sqrt()
+    }
+
+    /// Render-owner swap wiring (the migration this binary just adopted): exercise
+    /// the EXACT channel + graph types the synth thread uses. A compiled graph is
+    /// moved onto the render-owned `Box<UnifiedSignalGraph>` through the SPSC
+    /// command ring, ordered control commands (SetTempo/Hush) are applied at the
+    /// buffer boundary via `apply_pending_commands` — the same call the synth loop
+    /// makes — and the retired graph is shipped to the graveyard, never dropped on
+    /// the render thread. No `RefCell`, no cross-thread borrow, no retry loop.
+    ///
+    /// This proves the wiring end-to-end at the type level and pins the migration's
+    /// intended behavior:
+    ///   * an empty bootstrap graph renders silence (the old "no graph" state),
+    ///   * a `Cmd::Swap` installs a real, audible graph (reload path),
+    ///   * `Cmd::SetTempo` routed through the channel reaches the owned graph's cps,
+    ///   * `Cmd::Hush` silences all outputs on the owned graph (no graph drop), and
+    ///   * the retired graph goes to the graveyard for off-RT drop.
+    #[test]
+    fn test_render_owner_swap_wiring_swaps_hushes_and_retires() {
+        let sample_rate = 44100.0f32;
+        let (mut tx, mut rsw, mut grave) =
+            render_swap_channel_default::<UnifiedSignalGraph>();
+
+        // Render thread starts with an empty bootstrap graph (renders silence),
+        // exactly as the synth loop initializes `cur`.
+        let mut cur: Box<UnifiedSignalGraph> = Box::new(UnifiedSignalGraph::new(sample_rate));
+
+        let incr = 0.5 / sample_rate as f64;
+        let mut buf = vec![0.0f32; 512];
+        cur.process_buffer_at(&mut buf, 0.0, incr, 0.5);
+        assert!(rms(&buf) < 1e-6, "bootstrap graph must be silent, got rms {}", rms(&buf));
+
+        // Control thread compiles an audible graph and hands it off BY MOVE, then
+        // bumps the tempo — both through the render-owner channel.
+        let (rest, statements) = parse_program("out $ sine 440 * 0.5").expect("parse");
+        assert!(rest.trim().is_empty(), "unconsumed input: {rest:?}");
+        let mut g = compile_program(statements, sample_rate, None).expect("compile");
+        g.enable_wall_clock_timing();
+        assert!(send_cmd_retry(&mut tx, Cmd::Swap(Box::new(g))), "swap enqueued");
+        assert!(send_cmd_retry(&mut tx, Cmd::SetTempo(2.0)), "set_tempo enqueued");
+
+        // Buffer boundary: the render thread applies BOTH commands to its owned
+        // graph in one drain — this is the synth loop's `apply_pending_commands`.
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 2, "swap + set_tempo applied");
+        assert_eq!(cur.cps, 2.0, "tempo routed through the channel reached the graph");
+
+        // The retired bootstrap graph reached the graveyard — NOT dropped here.
+        assert_eq!(grave.len(), 1, "retired bootstrap graph reached the graveyard");
+
+        // The swapped-in sine graph now produces sound (external clock overrides cps).
+        let mut buf2 = vec![0.0f32; 512];
+        cur.process_buffer_at(&mut buf2, 0.0, incr, 0.5);
+        assert!(rms(&buf2) > 0.01, "swapped-in sine graph must sound, got rms {}", rms(&buf2));
+
+        // Hush silences the OWNED graph at the next boundary (no graph drop).
+        assert!(send_cmd_retry(&mut tx, Cmd::Hush), "hush enqueued");
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 1, "hush applied");
+        let mut buf3 = vec![0.0f32; 512];
+        cur.process_buffer_at(&mut buf3, 0.0, incr, 0.5);
+        assert!(rms(&buf3) < 1e-6, "hush must silence all outputs, got rms {}", rms(&buf3));
+
+        // Janitor drops the retired graph off the render thread.
+        assert_eq!(grave.collect(), 1, "janitor collected the retired graph");
     }
 }
