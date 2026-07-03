@@ -373,6 +373,7 @@ pub mod pattern_tonal;
 pub mod plugin_host;
 pub mod reference_audio;
 pub mod render;
+pub mod render_swap; // Render-thread-owned graph swap primitive (SPSC command ring + graveyard)
 pub mod sample_loader;
 pub mod scale_dsl;
 pub mod shared_effect_state;
