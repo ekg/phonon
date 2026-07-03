@@ -439,6 +439,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .filter(|chunk| !chunk.is_empty())
                         .collect();
 
+                    // VOICE CONTINUITY ACROSS CHUNK BOUNDARIES:
+                    // Each chunk's clone starts with an empty voice_manager, so a sample
+                    // voice triggered in an earlier chunk would be missing (its tail lost)
+                    // — truncating every hit after the first at a chunk boundary. Fix:
+                    // each chunk first renders a "warmup" region of blocks BEFORE its
+                    // assigned range (discarding that output) so its voices are populated
+                    // exactly like the sequential renderer's. `warmup_blocks` is sized to
+                    // cover the longest audible voice tail. This call also pre-loads every
+                    // referenced sample so the clones share a warm bank (no concurrent
+                    // disk-load thundering herd).
+                    let warmup_samples = graph.compute_parallel_warmup_samples(total_samples);
+                    let warmup_blocks = warmup_samples.div_ceil(BLOCK_SIZE);
+
                     // Pre-clone graphs for parallel processing
                     let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone()).collect();
 
@@ -448,6 +461,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .zip(graph_clones.into_par_iter())
                         .flat_map(|(block_range, mut my_graph)| {
                             let mut thread_blocks = Vec::new();
+
+                            // Warmup: render the blocks immediately preceding this chunk so
+                            // any still-sounding voice is active (with the correct playback
+                            // position) before we start keeping output. Output is discarded.
+                            let start_block = block_range.start;
+                            let warmup_start = start_block.saturating_sub(warmup_blocks);
+                            for wb in warmup_start..start_block {
+                                my_graph.seek_to_sample(wb * BLOCK_SIZE);
+                                let mut warm_buf = vec![0.0f32; BLOCK_SIZE * 2];
+                                my_graph.process_buffer(&mut warm_buf);
+                            }
 
                             for block_idx in block_range {
                                 let block_start = block_idx * BLOCK_SIZE;

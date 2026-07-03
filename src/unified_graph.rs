@@ -6198,6 +6198,113 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// How many samples of "warmup" each parallel render chunk must process
+    /// BEFORE its assigned output range so that sample voices triggered in an
+    /// earlier chunk are already active (with the correct playback position)
+    /// when the chunk's real output begins.
+    ///
+    /// Background: the parallel CLI render path (see `src/main.rs`) clones the
+    /// graph per rayon thread and each clone renders a disjoint block range.
+    /// A voice triggered near the end of chunk N keeps sounding into chunk N+1,
+    /// but chunk N+1's fresh clone never triggered it, so its tail was lost —
+    /// every sample hit after the first got truncated at a chunk boundary.
+    ///
+    /// The fix is overlap/warmup rendering: a chunk starting at block B first
+    /// renders blocks `[B - warmup_blocks, B)` (discarding their output) so its
+    /// voice_manager is populated exactly as the sequential renderer's would be.
+    /// This function returns the smallest warmup (in samples) that is guaranteed
+    /// to cover the longest audible voice tail.
+    ///
+    /// Bounds used:
+    ///  * Default (no explicit envelope) sample voices are auto-released at the
+    ///    end of their pattern slot, so they sound for at most ~one cycle.
+    ///  * A voice with a user-specified release, or a very long one-shot, can
+    ///    sound for up to `sample_len / speed + release`; we cover that with the
+    ///    longest loaded sample scaled by a slow-speed slack factor plus the
+    ///    longest constant release found in the graph.
+    /// The larger of the two is used (capped at the render length). Also
+    /// pre-loads every referenced sample so the parallel clones inherit a warm
+    /// bank instead of racing to load the same files from disk concurrently.
+    pub fn compute_parallel_warmup_samples(&mut self, total_samples: usize) -> usize {
+        use crate::pattern::{Fraction, State, TimeSpan};
+
+        let sr = self.sample_rate as f64;
+        let cps = (self.cps as f64).abs().max(1e-6);
+        let one_cycle_samples = (sr / cps).ceil() as usize;
+
+        // Scan a bounded number of cycles to collect the sample names actually
+        // referenced (enough to catch the repertoire without querying an
+        // arbitrarily long render).
+        let total_cycles = ((total_samples as f64 / sr) * cps).ceil() as i64;
+        let scan_cycles = total_cycles.clamp(1, 128);
+
+        // Pass 1 (immutable borrow of nodes): gather referenced names + hints.
+        let mut names: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut has_sample_node = false;
+        let mut max_release_s = 0.0f64;
+        for node_opt in &self.nodes {
+            if let Some(node_rc) = node_opt {
+                if let SignalNode::Sample {
+                    pattern, release, ..
+                } = &**node_rc
+                {
+                    has_sample_node = true;
+                    if let Some(r) = self.signal_constant_value(release) {
+                        max_release_s = max_release_s.max(r as f64);
+                    }
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(0.0),
+                            Fraction::from_float(scan_cycles as f64),
+                        ),
+                        controls: HashMap::new(),
+                    };
+                    for ev in pattern.query(&state) {
+                        let v = ev.value.trim();
+                        // Skip rests and bus triggers (buses are synthesis voices,
+                        // handled by the sequential-dependency check, not samples).
+                        if v.is_empty() || v == "~" || v.starts_with('~') {
+                            continue;
+                        }
+                        if seen.insert(v.to_string()) {
+                            names.push(v.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        if !has_sample_node {
+            return 0;
+        }
+
+        // Pass 2: pre-load and measure the longest sample tail.
+        let mut max_frames = 0usize;
+        for name in &names {
+            if let Some(s) = self.sample_bank.borrow_mut().get_sample(name) {
+                max_frames = max_frames.max(s.len());
+            }
+        }
+
+        // Slow-playback slack: a sample played at speed s lasts len/s samples.
+        // Cover speeds down to ~1/8 without loading pathological amounts.
+        const SPEED_SLACK: usize = 8;
+        let sample_tail = max_frames
+            .saturating_mul(SPEED_SLACK)
+            .saturating_add((max_release_s * sr) as usize);
+
+        // The longest audible voice is bounded by BOTH the per-slot auto-release
+        // (~one cycle) and the sample-length term; take the larger so warmup is
+        // always sufficient, then add a small release-fade/safety margin.
+        let warmup = one_cycle_samples
+            .max(sample_tail)
+            .saturating_add((0.05 * sr) as usize)
+            .saturating_add(512);
+
+        warmup.min(total_samples)
+    }
+
     /// Resolve a `Signal` to a constant `f32` value if (and only if) it is a
     /// compile-time constant — either an inline `Signal::Value` or a reference to a
     /// `SignalNode::Constant`. Returns `None` for anything that depends on other
@@ -18742,8 +18849,26 @@ impl UnifiedSignalGraph {
                                     .map(|w| w.begin.to_float())
                                     .unwrap_or_else(|| events[i + 1].part.begin.to_float())
                             } else {
-                                // For last event, delta is time to next cycle boundary
-                                (current_start.ceil()).max(current_start + 0.001)
+                                // For the last event in the query window we don't know when
+                                // the next event is. Prefer this event's own slot end (its
+                                // `whole` duration) so the note fills its slot -- exactly
+                                // like the single-event branch below. Fall back to the next
+                                // cycle boundary STRICTLY after the onset.
+                                //
+                                // BUGFIX: the old `current_start.ceil()` collapsed to
+                                // `current_start` when the onset landed exactly on an integer
+                                // cycle boundary (e.g. the first hit of every cycle N>0 in a
+                                // buffer that straddles the boundary), yielding delta ~= 0.001
+                                // cycles. That set a near-instant auto-release which truncated
+                                // every cross-cycle sample voice to a ~2ms blip. Using the
+                                // whole-note end (or the next boundary via `+ 1.0).floor()`)
+                                // restores the full slot duration.
+                                events[i].whole.as_ref()
+                                    .map(|w| w.end.to_float())
+                                    .filter(|&end| end > current_start + 1e-9)
+                                    .unwrap_or_else(|| {
+                                        (current_start + 1.0).floor().max(current_start + 0.001)
+                                    })
                             };
 
                             let delta_cycles = (next_start - current_start).max(0.001);
