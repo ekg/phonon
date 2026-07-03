@@ -3068,6 +3068,7 @@ fn compile_function_call(
         "n" => compile_n_modifier(ctx, args),
         "note" => compile_note_modifier(ctx, args),
         "scale" => compile_scale_modifier(ctx, args),
+        "chord" => compile_chord_modifier(ctx, args),
         "gain" => compile_gain_modifier(ctx, args),
         "pan" => compile_pan_modifier(ctx, args),
         "speed" => compile_speed_modifier(ctx, args),
@@ -9693,7 +9694,17 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
             let pattern_expr = args[0].clone();
             match pattern_expr {
                 Expr::String(pattern_str) => {
-                    let pattern = parse_mini_notation(&pattern_str);
+                    let base = parse_mini_notation(&pattern_str);
+                    // Chord notation (root'quality) expands into a STACK of
+                    // relative-semitone events so `n "c'maj"` yields [0,4,7] and
+                    // `n "e'min7"` yields [4,7,11,14]. Patterns without a `'`
+                    // (numbers, plain note names) are left untouched so the
+                    // existing scale / note-name paths are unaffected.
+                    let pattern = if pattern_str.contains('\'') {
+                        crate::scale_dsl::chord_expand_pattern(base)
+                    } else {
+                        base
+                    };
                     let node = SignalNode::Pattern {
                         pattern_str,
                         pattern,
@@ -9804,6 +9815,97 @@ fn compile_scale_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
     Ok(ctx.graph.add_node(node))
 }
 
+/// Compile the `chord` modifier — stack a chord quality into simultaneous notes.
+///
+/// Two modes (architectural rule: the quality is always a *pattern*):
+///
+/// 1. Modifier: `n "c e" # chord "maj min7"` — the chain input supplies the
+///    roots (note names or numeric degrees/semitones) and each root is expanded
+///    into a STACK of semitone offsets for whichever quality is active at that
+///    root's start time. `c'maj` -> `[0,4,7]`, `e'min7` -> `[4,7,11,14]`.
+///
+/// 2. Standalone: `chord "maj min7"` — no explicit root, so each quality slot is
+///    voiced on the tonic (root 0): `maj` -> `[0,4,7]`, `min7` -> `[0,3,7,10]`.
+///
+/// Output is a `Pattern` node of *relative* semitone stacks (like `scale`), so a
+/// root can be added and `mtof`'d, or the tokens fed to the polyphonic voice
+/// path. Unknown qualities degrade to the root alone (never panicking).
+fn compile_chord_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    match args.len() {
+        // Standalone: chord "maj min7" -> root-0 stacks per quality slot.
+        1 => {
+            let quality_str = match &args[0] {
+                Expr::String(s) => s.clone(),
+                _ => {
+                    return Err(
+                        "chord quality must be a string pattern, e.g. chord \"maj\" or chord \"maj min7\""
+                            .to_string(),
+                    )
+                }
+            };
+            let qualities = parse_mini_notation(&quality_str);
+            let stacked = crate::scale_dsl::chord_quality_stack_pattern(qualities);
+            let node = SignalNode::Pattern {
+                pattern_str: format!("chord({quality_str})"),
+                pattern: stacked,
+                last_value: 0.0,
+                last_trigger_time: -1.0,
+            };
+            Ok(ctx.graph.add_node(node))
+        }
+
+        // Modifier: <root source> # chord "maj min7".
+        2 => {
+            let input_node_id = match &args[0] {
+                Expr::ChainInput(node_id) => *node_id,
+                _ => {
+                    return Err(
+                        "chord must be used with the chain operator: n \"c e\" # chord \"maj min7\""
+                            .to_string(),
+                    )
+                }
+            };
+
+            let quality_str = match &args[1] {
+                Expr::String(s) => s.clone(),
+                _ => {
+                    return Err(
+                        "chord quality must be a string pattern, e.g. chord \"maj\" or chord \"maj min7\""
+                            .to_string(),
+                    )
+                }
+            };
+            let qualities = parse_mini_notation(&quality_str);
+
+            // The chain input must be a numeric/note degree Pattern node
+            // (typically produced by `n "..."` or `note "..."`).
+            let roots = match ctx.graph.get_node(input_node_id) {
+                Some(SignalNode::Pattern { pattern, .. }) => pattern.clone(),
+                _ => {
+                    return Err(
+                        "chord expects a root pattern input, e.g. n \"c e\" # chord \"maj min7\""
+                            .to_string(),
+                    )
+                }
+            };
+
+            let stacked = crate::scale_dsl::chord_from_root_quality_pattern(roots, qualities);
+            let node = SignalNode::Pattern {
+                pattern_str: format!("chord({quality_str})"),
+                pattern: stacked,
+                last_value: 0.0,
+                last_trigger_time: -1.0,
+            };
+            Ok(ctx.graph.add_node(node))
+        }
+
+        _ => Err(format!(
+            "chord requires 1 or 2 arguments, got {}. Usage: chord \"maj\" or n \"c e\" # chord \"maj min7\"",
+            args.len()
+        )),
+    }
+}
+
 /// Compile note function/modifier
 ///
 /// Two modes:
@@ -9821,7 +9923,15 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
             let pattern_expr = args[0].clone();
             match pattern_expr {
                 Expr::String(pattern_str) => {
-                    let pattern = parse_mini_notation(&pattern_str);
+                    let base = parse_mini_notation(&pattern_str);
+                    // Chord notation (root'quality) expands into a STACK of
+                    // relative-semitone events, mirroring standalone `n`. Plain
+                    // note-name / numeric patterns keep the existing behavior.
+                    let pattern = if pattern_str.contains('\'') {
+                        crate::scale_dsl::chord_expand_pattern(base)
+                    } else {
+                        base
+                    };
                     let node = SignalNode::Pattern {
                         pattern_str: pattern_str.clone(),
                         pattern,

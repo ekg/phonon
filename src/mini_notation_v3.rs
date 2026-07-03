@@ -1513,8 +1513,33 @@ mod tests {
 
     #[test]
     fn test_chord_notation() {
-        let pattern = parse_mini_notation("c'maj d'min");
-        // Should parse chord notation correctly
+        use crate::pattern::{Fraction, State, TimeSpan};
+        use std::collections::HashMap;
+
+        // `root'quality` tokenizes as a SINGLE atom, preserving digit-bearing
+        // qualities (maj7, min7, dom7, sus2) — the lexer reads the quality as one
+        // alphanumeric symbol, so `c4'maj7` must NOT split into `c4'maj` + `7`.
+        let query_one_cycle = |src: &str| -> Vec<String> {
+            let pattern = parse_mini_notation(src);
+            let state = State {
+                span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+                controls: HashMap::new(),
+            };
+            let mut haps = pattern.query(&state);
+            haps.sort_by(|a, b| {
+                a.part
+                    .begin
+                    .to_float()
+                    .partial_cmp(&b.part.begin.to_float())
+                    .unwrap()
+            });
+            haps.into_iter().map(|h| h.value).collect()
+        };
+
+        assert_eq!(query_one_cycle("c'maj d'min"), vec!["c'maj", "d'min"]);
+        assert_eq!(query_one_cycle("c4'maj7"), vec!["c4'maj7"]);
+        assert_eq!(query_one_cycle("e'min7 g'dom7"), vec!["e'min7", "g'dom7"]);
+        assert_eq!(query_one_cycle("c'sus2 c'sus4"), vec!["c'sus2", "c'sus4"]);
     }
 
     #[test]
