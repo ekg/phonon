@@ -940,19 +940,40 @@ out sine(440) * 0.2
             // 3. Audio callback: Just reads from ring buffer (FAST!)
             //
             // Key insight: Audio callback doesn't synthesize, just copies pre-rendered samples
-            use arc_swap::ArcSwap;
+            use phonon::render_swap::{render_swap_channel_default, Cmd};
             use ringbuf::traits::{Consumer, Observer, Producer, Split};
             use ringbuf::HeapRb;
-            use std::cell::RefCell;
 
-            // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
-            // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
-            struct GraphCell(RefCell<UnifiedSignalGraph>);
-            unsafe impl Send for GraphCell {}
-            unsafe impl Sync for GraphCell {}
+            // Render-owner swap channel (design §4.1/§4.2). The live graph is
+            // *single-owner on the render (synth) thread*: the control
+            // (poll/file-watch) thread compiles + preloads a new graph, then hands
+            // it across BY MOVE through this SPSC command ring; the render thread
+            // pops it at a buffer boundary, runs the in-thread transfer + pointer
+            // swap, and ships the retired graph to the graveyard for off-RT `Drop`.
+            //
+            // This replaces the old `Arc<ArcSwap<Option<GraphCell>>>` where
+            // `GraphCell(RefCell<UnifiedSignalGraph>)` was shared across threads and
+            // both the render + reload threads called `try_borrow_mut` on the same
+            // `RefCell` (an unsynchronised RMW on its non-atomic borrow flag — the
+            // C1 data race). Ownership is now transferred, never shared, so the
+            // local `GraphCell` + its hand-written `unsafe impl Send/Sync` and the
+            // cross-thread borrow are all gone from this file. `UnifiedSignalGraph`
+            // carries its own lib-level `Send`/`Sync` (`unified_graph.rs`, justified
+            // by exactly this single-owner discipline), and it already implements
+            // `RenderGraph`, so it moves through the ring with no local wrapper.
+            let (mut cmd_tx, mut render_swap, mut graveyard) =
+                render_swap_channel_default::<UnifiedSignalGraph>();
 
-            // Graph for background synthesis thread (lock-free swap)
-            let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+            // Janitor: drop retired graphs off the render (synth) thread. Dropping a
+            // graph frees voice buffers, sample `Arc`s and FX delay lines — an
+            // unbounded free unfit for the audio hot path — so the render thread
+            // ships retired graphs to the graveyard and this low-priority thread
+            // drains and drops them.
+            std::thread::spawn(move || loop {
+                if graveyard.collect() == 0 {
+                    std::thread::sleep(StdDuration::from_millis(50));
+                }
+            });
 
             // Ring buffer: background synth writes, audio callback reads
             // Size: 1 second of audio @ 48kHz = 48000 samples
@@ -990,8 +1011,16 @@ out sine(440) * 0.2
                     }
                 };
 
-            // Initial load
-            {
+            // Initial load — build the graph the render (synth) thread starts out
+            // owning. The render-owner primitive requires a single owned graph at
+            // all times, so on parse failure we still hand it an empty, silent graph
+            // (an output-less graph renders zeros). `initial_is_real` records whether
+            // that starting graph came from a successful parse, so the clock is
+            // seeded from the first *real* graph's own compiled cycle position
+            // (honouring setCycle / resetCycles), exactly as before.
+            let mut initial_is_real = false;
+            let initial_graph: Box<UnifiedSignalGraph> = {
+                let mut loaded: Option<UnifiedSignalGraph> = None;
                 if let Ok(content) = std::fs::read_to_string(&file) {
                     match parse_phonon(&content, sample_rate) {
                         Ok(mut new_graph) => {
@@ -999,21 +1028,37 @@ out sine(440) * 0.2
                             // on subsequent reloads have a valid reference point
                             new_graph.enable_wall_clock_timing();
                             new_graph.preload_samples();
-                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
                             let mut state_lock = file_state.lock().unwrap();
                             state_lock.last_content = content;
+                            drop(state_lock);
                             println!("✅ Loaded successfully");
+                            loaded = Some(new_graph);
                         }
                         Err(e) => {
                             println!("❌ Parse error: {e}");
                         }
                     }
                 }
-            }
+                match loaded {
+                    Some(g) => {
+                        initial_is_real = true;
+                        Box::new(g)
+                    }
+                    None => {
+                        // Silent placeholder until the first successful reload.
+                        let mut g = UnifiedSignalGraph::new(sample_rate);
+                        g.enable_wall_clock_timing();
+                        Box::new(g)
+                    }
+                }
+            };
 
-            // Background synthesis thread: continuously renders samples into ring buffer
-            // This is the KEY FIX for P1.3 - synthesis happens in background, not in audio callback!
-            let graph_clone_synth = Arc::clone(&graph);
+            // Background synthesis thread: the single owner of the live graph
+            // (render-owner model). It continuously renders samples into the ring
+            // buffer and applies swaps — arriving via the render-owner command ring
+            // — at a buffer boundary. A swap is an in-thread transfer + pointer swap,
+            // never a cross-thread borrow, so there is no retry loop and no
+            // voiceless-published window (design §4.1; R1/R2/R3 gone).
             std::thread::spawn(move || {
                 let mut buffer = [0.0f32; 512]; // Render in chunks (stereo interleaved)
                 let frames = buffer.len() / 2; // frames of cycle-time per chunk
@@ -1026,95 +1071,80 @@ out sine(440) * 0.2
                 // compiled graph; a reload with a new `tempo:` rebases the clock via
                 // LiveClock::set_cps without teleporting the position (pt-F2).
                 let mut clock: Option<LiveClock> = None;
-                // Held to keep the previously-loaded graph Arc alive across
-                // iterations so its address can't be reused — makes the
-                // pointer-identity "did the graph swap?" check ABA-safe.
-                let mut prev_arc: Option<Arc<Option<GraphCell>>> = None;
+
+                // The render thread's single owned graph. Swaps move a new graph in
+                // through `render_swap` and retire the old one to the graveyard.
+                let mut cur: Box<UnifiedSignalGraph> = initial_graph;
+
+                // Until the first *real* graph is installed we render silence and
+                // leave the clock unseeded (mirrors the old `graph == None` state),
+                // so the first real graph's own compiled cycle position is honoured.
+                let mut have_real_graph = initial_is_real;
 
                 loop {
                     // Check if we have space in ring buffer
                     let space = ring_producer.vacant_len();
 
                     if space >= buffer.len() {
-                        // Render a chunk of audio
-                        let graph_snapshot = graph_clone_synth.load_full();
-                        let is_new_graph = match &prev_arc {
-                            Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
-                            None => true,
-                        };
-
-                        if let Some(ref graph_cell) = *graph_snapshot {
-                            // Try to borrow — use try_borrow_mut to avoid a
-                            // double-borrow panic. The reload thread holds a
-                            // try_borrow_mut() on this same ArcSwap-shared graph
-                            // across transfer_* while swapping; an unconditional
-                            // borrow_mut() here would panic → kill the synth
-                            // thread → ring drains → permanent silence. Mirror
-                            // the modal editor synth loop (src/modal_editor/mod.rs:280)
-                            // and skip the block on Err.
-                            match graph_cell.0.try_borrow_mut() {
-                                Ok(mut graph) => {
-                                    match clock.as_mut() {
-                                        None => {
-                                            // First graph: seed the clock from its
-                                            // compiled start position so setCycle /
-                                            // resetCycles in the initial file are honoured.
-                                            clock = Some(LiveClock::new(
-                                                sample_rate,
-                                                graph.get_cps(),
-                                                graph.get_cycle_position(),
-                                            ));
-                                        }
-                                        Some(c) => {
-                                            // Follow the graph's tempo, rebasing on
-                                            // change so the position never teleports (pt-F2).
-                                            c.set_cps(graph.get_cps());
-                                            if is_new_graph {
-                                                // Seed the swapped-in graph's node
-                                                // timing from the live clock so it
-                                                // continues from the current position
-                                                // instead of re-triggering the events
-                                                // between the (wall-clock-based)
-                                                // transfer position and the true
-                                                // sample-advanced position.
-                                                graph.set_cycle_position(c.position());
-                                            }
-                                        }
-                                    }
-
-                                    // Advance the clock by exactly this chunk and
-                                    // render with that timing (single source of truth).
-                                    let c = clock.as_mut().unwrap();
-                                    let (start_cycle, increment, cps) = c.advance_buffer(frames);
-                                    graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
-
-                                    // Write to ring buffer
-                                    let written = ring_producer.push_slice(&buffer);
-                                    if written < buffer.len() {
-                                        eprintln!(
-                                            "⚠️  Ring buffer full, dropped {} samples",
-                                            buffer.len() - written
-                                        );
-                                    }
-                                }
-                                Err(_) => {
-                                    // Reload thread is mid-transfer on this graph.
-                                    // Skip this block (write nothing) rather than
-                                    // panic — the next iteration renders the
-                                    // swapped-in graph seamlessly. Missing one
-                                    // ~11.6ms chunk won't underrun the ring. Do NOT
-                                    // update prev_arc so the swap is still detected
-                                    // (and the new graph seeded) on the next attempt.
-                                    continue;
-                                }
-                            }
-                        } else {
-                            // No graph yet (hushed/panic), write silence
-                            buffer.fill(0.0);
-                            ring_producer.push_slice(&buffer);
+                        // Buffer boundary: apply any pending swaps to the owned
+                        // graph. This runs the in-memory transfer_* + pointer swap as
+                        // one uninterrupted step and ships the retired graph to the
+                        // graveyard — no cross-thread borrow, no retry loop, no
+                        // voiceless-published window (design §4.1, R1/R2/R3 gone).
+                        let applied = render_swap.apply_pending_commands(&mut cur);
+                        if applied > 0 {
+                            // Only Cmd::Swap is ever sent on this path, so any
+                            // applied command means a new graph is now current.
+                            have_real_graph = true;
                         }
 
-                        prev_arc = Some(graph_snapshot);
+                        if !have_real_graph {
+                            // No real graph yet (initial parse failed): write silence.
+                            buffer.fill(0.0);
+                            ring_producer.push_slice(&buffer);
+                            continue;
+                        }
+
+                        match clock.as_mut() {
+                            None => {
+                                // First real graph: seed the clock from its compiled
+                                // start position so setCycle / resetCycles in the
+                                // initial file are honoured.
+                                clock = Some(LiveClock::new(
+                                    sample_rate,
+                                    cur.get_cps(),
+                                    cur.get_cycle_position(),
+                                ));
+                            }
+                            Some(c) => {
+                                // Follow the graph's tempo, rebasing on change so the
+                                // position never teleports (pt-F2).
+                                c.set_cps(cur.get_cps());
+                                if applied > 0 {
+                                    // A swap installed a new graph this boundary: seed
+                                    // its node timing from the live clock so it
+                                    // continues from the current sample-advanced
+                                    // position instead of re-triggering the events
+                                    // between the transferred and the true position.
+                                    cur.set_cycle_position(c.position());
+                                }
+                            }
+                        }
+
+                        // Advance the clock by exactly this chunk and render with that
+                        // timing (single source of truth).
+                        let c = clock.as_mut().unwrap();
+                        let (start_cycle, increment, cps) = c.advance_buffer(frames);
+                        cur.process_buffer_at(&mut buffer, start_cycle, increment, cps);
+
+                        // Write to ring buffer
+                        let written = ring_producer.push_slice(&buffer);
+                        if written < buffer.len() {
+                            eprintln!(
+                                "⚠️  Ring buffer full, dropped {} samples",
+                                buffer.len() - written
+                            );
+                        }
                     } else {
                         // Ring buffer is full, sleep briefly
                         std::thread::sleep(StdDuration::from_micros(100));
@@ -1191,53 +1221,51 @@ out sine(440) * 0.2
 
                                     match parse_phonon(&content, sample_rate) {
                                         Ok(mut new_graph) => {
-                                            // ALWAYS enable wall-clock timing for live mode —
-                                            // must happen before transfer_session_timing
+                                            // Control-thread work only — off the render
+                                            // thread (design §4.4): enable wall-clock
+                                            // timing and preload samples (disk I/O). The
+                                            // live-state transfer (session timing / FX
+                                            // tails / voices) and the pointer swap now
+                                            // happen ON the render thread inside
+                                            // apply_pending_commands (UnifiedSignalGraph::absorb_state),
+                                            // so there is no cross-thread borrow and no
+                                            // retry loop here (design §4.1; R1/R2/R3 gone).
                                             new_graph.enable_wall_clock_timing();
+                                            new_graph.preload_samples();
 
-                                            // Transfer state from old graph for seamless continuation:
-                                            // session timing (no beat jump), FX tails, and active voices.
-                                            // Retry up to 50×0.5ms to wait out a busy audio thread.
-                                            let current_graph = graph.load();
-                                            if let Some(ref old_graph_cell) = **current_graph {
-                                                let mut state_transferred = false;
-                                                for _attempt in 0..50 {
-                                                    match old_graph_cell.0.try_borrow_mut() {
-                                                        Ok(mut old_graph) => {
-                                                            new_graph.transfer_session_timing(&old_graph);
-                                                            new_graph.transfer_fx_states(&old_graph);
-                                                            new_graph.transfer_voice_manager(
-                                                                old_graph.take_voice_manager(),
-                                                            );
-                                                            state_transferred = true;
-                                                            break;
-                                                        }
-                                                        Err(_) => {
-                                                            std::thread::sleep(
-                                                                std::time::Duration::from_micros(500),
-                                                            );
-                                                        }
+                                            // Hand the finished graph to the render thread
+                                            // by move through the render-owner command
+                                            // ring. The ring is human-paced (one save per
+                                            // swap) and far larger than needed, so it
+                                            // effectively never fills; if it momentarily
+                                            // does (render thread briefly behind) we retry,
+                                            // and the graph is handed back on Err so it is
+                                            // never lost.
+                                            let mut pending = Cmd::Swap(Box::new(new_graph));
+                                            let mut sent = false;
+                                            for _ in 0..50 {
+                                                match cmd_tx.send(pending) {
+                                                    Ok(()) => {
+                                                        sent = true;
+                                                        break;
                                                     }
-                                                }
-                                                if !state_transferred {
-                                                    eprintln!("⚠️  Could not transfer state after retries — beat may jump");
+                                                    Err(cmd) => {
+                                                        pending = cmd;
+                                                        std::thread::sleep(
+                                                            StdDuration::from_micros(500),
+                                                        );
+                                                    }
                                                 }
                                             }
 
-                                            // Preload samples BEFORE swapping to avoid disk I/O
-                                            // in the audio synthesis thread
-                                            new_graph.preload_samples();
-
-                                            // Lock-free atomic swap: no audio callback blocking!
-                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(
-                                                new_graph,
-                                            )))));
-
-                                            // Update file state
-                                            let mut state_lock = file_state.lock().unwrap();
-                                            state_lock.last_content = content;
-
-                                            println!("✅ Loaded successfully");
+                                            if sent {
+                                                // Update file state
+                                                let mut state_lock = file_state.lock().unwrap();
+                                                state_lock.last_content = content;
+                                                println!("✅ Loaded successfully");
+                                            } else {
+                                                eprintln!("⚠️  Swap channel full — reload dropped, will retry on next save");
+                                            }
                                         }
                                         Err(e) => {
                                             println!("❌ Parse error: {e}");
