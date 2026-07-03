@@ -5051,6 +5051,20 @@ fn compile_synth_pattern(
     Ok(ctx.graph.add_node(node))
 }
 
+/// Parse a waveform name string into a `Waveform` for the `synth` builtin.
+fn parse_synth_waveform(name: &str) -> Result<Waveform, String> {
+    match name {
+        "saw" => Ok(Waveform::Saw),
+        "sine" => Ok(Waveform::Sine),
+        "square" => Ok(Waveform::Square),
+        "tri" | "triangle" => Ok(Waveform::Triangle),
+        _ => Err(format!(
+            "Unknown waveform '{}'. Use: saw, sine, square, tri",
+            name
+        )),
+    }
+}
+
 /// Compile MIDI-triggered synth node
 /// Syntax: synth "saw" or synth "sine"
 /// Creates a polyphonic synthesizer that responds to MIDI note events
@@ -5060,6 +5074,34 @@ fn compile_midi_synth(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 
     if args.is_empty() {
         return Err("synth requires waveform argument (\"saw\", \"sine\", \"square\", \"tri\")".to_string());
+    }
+
+    // Legacy note-triggered syntax:
+    //   synth "c4 e4 g4" "saw" <attack> <decay> <sustain> <release>
+    // Here the FIRST arg is a note pattern and the SECOND is the waveform.
+    // This is a pattern-triggered synth, not a MIDI-input synth, so route to
+    // compile_synth_pattern with the note pattern followed by the ADSR args.
+    if let Some(Expr::String(first)) = args.first() {
+        if is_note_pattern_string(first) {
+            let waveform = match args.get(1) {
+                Some(Expr::String(w)) => parse_synth_waveform(w)?,
+                Some(Expr::Var(w)) => parse_synth_waveform(w)?,
+                Some(Expr::Call { name, .. }) => parse_synth_waveform(name)?,
+                // No explicit waveform given: default to saw
+                None => Waveform::Saw,
+                _ => {
+                    return Err(
+                        "synth note pattern must be followed by a waveform (\"saw\", \"sine\", \"square\", \"tri\")"
+                            .to_string(),
+                    )
+                }
+            };
+            // Rebuild args as [note_pattern, attack, decay, sustain, release, ...],
+            // dropping the waveform slot that compile_synth_pattern doesn't expect.
+            let mut pattern_args = vec![args[0].clone()];
+            pattern_args.extend(args.iter().skip(2).cloned());
+            return compile_synth_pattern(ctx, waveform, pattern_args);
+        }
     }
 
     // First argument should be waveform string
@@ -5075,18 +5117,7 @@ fn compile_midi_synth(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         }
     };
 
-    let waveform = match waveform_str.as_str() {
-        "saw" => Waveform::Saw,
-        "sine" => Waveform::Sine,
-        "square" => Waveform::Square,
-        "tri" | "triangle" => Waveform::Triangle,
-        _ => {
-            return Err(format!(
-                "Unknown waveform '{}'. Use: saw, sine, square, tri",
-                waveform_str
-            ))
-        }
-    };
+    let waveform = parse_synth_waveform(&waveform_str)?;
 
     // Get MIDI event queue
     let event_queue = ctx
