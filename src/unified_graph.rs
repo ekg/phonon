@@ -5745,6 +5745,48 @@ impl UnifiedSignalGraph {
             self.nodes.iter().filter(|n| n.is_some()).count(),
             old_cycle_pos
         );
+
+        // Carry render continuity so the Phase-4d boundary crossfade smooths the
+        // swap seam on THIS graph's first buffer (audit live-transition-2026-07
+        // §5 D3 / Rank 1). Without this the new graph starts with an empty
+        // prev_buffer_tail and the crossfade is skipped, leaving an audible click.
+        self.transfer_render_continuity(old_graph);
+    }
+
+    /// Transfer buffer-boundary render continuity across a hot-swap.
+    ///
+    /// The Phase-4d crossfade (`process_buffer_dag`) smooths a discontinuity
+    /// between the previous buffer's tail and the current buffer's head using
+    /// `self.prev_buffer_tail`. A freshly-compiled graph starts with an empty
+    /// tail, so the very first buffer after a swap is NOT smoothed → the
+    /// swap-boundary click documented as audit finding D3.
+    ///
+    /// Fix: seed the new graph's `prev_buffer_tail` with a DC-hold of the old
+    /// graph's *final* output frame. That anchors the crossfade so the new
+    /// graph's first sample equals the old graph's last emitted sample and then
+    /// ramps into the new content — a click-free splice regardless of the phase
+    /// or waveform the swap lands on. (Copying the raw tail instead would rewind
+    /// the seam by the crossfade width and leave a phase-dependent step.)
+    ///
+    /// If the old graph never rendered a buffer (empty tail) there is nothing to
+    /// carry and the new graph simply starts fresh.
+    pub fn transfer_render_continuity(&mut self, old_graph: &UnifiedSignalGraph) {
+        let tail = &old_graph.prev_buffer_tail;
+        if tail.len() < 2 {
+            return;
+        }
+        // Old graph's last emitted stereo frame.
+        let last_l = tail[tail.len() - 2];
+        let last_r = tail[tail.len() - 1];
+        // Rebuild a tail of the same length holding that frame, so the crossfade
+        // anchors buffer[0] to last_l/last_r and ramps into the new signal.
+        let pairs = tail.len() / 2;
+        let mut held = Vec::with_capacity(pairs * 2);
+        for _ in 0..pairs {
+            held.push(last_l);
+            held.push(last_r);
+        }
+        self.prev_buffer_tail = held;
     }
 
     /// Extract all FX state from this graph for preservation across hot-swaps
@@ -7740,7 +7782,21 @@ impl UnifiedSignalGraph {
                 let prev_last_l = self.prev_buffer_tail[tail_len - 2];
                 let curr_first_l = buffer[0];
 
-                if (prev_last_l - curr_first_l).abs() > CROSSFADE_THRESHOLD {
+                // Do not crossfade INTO silence. When the incoming buffer is
+                // intentionally silent (e.g. a hot-swap to `out $ 0.0`, whose
+                // continuity tail is seeded from the old graph), injecting the
+                // previous tail would smear a spurious blip into the silence
+                // instead of letting it go quiet. Only smooth a step between two
+                // audible signals.
+                const INCOMING_SILENCE_EPS: f32 = 1e-4;
+                let head_len = (overlap * 2).min(buffer.len());
+                let incoming_peak = buffer[..head_len]
+                    .iter()
+                    .fold(0.0f32, |m, &s| m.max(s.abs()));
+
+                if incoming_peak > INCOMING_SILENCE_EPS
+                    && (prev_last_l - curr_first_l).abs() > CROSSFADE_THRESHOLD
+                {
                     let tail_stereo_pairs = tail_len / 2;
                     for i in 0..overlap {
                         let t = i as f32 / overlap as f32;

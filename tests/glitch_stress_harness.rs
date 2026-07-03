@@ -254,7 +254,60 @@ fn test_scripted_scenarios_represent_both_audits_and_have_no_hard_failures() {
 }
 
 // ---------------------------------------------------------------------------
-// 3b. Audit D2: FX-state transfer completeness — effect tails survive a swap
+// 3b. D3 swap-boundary click regression (audit live-transition-2026-07 §5 D3)
+// ---------------------------------------------------------------------------
+
+/// The swap-boundary crossfade (Phase 4d, `unified_graph.rs`) must fire on the
+/// FIRST post-swap buffer of the new graph. Before the fix `prev_buffer_tail`
+/// was not carried across the swap, so the crossfade was skipped and the
+/// `D3-sine-to-saw-boundary-click` scenario stepped 0.330 at the seam — an
+/// audible click. After transferring render continuity the seam must drop well
+/// below the audible-click threshold (< 0.05).
+#[test]
+fn test_d3_swap_boundary_click_below_audible_threshold() {
+    let cfg = SessionConfig::ci(7);
+    let (results, failures) = run_all_scenarios(&cfg);
+    assert!(
+        failures.is_empty(),
+        "scripted scenarios produced hard failures: {failures:?}"
+    );
+
+    let d3 = results
+        .iter()
+        .find(|r| r.name == "D3-sine-to-saw-boundary-click")
+        .expect("D3 scenario missing");
+    assert!(d3.available, "D3 scenario failed to build: {:?}", d3.note);
+    assert!(
+        d3.boundary_delta < 0.05,
+        "D3 swap-boundary click not smoothed: boundary_delta={:.4} (want < 0.05). \
+         The Phase-4d crossfade did not fire on the post-swap buffer — \
+         prev_buffer_tail is not being transferred across the swap.",
+        d3.boundary_delta
+    );
+
+    // The going-to-silence control MUST stay strictly silent: the render-
+    // continuity transfer must not inject old audio into an intentionally
+    // silent new graph.
+    let silence = results
+        .iter()
+        .find(|r| r.name == "clean-osc-to-silence")
+        .expect("clean-osc-to-silence scenario missing");
+    assert!(
+        silence.passed(),
+        "clean-osc-to-silence regressed after the fix: {:?} (post_rms={:.5})",
+        silence.failures,
+        silence.post_rms
+    );
+
+    // No other scenario may have gained a catastrophic seam or NaN/Inf.
+    for r in &results {
+        assert_eq!(r.nan, 0, "scenario {} produced NaN after fix", r.name);
+        assert_eq!(r.inf, 0, "scenario {} produced Inf after fix", r.name);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 3c. Audit D2: FX-state transfer completeness — effect tails survive a swap
 // ---------------------------------------------------------------------------
 
 /// Regression guard for `complete-fx-state` (audit D2): the pingpong and
