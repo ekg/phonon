@@ -545,43 +545,71 @@ pub fn compile_program(
             else if let Some(out_node) = graph.get_bus("out") {
                 graph.set_output(out_node);
             } else {
-                // Priority 3: Auto-route d1..dN and out1..outN buses (TidalCycles style)
+                // Priority 3: Auto-route d1..dN and out1..outN buses (TidalCycles style).
+                // These are explicit Tidal-style *speaker routes*, so they keep unity gain.
                 let auto_route_nodes: Vec<_> = bus_names
                     .iter()
                     .filter(|name| is_auto_route_bus(name))
                     .filter_map(|name| graph.get_bus(name))
                     .collect();
 
-                let nodes_to_mix = if !auto_route_nodes.is_empty() {
-                    auto_route_nodes
+                if !auto_route_nodes.is_empty() {
+                    let mixed = sum_nodes(&mut graph, &auto_route_nodes);
+                    graph.set_output(mixed);
                 } else {
-                    // Priority 4: Fallback - mix all buses
-                    bus_names
+                    // Priority 4: Fallback — mix all remaining plain `~name` buses, but
+                    // apply a fixed headroom gain (AUTO_ROUTE_HEADROOM_GAIN) instead of
+                    // routing them to the speakers at UNITY gain.
+                    //
+                    // Plain `~name` buses are *intermediate* buses normally referenced by
+                    // an explicit `out $ ...` (which sets its own gains). Summing them raw
+                    // used to hit the DAC at full scale: a lone raw generator is ~0.7 RMS
+                    // / 1.0 peak, and N summed buses clip. During live coding that made
+                    // C-x on a bus-only chunk like `~bass $ sine 55` a sudden ~0.7 RMS
+                    // blast (audit finding U1, docs/audits/live-transition-2026-07.md §5 /
+                    // investigate-u1-swapping). The auto-sum convenience is preserved (a
+                    // multi-bus file with no `out`/`~master` still sounds), but bounded to
+                    // a safe "you forgot your output gains" level. Add an explicit
+                    // `out $ ...` to control the mix precisely.
+                    let plain_nodes: Vec<_> = bus_names
                         .iter()
                         .filter_map(|name| graph.get_bus(name))
-                        .collect()
-                };
-
-                if !nodes_to_mix.is_empty() {
-                    let mixed = if nodes_to_mix.len() == 1 {
-                        nodes_to_mix[0]
-                    } else {
-                        let mut result = nodes_to_mix[0];
-                        for &node in &nodes_to_mix[1..] {
-                            result = graph.add_node(SignalNode::Add {
-                                a: Signal::Node(result),
-                                b: Signal::Node(node),
-                            });
-                        }
-                        result
-                    };
-                    graph.set_output(mixed);
+                        .collect();
+                    if !plain_nodes.is_empty() {
+                        let mixed = sum_nodes(&mut graph, &plain_nodes);
+                        let attenuated = graph.add_node(SignalNode::Multiply {
+                            a: Signal::Node(mixed),
+                            b: Signal::Value(AUTO_ROUTE_HEADROOM_GAIN),
+                        });
+                        graph.set_output(attenuated);
+                    }
                 }
             }
         }
     }
 
     Ok(graph)
+}
+
+/// Headroom gain applied to the Priority-4 auto-sum fallback (plain `~name` buses
+/// with no explicit `out`/`~master`/`dN`). Raw generator buses sit near unity
+/// (~0.7 RMS / 1.0 peak); summing them straight to the DAC blasts/clips and, during
+/// live coding, made C-x on a bus-only chunk a sudden ~0.7 RMS jump (audit finding
+/// U1). −12 dB keeps the auto-sum convenience audible while bounding it to a safe
+/// "you forgot your output gains" level. Explicit `out $ ...` is unaffected.
+const AUTO_ROUTE_HEADROOM_GAIN: f32 = 0.25;
+
+/// Sum a non-empty slice of nodes into a single node (left-fold with `Add`).
+/// Returns the lone node unchanged when there is only one.
+fn sum_nodes(graph: &mut UnifiedSignalGraph, nodes: &[NodeId]) -> NodeId {
+    let mut result = nodes[0];
+    for &node in &nodes[1..] {
+        result = graph.add_node(SignalNode::Add {
+            a: Signal::Node(result),
+            b: Signal::Node(node),
+        });
+    }
+    result
 }
 
 /// Check if a bus name matches auto-routing patterns (TidalCycles style).

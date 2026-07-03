@@ -7669,6 +7669,14 @@ impl UnifiedSignalGraph {
         // Count active channels for gain compensation in Gain/Sqrt modes
         let mut num_active_channels = 0;
 
+        // Zero the output buffer before mixing. The main output overwrites every
+        // sample below, so this is a no-op for the common single-output case; it
+        // matters when there is NO output node at all (e.g. C-x'ing a chunk with no
+        // buses, like a lone `tempo:` line) or only additive numbered outputs. The
+        // synth thread reuses one buffer across blocks, so without this an
+        // output-less graph would replay the previous block instead of going silent.
+        buffer.fill(0.0);
+
         // Handle main output (channel 0)
         let output_id = self.output.map(|id| id.0);
         if let Some(out_id) = output_id {

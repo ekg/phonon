@@ -661,6 +661,12 @@ impl ModalEditor {
         eprintln!("✅ Compiled graph successfully");
         eprintln!("📊 New graph CPS from code: {}", new_graph.get_cps());
 
+        // NOTE (U1 / investigate-u1-swapping): `code` may be a single C-x chunk that
+        // defines only plain `~name` buses with no `out`/`~master`/`dN` route. Those
+        // buses auto-sum to output but are bounded by a −12 dB headroom gain (see
+        // compositional_compiler.rs), so the swap can't blast at unity the way the old
+        // raw "mix all buses" fallback did. State transfer below runs as usual.
+
         // CRITICAL: Check if we have an old graph to transfer timing from
         // If we do, transfer will preserve wall-clock timing
         // If we don't (first load), we need to initialize wall-clock timing
@@ -2109,8 +2115,14 @@ impl ModalEditor {
     /// Evaluate current chunk (paragraph) - Ctrl-X
     /// A chunk is text separated by blank lines
     ///
-    /// Note: We send the FULL session content to the engine, not just the chunk.
-    /// The flash highlight shows which chunk you evaluated for visual feedback.
+    /// Tidal-style block evaluation: we compile and swap in ONLY the current
+    /// chunk (see `load_code(&chunk)` below), NOT the full session — use C-r
+    /// (`eval_all`) to reload the entire buffer. Because the chunk becomes a
+    /// *complete replacement* graph, a chunk that defines only plain `~name`
+    /// buses with no `out`/`~master`/`dN` route auto-sums to output but is bounded
+    /// by a −12 dB headroom gain, so it can never blast at unity (audit finding U1
+    /// / investigate-u1-swapping; the status line still warns `out: NO!`). Add an
+    /// explicit `out $ ~bus` to the chunk to control its level precisely.
     fn eval_chunk(&mut self) {
         let chunk = self.get_current_chunk();
         if chunk.trim().is_empty() {

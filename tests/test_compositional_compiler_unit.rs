@@ -333,8 +333,26 @@ fn test_bus_with_filter_params() {
 
 #[test]
 fn test_auto_routing_when_no_out() {
+    // The auto-sum convenience is preserved (audit finding U1 / investigate-u1-swapping):
+    // a program with plain `~name` buses and no explicit out still auto-sums to output.
+    // The summed output is bounded by a headroom gain (see test_chunk_without_out.rs)
+    // so a lone raw bus can't blast at unity, but it still HAS an output node.
     let graph = compile_to_graph("~a $ sine 440\n~b $ saw 220");
-    assert!(graph.has_output(), "Auto-routing should set output when no explicit out:");
+    assert!(
+        graph.has_output(),
+        "Auto-routing should set output when no explicit out:"
+    );
+}
+
+#[test]
+fn test_dn_bus_still_auto_routes() {
+    // The Tidal-style `dN`/`outN` auto-route buses ARE speaker routes and must still
+    // reach the output when no explicit `out` is present.
+    let graph = compile_to_graph("d1 $ sine 440\nd2 $ saw 220");
+    assert!(
+        graph.has_output(),
+        "dN auto-route buses should still set output when no explicit out:"
+    );
 }
 
 // ========== 4. Pattern Transform Compilation ==========

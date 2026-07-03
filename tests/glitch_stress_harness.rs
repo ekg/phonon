@@ -406,6 +406,26 @@ fn test_scripted_scenarios_represent_both_audits_and_have_no_hard_failures() {
         assert_eq!(r.nan, 0, "scenario {} produced NaN", r.name);
         assert_eq!(r.inf, 0, "scenario {} produced Inf", r.name);
     }
+
+    // U1 decided behavior (investigate-u1-swapping): C-x'ing a chunk with no `out`
+    // must NOT jump to the ~0.7 RMS unattenuated blast the first harness run
+    // measured. The auto-sum fallback is bounded by a −12 dB headroom gain, so the
+    // lone `~bass $ sine 55` lands near ~0.18 RMS (≈ the pre-swap level). Guard the
+    // exact regression: post level stays well under the blast and it isn't silent.
+    let u1 = results
+        .iter()
+        .find(|r| r.name == "U1-chunk-without-out")
+        .expect("U1 scenario present");
+    assert!(
+        u1.post_rms < 0.35,
+        "U1 chunk-without-out must be bounded (headroom), not the ~0.7 RMS blast, got post_rms {:.5}",
+        u1.post_rms
+    );
+    assert!(
+        !u1.post_silent,
+        "U1 auto-sum should still be audible (bounded, not silent), got post_rms {:.5}",
+        u1.post_rms
+    );
 }
 
 // ---------------------------------------------------------------------------

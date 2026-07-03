@@ -1346,13 +1346,19 @@ pub fn audit_scenarios() -> Vec<Scenario> {
             "tempo: 1.0\nout $ saw 220 * 0.2",
             Expectation::Documented("D3"),
         ),
-        // U1: swapping to a block that has no `out` silences output.
+        // U1: swapping to a block with no `out`. The audit predicted silence; the
+        // first harness run instead measured a ~0.7 RMS blast because the compiler
+        // auto-summed the lone `~bass` bus to output at unity gain. investigate-u1-swapping
+        // fixed this by bounding the auto-sum fallback with a −12 dB headroom gain, so
+        // the swap is now a CLEAN, seamless transition (post ≈ 0.18 RMS ≈ the pre level)
+        // instead of a blast. The explicit post_rms ceiling is checked in
+        // tests/glitch_stress_harness.rs so a regression back to ~0.7 is a hard fail.
         sc(
             "U1-chunk-without-out",
             "U1",
             "tempo: 1.0\n~drums $ saw 110\n~bass $ sine 55\nout $ ~drums * 0.2 + ~bass * 0.2",
             "tempo: 1.0\n~bass $ sine 55",
-            Expectation::Documented("U1"),
+            Expectation::Clean,
         ),
         // ---- live-transition-2026-07: races ----
         // R1: heavy-load transfer failure -> fresh timing -> beat jump. Forced
