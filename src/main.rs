@@ -899,7 +899,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Import the phonon_poll implementation
             use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-            use phonon::unified_graph::UnifiedSignalGraph;
+            use phonon::unified_graph::{LiveClock, UnifiedSignalGraph};
 
             use std::sync::{Arc, Mutex};
             use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1015,7 +1015,21 @@ out sine(440) * 0.2
             // This is the KEY FIX for P1.3 - synthesis happens in background, not in audio callback!
             let graph_clone_synth = Arc::clone(&graph);
             std::thread::spawn(move || {
-                let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+                let mut buffer = [0.0f32; 512]; // Render in chunks (stereo interleaved)
+                let frames = buffer.len() / 2; // frames of cycle-time per chunk
+
+                // Sample-advancing live clock — THE single source of timing truth
+                // (pattern-timing audit T1 / pt-F1). Advancing by samples emitted,
+                // NOT by wall-clock at render time, keeps the pattern on the sample
+                // grid even while the synth thread renders ahead into the ring (so
+                // no startup / post-underrun onset clustering). Tempo comes from the
+                // compiled graph; a reload with a new `tempo:` rebases the clock via
+                // LiveClock::set_cps without teleporting the position (pt-F2).
+                let mut clock: Option<LiveClock> = None;
+                // Held to keep the previously-loaded graph Arc alive across
+                // iterations so its address can't be reused — makes the
+                // pointer-identity "did the graph swap?" check ABA-safe.
+                let mut prev_arc: Option<Arc<Option<GraphCell>>> = None;
 
                 loop {
                     // Check if we have space in ring buffer
@@ -1023,9 +1037,13 @@ out sine(440) * 0.2
 
                     if space >= buffer.len() {
                         // Render a chunk of audio
-                        let graph_snapshot = graph_clone_synth.load();
+                        let graph_snapshot = graph_clone_synth.load_full();
+                        let is_new_graph = match &prev_arc {
+                            Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
+                            None => true,
+                        };
 
-                        if let Some(ref graph_cell) = **graph_snapshot {
+                        if let Some(ref graph_cell) = *graph_snapshot {
                             // Try to borrow — use try_borrow_mut to avoid a
                             // double-borrow panic. The reload thread holds a
                             // try_borrow_mut() on this same ArcSwap-shared graph
@@ -1036,8 +1054,39 @@ out sine(440) * 0.2
                             // and skip the block on Err.
                             match graph_cell.0.try_borrow_mut() {
                                 Ok(mut graph) => {
-                                    // Synthesize samples using optimized buffer processing
-                                    graph.process_buffer(&mut buffer);
+                                    match clock.as_mut() {
+                                        None => {
+                                            // First graph: seed the clock from its
+                                            // compiled start position so setCycle /
+                                            // resetCycles in the initial file are honoured.
+                                            clock = Some(LiveClock::new(
+                                                sample_rate,
+                                                graph.get_cps(),
+                                                graph.get_cycle_position(),
+                                            ));
+                                        }
+                                        Some(c) => {
+                                            // Follow the graph's tempo, rebasing on
+                                            // change so the position never teleports (pt-F2).
+                                            c.set_cps(graph.get_cps());
+                                            if is_new_graph {
+                                                // Seed the swapped-in graph's node
+                                                // timing from the live clock so it
+                                                // continues from the current position
+                                                // instead of re-triggering the events
+                                                // between the (wall-clock-based)
+                                                // transfer position and the true
+                                                // sample-advanced position.
+                                                graph.set_cycle_position(c.position());
+                                            }
+                                        }
+                                    }
+
+                                    // Advance the clock by exactly this chunk and
+                                    // render with that timing (single source of truth).
+                                    let c = clock.as_mut().unwrap();
+                                    let (start_cycle, increment, cps) = c.advance_buffer(frames);
+                                    graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
 
                                     // Write to ring buffer
                                     let written = ring_producer.push_slice(&buffer);
@@ -1053,13 +1102,19 @@ out sine(440) * 0.2
                                     // Skip this block (write nothing) rather than
                                     // panic — the next iteration renders the
                                     // swapped-in graph seamlessly. Missing one
-                                    // ~11.6ms chunk won't underrun the ring.
+                                    // ~11.6ms chunk won't underrun the ring. Do NOT
+                                    // update prev_arc so the swap is still detected
+                                    // (and the new graph seeded) on the next attempt.
+                                    continue;
                                 }
                             }
                         } else {
-                            // No graph yet, write silence
+                            // No graph yet (hushed/panic), write silence
+                            buffer.fill(0.0);
                             ring_producer.push_slice(&buffer);
                         }
+
+                        prev_arc = Some(graph_snapshot);
                     } else {
                         // Ring buffer is full, sleep briefly
                         std::thread::sleep(StdDuration::from_micros(100));

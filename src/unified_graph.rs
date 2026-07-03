@@ -4783,6 +4783,134 @@ pub enum ExtractedFxState {
 /// Map of FX state keyed by (bus_name, fx_type, index)
 pub type FxStateMap = HashMap<FxStateKey, ExtractedFxState>;
 
+/// Sample-advancing live clock — the single source of timing truth for live
+/// rendering (pattern-timing audit T1 / pt-F1, pt-F2).
+///
+/// # Why this exists
+///
+/// The old live path computed the buffer-start cycle from **wall-clock time**
+/// on every buffer (`elapsed().as_secs_f64() * cps + offset`). Because the synth
+/// thread renders *ahead* into a ring buffer — filling ~1 s of audio in a few
+/// milliseconds at startup and after every underrun — the wall clock barely
+/// advances between those back-to-back renders, so `buffer_start_cycle`
+/// collapses into a tiny overlapping band. Every ring-fill buffer then re-renders
+/// almost the same slice of pattern time → **onset clustering** at startup /
+/// post-underrun and steady-state jitter tied to callback cadence (pt-F1).
+///
+/// # The model (mirrors `GlobalClock` in `src/bin/phonon-audio.rs`)
+///
+/// The clock advances by the **number of samples actually emitted**, never by
+/// wall-clock at render time. Each rendered buffer of `n` frames advances the
+/// position by exactly `n * cps / sample_rate` cycles, so consecutive buffers
+/// tile the cycle timeline on the sample grid with no overlap and no gap,
+/// regardless of how fast the synth thread runs ahead of the audio device.
+///
+/// Wall-clock time is consulted *only to rebase* — at startup, on an explicit
+/// resync, or after an underrun — via [`LiveClock::rebase_to_wall_clock`], never
+/// on the steady-state render path.
+///
+/// [`LiveClock::set_cps`] rebases exactly like `GlobalClock::set_cps`: the
+/// accumulated position is preserved and only the going-forward increment
+/// changes, so a tempo change can never teleport the cycle position (pt-F2).
+#[derive(Clone, Copy, Debug)]
+pub struct LiveClock {
+    /// Current cycle position, accumulated from samples emitted (NOT wall-clock).
+    cycle_position: f64,
+    /// Cycles per second (tempo).
+    cps: f32,
+    /// Sample rate, for the per-sample increment.
+    sample_rate: f32,
+    /// Wall-clock reference captured at the last rebase (startup / set_cps /
+    /// explicit resync). Only used by [`LiveClock::rebase_to_wall_clock`].
+    anchor_time: std::time::Instant,
+    /// Cycle position at the last wall-clock rebase.
+    anchor_position: f64,
+}
+
+impl LiveClock {
+    /// Create a clock starting at `start_cycle`, anchored to the current wall clock.
+    pub fn new(sample_rate: f32, cps: f32, start_cycle: f64) -> Self {
+        Self {
+            cycle_position: start_cycle,
+            cps,
+            sample_rate,
+            anchor_time: std::time::Instant::now(),
+            anchor_position: start_cycle,
+        }
+    }
+
+    /// Cycle increment per emitted sample.
+    #[inline]
+    pub fn sample_increment(&self) -> f64 {
+        self.cps as f64 / self.sample_rate as f64
+    }
+
+    /// Current cycle position (position of the next sample to emit).
+    #[inline]
+    pub fn position(&self) -> f64 {
+        self.cycle_position
+    }
+
+    /// Current tempo.
+    #[inline]
+    pub fn cps(&self) -> f32 {
+        self.cps
+    }
+
+    /// Return the timing for the next buffer of `n` frames — `(buffer_start_cycle,
+    /// sample_increment, cps)` — then advance the clock by exactly `n` samples.
+    ///
+    /// This is the steady-state render entry point. It never reads the wall clock,
+    /// so rendering ahead into the ring buffer keeps the pattern timeline on the
+    /// sample grid (fixes pt-F1 onset clustering).
+    #[inline]
+    pub fn advance_buffer(&mut self, n: usize) -> (f64, f64, f32) {
+        let start = self.cycle_position;
+        let increment = self.sample_increment();
+        self.cycle_position += n as f64 * increment;
+        (start, increment, self.cps)
+    }
+
+    /// Change tempo without teleporting the cycle position (pt-F2).
+    ///
+    /// Because the position is *accumulated* (not recomputed from
+    /// `elapsed * cps`), it stays exactly continuous across the change — only the
+    /// per-sample increment differs going forward. The wall-clock anchor is reset
+    /// to the current position so a later [`rebase_to_wall_clock`](Self::rebase_to_wall_clock)
+    /// stays consistent. This mirrors `GlobalClock::set_cps`.
+    pub fn set_cps(&mut self, new_cps: f32) {
+        if (self.cps - new_cps).abs() < 1e-6 {
+            return;
+        }
+        // Re-anchor at the current (preserved) position, then change the tempo.
+        self.anchor_position = self.cycle_position;
+        self.anchor_time = std::time::Instant::now();
+        self.cps = new_cps;
+    }
+
+    /// Jump the clock to an explicit cycle position (setCycle / seek / resync).
+    pub fn set_position(&mut self, position: f64) {
+        self.cycle_position = position;
+        self.anchor_position = position;
+        self.anchor_time = std::time::Instant::now();
+    }
+
+    /// Realign the accumulated position with real (wall-clock) time.
+    ///
+    /// Consulted only to rebase — at startup, on an explicit resync, or after an
+    /// underrun where the samples emitted have fallen behind real time. Advancing
+    /// by samples emitted keeps the beat internally consistent but drifts behind
+    /// the device clock across underruns; calling this snaps the position forward
+    /// to where wall-clock time says it should be. Not called on the steady-state
+    /// render path (that would reintroduce the pt-F1 clustering).
+    pub fn rebase_to_wall_clock(&mut self) {
+        let elapsed = self.anchor_time.elapsed().as_secs_f64();
+        self.cycle_position = self.anchor_position + elapsed * self.cps as f64;
+        self.anchor_position = self.cycle_position;
+        self.anchor_time = std::time::Instant::now();
+    }
+}
+
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph (Rc for cheap cloning - eliminates deep clone overhead)
@@ -5201,12 +5329,50 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Change tempo, rebasing the clock so the cycle position never teleports (pt-F2).
+    ///
+    /// The old implementation just overwrote `cps`. In wall-clock (live) mode the
+    /// position is `elapsed * cps + cycle_offset`, so bumping `cps` alone
+    /// retroactively rescaled *all* elapsed time by the new tempo — an hour into a
+    /// session, `2.0 -> 2.5` cps jumped the cycle position by `elapsed * 0.5 ≈ 1800`
+    /// cycles. We now capture the current position under the OLD tempo, reset the
+    /// wall-clock origin to "now", and stash that position in `cycle_offset` so the
+    /// new tempo only affects time going forward — exactly like `GlobalClock::set_cps`
+    /// and [`LiveClock::set_cps`]. In sample-based (offline) mode the position is
+    /// accumulated in `cached_cycle_position`, so it is already continuous across a
+    /// tempo change and only the per-sample increment changes; no rebase is needed.
     pub fn set_cps(&mut self, cps: f32) {
+        if (self.cps - cps).abs() < 1e-9 {
+            self.cps = cps;
+            return;
+        }
+        if self.use_wall_clock {
+            // Capture the position under the current tempo BEFORE changing it.
+            let current_pos = self.current_live_cycle();
+            self.session_start_time = std::time::Instant::now();
+            self.cycle_offset = current_pos;
+            self.cached_cycle_position = current_pos;
+        }
         self.cps = cps;
     }
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    /// Current cycle position under the graph's own timing model.
+    ///
+    /// In wall-clock (live) mode this is `elapsed * cps + cycle_offset`; in
+    /// sample-based (offline) mode it is the accumulated `cached_cycle_position`.
+    /// This is the single formula used by `set_cps` (to rebase without teleporting)
+    /// and by `process_buffer` (to pick the offline buffer-start cycle).
+    pub fn current_live_cycle(&self) -> f64 {
+        if self.use_wall_clock {
+            let elapsed = self.session_start_time.elapsed().as_secs_f64();
+            elapsed * self.cps as f64 + self.cycle_offset
+        } else {
+            self.cached_cycle_position
+        }
     }
 
     pub fn set_buffer_size(&mut self, size: usize) {
@@ -19058,13 +19224,10 @@ impl UnifiedSignalGraph {
     /// Calculates timing internally - use process_buffer_at() for live rendering!
     #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
-        // Calculate timing internally (for offline rendering)
-        let buffer_start_cycle = if self.use_wall_clock {
-            let elapsed = self.session_start_time.elapsed().as_secs_f64();
-            elapsed * self.cps as f64 + self.cycle_offset
-        } else {
-            self.cached_cycle_position
-        };
+        // Calculate timing internally (for offline rendering). Live rendering must
+        // instead route through `process_buffer_at` with a sample-advancing
+        // `LiveClock` — see that method's docs (pt-F1).
+        let buffer_start_cycle = self.current_live_cycle();
         let sample_increment = self.cps as f64 / self.sample_rate as f64;
 
         self.process_buffer_internal(buffer, buffer_start_cycle, sample_increment);

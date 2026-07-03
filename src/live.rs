@@ -11,7 +11,7 @@
 
 use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
-use crate::unified_graph::UnifiedSignalGraph;
+use crate::unified_graph::{LiveClock, UnifiedSignalGraph};
 use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
@@ -79,12 +79,25 @@ impl LiveSession {
         // This enables parallel synthesis using all CPU cores!
         let graph_clone_synth = Arc::clone(&graph);
         thread::spawn(move || {
-            let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+            let mut buffer = [0.0f32; 512]; // Render in chunks (stereo interleaved)
+            let frames = buffer.len() / 2; // frames of cycle-time per chunk
             let mut total_buffers = 0usize;
             let mut total_time = std::time::Duration::ZERO;
             let profile = std::env::var("PROFILE_LIVE").is_ok();
             let mut render_count = 0usize;
             let mut last_underrun_reported = 0usize;
+
+            // Sample-advancing live clock — THE single source of timing truth
+            // (pattern-timing audit T1 / pt-F1). It advances by samples emitted, not
+            // by wall-clock at render time, so rendering ahead into the ring buffer
+            // no longer collapses the buffer-start cycle into an overlapping band
+            // (which caused startup / post-underrun onset clustering). Tempo follows
+            // the compiled graph; a reload rebases the clock without teleporting the
+            // cycle position (pt-F2).
+            let mut clock: Option<LiveClock> = None;
+            // Keeps the previously-loaded graph Arc alive so its address can't be
+            // reused — makes the "did the graph swap?" pointer check ABA-safe.
+            let mut prev_arc: Option<Arc<Option<GraphCell>>> = None;
 
             if profile {
                 eprintln!("🔧 Background synthesis thread started with profiling");
@@ -96,45 +109,89 @@ impl LiveSession {
 
                 if space >= buffer.len() {
                     // Render a chunk of audio
-                    let graph_snapshot = graph_clone_synth.load();
+                    let graph_snapshot = graph_clone_synth.load_full();
+                    let is_new_graph = match &prev_arc {
+                        Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
+                        None => true,
+                    };
 
-                    if let Some(ref graph_cell) = **graph_snapshot {
-                        // Synthesize samples using optimized buffer processing
+                    if let Some(ref graph_cell) = *graph_snapshot {
+                        // Synthesize samples using optimized buffer processing.
+                        // try_borrow_mut + skip mirrors the fixed product synth
+                        // loops: the reload path holds the borrow across transfer_*.
                         let start = if profile {
                             Some(std::time::Instant::now())
                         } else {
                             None
                         };
-                        graph_cell.0.borrow_mut().process_buffer(&mut buffer);
 
-                        if let Some(start) = start {
-                            let elapsed = start.elapsed();
-                            total_time += elapsed;
-                            total_buffers += 1;
-
-                            if total_buffers.is_multiple_of(10) || elapsed.as_millis() > 15 {
-                                let avg_ms =
-                                    total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
-                                let target_ms = 512.0 / 44.1; // 11.61ms
-                                let this_ms = elapsed.as_secs_f64() * 1000.0;
-                                eprintln!("🎵 Live #{}: {:.2}ms (avg: {:.2}ms, target: {:.2}ms, {:.0}% CPU) {}",
-                                    total_buffers, this_ms, avg_ms, target_ms, (avg_ms / target_ms) * 100.0,
-                                    if this_ms > target_ms { "⚠️ SLOW" } else { "✅" });
+                        if let Ok(mut graph) = graph_cell.0.try_borrow_mut() {
+                            match clock.as_mut() {
+                                None => {
+                                    // First graph: seed the clock from its compiled
+                                    // start position (honours setCycle/resetCycles).
+                                    clock = Some(LiveClock::new(
+                                        sample_rate,
+                                        graph.get_cps(),
+                                        graph.get_cycle_position(),
+                                    ));
+                                }
+                                Some(c) => {
+                                    // Follow the graph's tempo, rebasing on change so
+                                    // the position never teleports (pt-F2).
+                                    c.set_cps(graph.get_cps());
+                                    if is_new_graph {
+                                        // Seed the swapped-in graph's node timing from
+                                        // the live clock so it continues from the
+                                        // current position rather than re-triggering
+                                        // past events.
+                                        graph.set_cycle_position(c.position());
+                                    }
+                                }
                             }
-                        }
 
-                        // Write to ring buffer
-                        let written = ring_producer.push_slice(&buffer);
-                        if written < buffer.len() {
-                            eprintln!(
-                                "⚠️  Ring buffer full, dropped {} samples",
-                                buffer.len() - written
-                            );
+                            let c = clock.as_mut().unwrap();
+                            let (start_cycle, increment, cps) = c.advance_buffer(frames);
+                            graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
+                            drop(graph);
+
+                            if let Some(start) = start {
+                                let elapsed = start.elapsed();
+                                total_time += elapsed;
+                                total_buffers += 1;
+
+                                if total_buffers.is_multiple_of(10) || elapsed.as_millis() > 15 {
+                                    let avg_ms =
+                                        total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
+                                    let target_ms = 512.0 / 44.1; // 11.61ms
+                                    let this_ms = elapsed.as_secs_f64() * 1000.0;
+                                    eprintln!("🎵 Live #{}: {:.2}ms (avg: {:.2}ms, target: {:.2}ms, {:.0}% CPU) {}",
+                                        total_buffers, this_ms, avg_ms, target_ms, (avg_ms / target_ms) * 100.0,
+                                        if this_ms > target_ms { "⚠️ SLOW" } else { "✅" });
+                                }
+                            }
+
+                            // Write to ring buffer
+                            let written = ring_producer.push_slice(&buffer);
+                            if written < buffer.len() {
+                                eprintln!(
+                                    "⚠️  Ring buffer full, dropped {} samples",
+                                    buffer.len() - written
+                                );
+                            }
+                        } else {
+                            // Reload thread is mid-transfer on this graph; skip this
+                            // block. Do NOT update prev_arc so the swap is still
+                            // detected (and the new graph seeded) on the next attempt.
+                            continue;
                         }
                     } else {
                         // No graph yet, write silence
+                        buffer.fill(0.0);
                         ring_producer.push_slice(&buffer);
                     }
+
+                    prev_arc = Some(graph_snapshot);
 
                     // Off-callback underrun logging: check every ~100 renders (~1 s)
                     render_count += 1;
