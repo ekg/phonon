@@ -1002,16 +1002,35 @@ out sine(440) * 0.2
                         let graph_snapshot = graph_clone_synth.load();
 
                         if let Some(ref graph_cell) = **graph_snapshot {
-                            // Synthesize samples using optimized buffer processing
-                            graph_cell.0.borrow_mut().process_buffer(&mut buffer);
+                            // Try to borrow — use try_borrow_mut to avoid a
+                            // double-borrow panic. The reload thread holds a
+                            // try_borrow_mut() on this same ArcSwap-shared graph
+                            // across transfer_* while swapping; an unconditional
+                            // borrow_mut() here would panic → kill the synth
+                            // thread → ring drains → permanent silence. Mirror
+                            // the modal editor synth loop (src/modal_editor/mod.rs:280)
+                            // and skip the block on Err.
+                            match graph_cell.0.try_borrow_mut() {
+                                Ok(mut graph) => {
+                                    // Synthesize samples using optimized buffer processing
+                                    graph.process_buffer(&mut buffer);
 
-                            // Write to ring buffer
-                            let written = ring_producer.push_slice(&buffer);
-                            if written < buffer.len() {
-                                eprintln!(
-                                    "⚠️  Ring buffer full, dropped {} samples",
-                                    buffer.len() - written
-                                );
+                                    // Write to ring buffer
+                                    let written = ring_producer.push_slice(&buffer);
+                                    if written < buffer.len() {
+                                        eprintln!(
+                                            "⚠️  Ring buffer full, dropped {} samples",
+                                            buffer.len() - written
+                                        );
+                                    }
+                                }
+                                Err(_) => {
+                                    // Reload thread is mid-transfer on this graph.
+                                    // Skip this block (write nothing) rather than
+                                    // panic — the next iteration renders the
+                                    // swapped-in graph seamlessly. Missing one
+                                    // ~11.6ms chunk won't underrun the ring.
+                                }
                             }
                         } else {
                             // No graph yet, write silence

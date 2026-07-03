@@ -1508,11 +1508,48 @@ impl ConcurrentReport {
     }
 }
 
+/// Synth-thread borrow discipline under concurrent graph swaps.
+///
+/// The reload/control thread always holds a `try_borrow_mut()` on the old graph
+/// across `transfer_*` while swapping. The *synth* thread is where the two live
+/// paths historically diverged, and that divergence is the C1 / F-1 bug:
+///
+/// * [`SynthBorrow::TryBorrowSkip`] — the safe discipline: `try_borrow_mut()`
+///   then skip the block on `Err`. This is what the modal editor
+///   (`src/modal_editor/mod.rs:280`) always did and what the fixed product
+///   surfaces (`src/main.rs`, `src/bin/phonon-audio.rs`) now do.
+/// * [`SynthBorrow::Unconditional`] — the pre-fix product-surface bug: an
+///   unconditional `borrow_mut()`. When the reload thread holds the transfer
+///   borrow on the same `RefCell`, this panics → the synth thread dies → the
+///   ring drains → audio stops permanently. Used by the regression test to
+///   reproduce the panic that shipped on `main`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SynthBorrow {
+    /// `try_borrow_mut()` + skip-on-`Err` (modal editor + fixed product surfaces).
+    TryBorrowSkip,
+    /// Unconditional `borrow_mut()` (the `main`-branch product-surface bug).
+    Unconditional,
+}
+
 /// Run a concurrent stress session for `num_swaps` swaps against `pool`.
 ///
-/// Reproduces the modal editor's threading model headlessly (no CPAL device;
-/// the ring consumer is driven manually at the block cadence).
+/// Reproduces the modal editor's / product surfaces' threading model headlessly
+/// (no CPAL device; the ring consumer is driven manually at the block cadence).
+/// The synth thread uses the safe [`SynthBorrow::TryBorrowSkip`] discipline —
+/// the discipline the product surfaces adopt after the C1 / F-1 fix. Use
+/// [`run_concurrent_session_mode`] to drive the pre-fix (`Unconditional`) path.
 pub fn run_concurrent_session(cfg: &SessionConfig, pool: &[Program], num_swaps: usize) -> ConcurrentReport {
+    run_concurrent_session_mode(cfg, pool, num_swaps, SynthBorrow::TryBorrowSkip)
+}
+
+/// Run a concurrent stress session with an explicit synth-thread borrow
+/// discipline. See [`SynthBorrow`].
+pub fn run_concurrent_session_mode(
+    cfg: &SessionConfig,
+    pool: &[Program],
+    num_swaps: usize,
+    synth_borrow: SynthBorrow,
+) -> ConcurrentReport {
     assert!(!pool.is_empty());
     let mut rng = Rng::new(cfg.seed);
     let sr = cfg.sample_rate;
@@ -1555,23 +1592,41 @@ pub fn run_concurrent_session(cfg: &SessionConfig, pool: &[Program], num_swaps: 
         while !synth_stop.load(Ordering::Relaxed) {
             let snapshot = synth_graph.load();
             match &**snapshot {
-                Some(cell) => match cell.0.try_borrow_mut() {
-                    Ok(mut g) => {
+                Some(cell) => match synth_borrow {
+                    SynthBorrow::TryBorrowSkip => match cell.0.try_borrow_mut() {
+                        Ok(mut g) => {
+                            for s in buf.iter_mut() {
+                                *s = 0.0;
+                            }
+                            g.process_buffer(&mut buf);
+                            drop(g);
+                            // Best-effort push; if the ring is full, drop this block
+                            // (the consumer is behind — not our concern here).
+                            if prod.vacant_len() >= buf.len() {
+                                prod.push_slice(&buf);
+                            }
+                        }
+                        Err(_) => {
+                            // Control thread holds the borrow mid-transfer: skip,
+                            // exactly like the modal editor's synth loop and the
+                            // fixed product surfaces.
+                            std::thread::yield_now();
+                        }
+                    },
+                    SynthBorrow::Unconditional => {
+                        // Pre-fix product-surface bug (main.rs / phonon-audio.rs
+                        // on `main`): unconditional borrow_mut(). Panics — killing
+                        // this thread — if the control thread holds the transfer
+                        // borrow on the same RefCell.
+                        let mut g = cell.0.borrow_mut();
                         for s in buf.iter_mut() {
                             *s = 0.0;
                         }
                         g.process_buffer(&mut buf);
                         drop(g);
-                        // Best-effort push; if the ring is full, drop this block
-                        // (the consumer is behind — not our concern here).
                         if prod.vacant_len() >= buf.len() {
                             prod.push_slice(&buf);
                         }
-                    }
-                    Err(_) => {
-                        // Control thread holds the borrow mid-transfer: skip,
-                        // exactly like the modal editor's synth loop.
-                        std::thread::yield_now();
                     }
                 },
                 None => {
@@ -1736,5 +1791,81 @@ mod tests {
         assert!(s.iter().all(|&i| i >= 4 && i < 5000));
         // Sorted + unique.
         assert!(s.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    /// Regression reproducer for C1 / rt-safety F-1 — the `main`-branch bug.
+    ///
+    /// The pre-fix product surfaces (`src/main.rs:1006`,
+    /// `src/bin/phonon-audio.rs:288`) synthesised through an *unconditional*
+    /// `borrow_mut()`. When the reload thread holds its `try_borrow_mut()`
+    /// transfer borrow on the same ArcSwap-shared `RefCell` mid-swap, that
+    /// unconditional borrow panics → the synth thread dies → the ring drains →
+    /// audio stops permanently.
+    ///
+    /// Driving the product-surface discipline (`SynthBorrow::Unconditional`)
+    /// under a real concurrent synth + reload rig must kill the synth thread.
+    /// (The dying thread prints an expected `BorrowMutError` panic; it is caught
+    /// by `join()` — cargo suppresses it while this test passes.) The fix ports
+    /// the modal editor's `try_borrow_mut()`+skip discipline to the product
+    /// surfaces — see `product_surface_try_borrow_survives_concurrent_swaps`.
+    ///
+    /// The race is timing-dependent, so we allow a few bounded attempts: the
+    /// unconditional discipline is fatal regardless of the product-side fix
+    /// (this test exercises the harness model, not the binaries), so observing
+    /// the death even once proves the defect.
+    #[test]
+    fn product_surface_unconditional_borrow_kills_synth_thread() {
+        let pool = known_good_pool();
+        let mut died = false;
+        let mut last = None;
+        for seed in 0..6 {
+            let cfg = SessionConfig::ci(seed);
+            let report =
+                run_concurrent_session_mode(&cfg, &pool, 40, SynthBorrow::Unconditional);
+            if !report.synth_thread_alive {
+                assert!(
+                    !report.hard_defects().is_empty(),
+                    "a dead synth thread must register as a hard defect: {report:?}"
+                );
+                died = true;
+                break;
+            }
+            last = Some(report);
+        }
+        assert!(
+            died,
+            "expected the unconditional borrow_mut() to panic the synth thread \
+             during a concurrent transfer borrow (the C1 / F-1 bug), but it \
+             survived every attempt; last report: {last:?}"
+        );
+    }
+
+    /// Post-fix guard: the product surfaces now use `try_borrow_mut()`+skip
+    /// (`SynthBorrow::TryBorrowSkip`), the same discipline as the modal editor.
+    /// Under the identical concurrent swap load the synth thread must survive,
+    /// no non-finite sample may reach the device, and there must be no permanent
+    /// silence. This mirrors what `glitch_stress --concurrent` asserts.
+    #[test]
+    fn product_surface_try_borrow_survives_concurrent_swaps() {
+        let pool = known_good_pool();
+        for seed in [0u64, 42, 7] {
+            let cfg = SessionConfig::ci(seed);
+            let report =
+                run_concurrent_session_mode(&cfg, &pool, 40, SynthBorrow::TryBorrowSkip);
+            assert!(
+                report.synth_thread_alive,
+                "try_borrow_mut()+skip must keep the synth thread alive \
+                 (seed {seed}): {report:?}"
+            );
+            assert_eq!(
+                report.nonfinite_in_output, 0,
+                "no non-finite samples may reach the device (seed {seed}): {report:?}"
+            );
+            assert!(
+                !report.permanent_silence,
+                "no permanent silence under the try_borrow discipline \
+                 (seed {seed}): {report:?}"
+            );
+        }
     }
 }

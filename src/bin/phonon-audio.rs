@@ -282,23 +282,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             counter, buffer_start_cycle, sample_increment, cps);
                     }
 
-                    // Synthesize samples using optimized buffer processing
-                    // CRITICAL: Pass timing FROM GlobalClock TO the graph
-                    // The graph does NOT calculate timing - it receives it as a parameter
-                    graph_cell.0.borrow_mut().process_buffer_at(
-                        &mut buffer,
-                        buffer_start_cycle,
-                        sample_increment,
-                        cps,
-                    );
+                    // Try to borrow — use try_borrow_mut to avoid a double-borrow
+                    // panic. The reload thread holds a try_borrow_mut() on this
+                    // same ArcSwap-shared graph across transfer_* while swapping;
+                    // an unconditional borrow_mut() here would panic → kill the
+                    // synth thread → ring drains → permanent silence. Mirror the
+                    // modal editor synth loop (src/modal_editor/mod.rs:280) and
+                    // skip the block on Err.
+                    match graph_cell.0.try_borrow_mut() {
+                        Ok(mut graph) => {
+                            // Synthesize samples using optimized buffer processing
+                            // CRITICAL: Pass timing FROM GlobalClock TO the graph
+                            // The graph does NOT calculate timing - it receives it as a parameter
+                            graph.process_buffer_at(
+                                &mut buffer,
+                                buffer_start_cycle,
+                                sample_increment,
+                                cps,
+                            );
 
-                    // Write to ring buffer
-                    let written = ring_producer.push_slice(&buffer);
-                    if written < buffer.len() {
-                        eprintln!(
-                            "⚠️  Ring buffer full, dropped {} samples",
-                            buffer.len() - written
-                        );
+                            // Write to ring buffer
+                            let written = ring_producer.push_slice(&buffer);
+                            if written < buffer.len() {
+                                eprintln!(
+                                    "⚠️  Ring buffer full, dropped {} samples",
+                                    buffer.len() - written
+                                );
+                            }
+                        }
+                        Err(_) => {
+                            // Reload thread is mid-transfer on this graph. Skip
+                            // this block (write nothing) rather than panic — the
+                            // next buffer renders the swapped-in graph seamlessly.
+                        }
                     }
                 } else {
                     // No graph (hushed/panic) - write silence
