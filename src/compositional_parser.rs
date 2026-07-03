@@ -580,12 +580,15 @@ fn preprocess_multiline(input: &str) -> String {
     result.join("\n")
 }
 
-pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
-    // Preprocess to join continuation lines
-    let preprocessed = preprocess_multiline(input);
-    let static_input: &'static str = Box::leak(preprocessed.into_boxed_str());
-    let input = static_input;
-
+/// Parse the statements of an already-preprocessed program from a borrowed slice.
+///
+/// The returned remaining-input slice (and any error) borrows `input`, but the
+/// parsed `Statement`s are fully owned, so nothing produced here needs to outlive
+/// the borrow. `parse_program` runs this over a locally-owned preprocessed buffer
+/// and then re-maps the remaining slice onto the caller's `input` lifetime — which
+/// is why the old `Box::leak` (leaking one source copy per parse) is no longer
+/// needed. See docs/audits/rt-safety-2026-07.md §4 F-7.
+fn parse_statements(input: &str) -> IResult<&str, Vec<Statement>> {
     let (input, _) = skip_space_and_comments(input)?;
 
     // Manually parse statements with proper comment/whitespace handling
@@ -612,6 +615,52 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
     Ok((current, statements))
 }
 
+/// Re-map a leftover slice of a locally-owned parse buffer back onto a slice of
+/// the caller's `input`, so the returned "remaining input" carries `input`'s
+/// lifetime instead of pointing into a buffer that would otherwise have to be
+/// leaked to `'static`.
+///
+/// `Statement`/`Expr` own all of their data, so this leftover slice is the only
+/// value that ever borrowed the buffer. Every caller in the codebase treats the
+/// remaining input as empty-vs-nonempty (empty => the whole program parsed) and
+/// only prints it in diagnostics, so exact preservation of the (whitespace-
+/// reflowed) leftover text is unnecessary: emptiness is preserved exactly, and for
+/// the non-empty (invalid-program) case we point at the offending token in the
+/// original source.
+fn map_remaining<'a>(input: &'a str, leftover: &str) -> &'a str {
+    let leftover = leftover.trim_start();
+    if leftover.is_empty() {
+        // Whole program consumed: return an empty slice tied to `input`.
+        return &input[input.len()..];
+    }
+    // Preprocessing/expansion only rewrites inter-token whitespace, so an
+    // individual leftover token still appears verbatim in `input`; anchor on it.
+    let anchor = leftover.split_whitespace().next().unwrap_or(leftover);
+    match input.find(anchor) {
+        Some(pos) => &input[pos..],
+        // Fallback (e.g. macro expansion synthesised the token): treat the whole
+        // input as unconsumed, which still correctly signals a non-empty remainder.
+        None => input,
+    }
+}
+
+pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
+    // Preprocess to join continuation lines. The preprocessed buffer is owned
+    // locally: parsed statements are fully owned, so it is dropped when this
+    // function returns — no `Box::leak` (which leaked one source copy per parse;
+    // rt-safety audit F-7). The remaining-input slice is re-mapped onto `input`.
+    let preprocessed = preprocess_multiline(input);
+    match parse_statements(&preprocessed) {
+        Ok((rest, statements)) => Ok((map_remaining(input, rest), statements)),
+        // `skip_space_and_comments` is infallible, so this arm is unreachable in
+        // practice; still, re-tie the error's borrowed input to `input`'s lifetime
+        // so nothing escapes borrowing the local buffer.
+        Err(err) => {
+            Err(err.map(|e| nom::error::Error::new(map_remaining(input, e.input), e.code)))
+        }
+    }
+}
+
 /// Parse a program with macro expansion
 ///
 /// This is the recommended entry point for parsing Phonon code.
@@ -627,10 +676,17 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 /// let (_, statements) = parse_program_with_macros(code)?;
 /// ```
 pub fn parse_program_with_macros(input: &str) -> IResult<&str, Vec<Statement>> {
+    // Expand macros into a locally-owned buffer, then parse. As with
+    // `parse_program`, the parsed statements are fully owned so the buffer need
+    // not be leaked to `'static` (rt-safety audit F-7); the remaining slice is
+    // re-mapped onto `input`'s lifetime.
     let expanded = expand_macros(input);
-    // Leak the expanded string to make it static, matching parse_program's behavior
-    let static_expanded: &'static str = Box::leak(expanded.into_boxed_str());
-    parse_program(static_expanded)
+    match parse_program(&expanded) {
+        Ok((rest, statements)) => Ok((map_remaining(input, rest), statements)),
+        Err(err) => {
+            Err(err.map(|e| nom::error::Error::new(map_remaining(input, e.input), e.code)))
+        }
+    }
 }
 
 /// Parse a single statement
