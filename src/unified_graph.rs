@@ -11291,6 +11291,97 @@ impl UnifiedSignalGraph {
             .query(&state)
     }
 
+    /// Decide whether the per-buffer `pattern_event_cache` for a `SignalNode::Pattern`
+    /// holds a **continuous / analog "signal" pattern** (sine/cosine/saw/tri/... —
+    /// `Pattern::sine_wave` & friends) rather than a discrete step pattern.
+    ///
+    /// Continuous patterns compute their value from `state.span.begin` and echo the
+    /// query span back as a single hap whose `whole == part == query_span`
+    /// (`pattern.rs`). `precompute_pattern_events` queries once over the WHOLE buffer,
+    /// so that single hap then carries the buffer-start value and the per-sample
+    /// cache-lookup reuses it for all ~512 samples — a ~86 Hz stairstep / zipper
+    /// (audit pt-F5, T3). Discrete step patterns instead carry an intrinsic slot in
+    /// `whole` (e.g. `[0, 0.25)` for `"a b c d"`) that differs from the buffer-clipped
+    /// `part`, so they are correctly served from the fast cached path.
+    ///
+    /// The test is conservative: it only fires for a single hap whose `whole` exactly
+    /// equals its `part` AND whose span is wider than one sample (i.e. it really is the
+    /// buffer-wide precompute span, not an already-per-sample query). A rare
+    /// misclassification is harmless — querying a discrete pattern per-sample still
+    /// returns the correct step value, just slightly slower.
+    fn cached_events_are_continuous(
+        events: &[crate::pattern::Hap<String>],
+        sample_width: f64,
+    ) -> bool {
+        if events.len() != 1 {
+            return false;
+        }
+        let hap = &events[0];
+        match &hap.whole {
+            Some(whole) => {
+                let part_begin = hap.part.begin.to_float();
+                let part_end = hap.part.end.to_float();
+                let span = part_end - part_begin;
+                // Must span more than a single sample to be the buffer-wide precompute
+                // hap (guards the degenerate 1-sample buffer where it does not matter).
+                span > sample_width * 1.5
+                    && (whole.begin.to_float() - part_begin).abs() < 1e-9
+                    && (whole.end.to_float() - part_end).abs() < 1e-9
+            }
+            None => false,
+        }
+    }
+
+    /// Return the pattern events active for the sample at `cycle_pos`, honouring
+    /// Phonon's "patterns are sample-rate control signals" rule for continuous
+    /// patterns while keeping the fast per-buffer cache for discrete step patterns.
+    ///
+    /// - Discrete step patterns: filter the pre-computed `pattern_event_cache`
+    ///   (unchanged fast path — no per-sample `query`, no allocation on the audio
+    ///   thread beyond the collected slice).
+    /// - Continuous "signal" patterns (detected via [`Self::cached_events_are_continuous`]):
+    ///   re-query the parsed pattern over `[cycle_pos, cycle_pos + sample_width)` so
+    ///   the value advances every sample (kills the T3 / pt-F5 zipper).
+    /// - No cache populated (defensive fallback): per-sample query, as before.
+    fn query_pattern_events_for_sample(
+        &self,
+        node_id: &NodeId,
+        pattern: &Pattern<String>,
+        cycle_pos: f64,
+    ) -> Vec<crate::pattern::Hap<String>> {
+        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+        if let Some(cached_events) = self.pattern_event_cache.get(node_id) {
+            if Self::cached_events_are_continuous(cached_events, sample_width) {
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_pos),
+                        Fraction::from_float(cycle_pos + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                return pattern.query(&state);
+            }
+            cached_events
+                .iter()
+                .filter(|event| {
+                    let begin = event.part.begin.to_float();
+                    let end = event.part.end.to_float();
+                    cycle_pos >= begin && cycle_pos < end
+                })
+                .cloned()
+                .collect()
+        } else {
+            let state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_pos),
+                    Fraction::from_float(cycle_pos + sample_width),
+                ),
+                controls: HashMap::new(),
+            };
+            pattern.query(&state)
+        }
+    }
+
     /// Evaluate a signal for the note parameter (converts notes to semitone offsets)
     /// Reference pitch is C4 (MIDI 60) = 0 semitones
     fn eval_note_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
@@ -11298,29 +11389,11 @@ impl UnifiedSignalGraph {
             Signal::Node(id) => {
                 if let Some(Some(node)) = self.nodes.get(id.0) {
                     if let SignalNode::Pattern { pattern, .. } = &**node {
-                        // PERFORMANCE FIX: Use pre-computed pattern_event_cache if available
+                        // Discrete step patterns hit the fast per-buffer cache;
+                        // continuous "signal" patterns are re-queried per sample so
+                        // note modulation stays sample-rate smooth (T3 / pt-F5).
                         let events: Vec<crate::pattern::Hap<String>> =
-                            if let Some(cached_events) = self.pattern_event_cache.get(id) {
-                                cached_events
-                                    .iter()
-                                    .filter(|event| {
-                                        let begin = event.part.begin.to_float();
-                                        let end = event.part.end.to_float();
-                                        cycle_pos >= begin && cycle_pos < end
-                                    })
-                                    .cloned()
-                                    .collect()
-                            } else {
-                                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                                let state = State {
-                                    span: TimeSpan::new(
-                                        Fraction::from_float(cycle_pos),
-                                        Fraction::from_float(cycle_pos + sample_width),
-                                    ),
-                                    controls: HashMap::new(),
-                                };
-                                pattern.query(&state)
-                            };
+                            self.query_pattern_events_for_sample(id, pattern, cycle_pos);
 
                         if let Some(event) = events.first() {
                             let s = event.value.as_str();
@@ -11653,32 +11726,12 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                        // PERFORMANCE FIX: Use pre-computed pattern_event_cache if available
-                        // This eliminates 44,100 pattern.query() calls per second per pattern parameter!
-                        let (events, cache_hit): (Vec<crate::pattern::Hap<String>>, bool) =
-                            if let Some(cached_events) = self.pattern_event_cache.get(id) {
-                                // Filter cached events to find one active at cycle_pos
-                                (cached_events
-                                    .iter()
-                                    .filter(|event| {
-                                        let begin = event.part.begin.to_float();
-                                        let end = event.part.end.to_float();
-                                        cycle_pos >= begin && cycle_pos < end
-                                    })
-                                    .cloned()
-                                    .collect(), true)
-                            } else {
-                                // Fallback: query pattern directly (shouldn't happen if cache is populated)
-                                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                                let state = State {
-                                    span: TimeSpan::new(
-                                        Fraction::from_float(cycle_pos),
-                                        Fraction::from_float(cycle_pos + sample_width),
-                                    ),
-                                    controls: HashMap::new(),
-                                };
-                                (pattern.query(&state), false)
-                            };
+                        // Discrete step patterns (e.g. gain "1.0 0.5") use the fast
+                        // per-buffer cache; continuous "signal" patterns are re-queried
+                        // per sample so pattern-valued DSP params modulate at sample rate
+                        // instead of freezing to the buffer-start value (T3 / pt-F5).
+                        let events: Vec<crate::pattern::Hap<String>> =
+                            self.query_pattern_events_for_sample(id, pattern, cycle_pos);
 
                         // DEBUG: Log pattern signal evaluation
                         if self.debug_flags.pattern
@@ -15438,31 +15491,13 @@ impl UnifiedSignalGraph {
                 last_value,
                 last_trigger_time: _,
             } => {
-                // OPTION B OPTIMIZATION: Use pre-computed events if available
+                // OPTION B OPTIMIZATION: Use pre-computed events for discrete step
+                // patterns; continuous "signal" patterns (sine/saw/tri LFOs) are
+                // re-queried per sample so modulation stays sample-rate smooth instead
+                // of freezing to the buffer-start value (~86 Hz zipper — T3 / pt-F5).
                 let current_cycle = self.get_cycle_position();
-                let events = if let Some(cached_events) = self.pattern_event_cache.get(node_id) {
-                    // Find events active at current cycle position from cached events
-                    cached_events
-                        .iter()
-                        .filter(|event| {
-                            let begin = event.part.begin.to_float();
-                            let end = event.part.end.to_float();
-                            current_cycle >= begin && current_cycle < end
-                        })
-                        .cloned()
-                        .collect::<Vec<_>>()
-                } else {
-                    // Fallback: Query pattern directly (shouldn't happen in normal operation)
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                    let state = State {
-                        span: TimeSpan::new(
-                            Fraction::from_float(current_cycle),
-                            Fraction::from_float(current_cycle + sample_width),
-                        ),
-                        controls: HashMap::new(),
-                    };
-                    pattern.query(&state)
-                };
+                let events =
+                    self.query_pattern_events_for_sample(node_id, pattern, current_cycle);
 
                 let mut current_value = *last_value; // Default to last value
 
