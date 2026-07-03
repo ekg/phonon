@@ -7,11 +7,20 @@
 //!
 //! Tests are skipped if plugins are not available.
 
-use phonon::plugin_host::{PluginRegistry, create_real_plugin_by_name};
+use phonon::plugin_host::{PluginRegistry, create_real_plugin_by_name, vst3_runtime_available};
 use phonon::plugin_host::instance::MidiEvent;
 
-/// Helper to check if a plugin is available
+/// Helper to check if a plugin is available *and* can be safely loaded.
+///
+/// A plugin present on disk is not enough: JUCE-based VST3 plugins spawn their
+/// own threads that connect to an X display the moment their module is loaded,
+/// so on a headless host (no reachable display) merely scanning them segfaults
+/// the process. `vst3_runtime_available()` gates that, letting these tests skip
+/// gracefully instead of crashing when the environment can't host plugins.
 fn plugin_available(name: &str) -> bool {
+    if !vst3_runtime_available() {
+        return false;
+    }
     let mut registry = PluginRegistry::new();
     let _ = registry.scan();
     registry.find(name).is_some()
@@ -402,4 +411,35 @@ fn test_vst3_parameter_changes() {
     } else {
         plugin.leak();
     }
+}
+
+/// Regression test for the `test_vst3_plugins` SIGSEGV (fix-pre-existing-6).
+///
+/// Loading a plugin by name scans the whole system plugin set, which `dlopen`s
+/// and initialises every installed VST3 module. On a headless host (no reachable
+/// X display) the JUCE-based plugins' background threads race on the failing X
+/// connection and segfault the entire test binary — before any per-test result
+/// is even produced. The fix gates real-plugin loading on
+/// `vst3_runtime_available()`, so on a headless host loading fails cleanly with
+/// an error instead of crashing, and on a host with a display it still works.
+///
+/// This test must run to completion (no crash, no panic) in BOTH environments:
+/// - headless: `create_real_plugin_by_name` returns `Err(NotSupported)` without
+///   ever touching the plugin FFI;
+/// - with a display: it scans, finds no such plugin, and returns `Err(NotFound)`.
+#[test]
+fn test_vst3_load_attempt_never_crashes() {
+    // A name no real plugin will match, so the result is always an error and we
+    // never leak a real instance regardless of environment.
+    let result = create_real_plugin_by_name("__phonon_nonexistent_plugin__");
+    assert!(
+        result.is_err(),
+        "Loading a nonexistent plugin must return an error, not a plugin"
+    );
+
+    // The runtime-availability probe must be stable (it is cached): calling it
+    // repeatedly returns the same answer and never panics or crashes.
+    let a = vst3_runtime_available();
+    let b = vst3_runtime_available();
+    assert_eq!(a, b, "vst3_runtime_available() must be cached and stable");
 }

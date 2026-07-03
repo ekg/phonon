@@ -57,7 +57,10 @@ pub use mock_plugin::{MockPluginInstance, RecordedMidiEvent};
 pub use real_plugin::{RealPluginInstance, RealPluginScanner};
 
 #[cfg(feature = "vst3")]
-pub use real_plugin::{convert_plugin_info, create_real_plugin_by_name, create_real_plugin_from_path};
+pub use real_plugin::{
+    convert_plugin_info, create_real_plugin_by_name, create_real_plugin_from_path,
+    vst3_runtime_available,
+};
 
 #[cfg(feature = "vst2")]
 pub use vst2_plugin::{Vst2PluginInstance, scan_vst2_directory, create_vst2_plugin_by_name};
