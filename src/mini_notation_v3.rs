@@ -1320,8 +1320,27 @@ fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
     }
 }
 
+/// Diagnostic instrument: total number of `parse_mini_notation` calls since process start.
+///
+/// Used by regression tests (see `tests/compile_time_pattern_parse.rs`) to assert that the
+/// per-sample audio path does NOT re-parse inline `Signal::Pattern` strings. Incremented with
+/// `Relaxed` ordering, so the overhead is a single un-synchronized atomic add per parse.
+pub static MINI_NOTATION_PARSE_COUNT: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// Read the current [`MINI_NOTATION_PARSE_COUNT`].
+pub fn mini_notation_parse_count() -> usize {
+    MINI_NOTATION_PARSE_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Reset [`MINI_NOTATION_PARSE_COUNT`] to zero (test helper).
+pub fn reset_mini_notation_parse_count() {
+    MINI_NOTATION_PARSE_COUNT.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Parse mini-notation string into a Pattern
 pub fn parse_mini_notation(input: &str) -> Pattern<String> {
+    MINI_NOTATION_PARSE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut parser = MiniNotationParser::new(input);
     let ast = parser.parse();
     ast_to_pattern(ast)

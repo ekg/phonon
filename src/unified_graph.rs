@@ -4846,6 +4846,17 @@ pub struct UnifiedSignalGraph {
     /// Pre-computed once per buffer to avoid 512 pattern.query() calls
     pattern_event_cache: HashMap<NodeId, Vec<crate::pattern::Hap<String>>>,
 
+    /// Memoized parse of inline `Signal::Pattern` strings (G6 / pt-F6).
+    ///
+    /// Inline `Signal::Pattern(String)` control signals used to call
+    /// `parse_mini_notation` on EVERY sample in `eval_signal_at_time` — ~44.1k parses +
+    /// heap allocations per second per signal, a real-time-safety violation on the synth
+    /// thread. `parse_mini_notation` is a pure function of its input string, so we memoize
+    /// the parsed `Pattern<String>` keyed by the string. First touch parses; every later
+    /// sample is a hash lookup with no parse and no allocation. Bounded by the number of
+    /// distinct inline pattern strings the graph ever evaluates.
+    inline_pattern_cache: HashMap<String, Pattern<String>>,
+
     /// Node buffers for block-based processing (DAW-style)
     /// Each node renders to its own 512-sample buffer
     /// This enables parallel stage execution and eliminates 512x graph traversal
@@ -5053,6 +5064,7 @@ impl Clone for UnifiedSignalGraph {
             value_cache: HashMap::new(), // Fresh cache for cloned instance
             stateful_value_cache: HashMap::new(), // Fresh per-sample cache for cloned instance
             pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
+            inline_pattern_cache: HashMap::new(), // Fresh memo; repopulates lazily
             node_buffers: HashMap::new(), // Fresh buffers for cloned instance
             prev_node_buffers: HashMap::new(), // Fresh DAG feedback buffers
             dag_zero_buffer: vec![0.0; self.buffer_size], // Sized to match buffer_size
@@ -5148,6 +5160,7 @@ impl UnifiedSignalGraph {
             value_cache: HashMap::new(),
             stateful_value_cache: HashMap::new(),
             pattern_event_cache: HashMap::new(),
+            inline_pattern_cache: HashMap::new(),
             node_buffers: HashMap::new(),
             prev_node_buffers: HashMap::new(),
             dag_zero_buffer: vec![0.0; 512], // Default buffer size
@@ -10736,6 +10749,42 @@ impl UnifiedSignalGraph {
         self.eval_signal_at_time(signal, cycle_position)
     }
 
+    /// Query an inline `Signal::Pattern` string at `cycle_pos` WITHOUT re-parsing the
+    /// mini-notation on every call (G6 / pt-F6).
+    ///
+    /// `parse_mini_notation` is a pure function of its input, so the parsed
+    /// `Pattern<String>` is memoized in `inline_pattern_cache`. The first evaluation of a
+    /// given string parses and stores it (one heap allocation total); every subsequent
+    /// sample is a hash lookup + `query`, with NO parse and NO allocation on the audio
+    /// thread. The query span (`[cycle_pos, cycle_pos + sample_width]`) is identical to the
+    /// pre-fix code, so onset timing and event semantics are unchanged.
+    fn query_inline_pattern(
+        &mut self,
+        pattern_str: &str,
+        cycle_pos: f64,
+    ) -> Vec<crate::pattern::Hap<String>> {
+        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+        let state = State {
+            span: TimeSpan::new(
+                Fraction::from_float(cycle_pos),
+                Fraction::from_float(cycle_pos + sample_width),
+            ),
+            controls: HashMap::new(),
+        };
+
+        // Parse only on the first encounter of this string; clone the key exactly once.
+        // `contains_key` + `get` avoids cloning the key on the hot (cache-hit) path.
+        if !self.inline_pattern_cache.contains_key(pattern_str) {
+            let parsed = parse_mini_notation(pattern_str);
+            self.inline_pattern_cache
+                .insert(pattern_str.to_string(), parsed);
+        }
+        self.inline_pattern_cache
+            .get(pattern_str)
+            .expect("inline pattern just inserted")
+            .query(&state)
+    }
+
     /// Evaluate a signal for the note parameter (converts notes to semitone offsets)
     /// Reference pitch is C4 (MIDI 60) = 0 semitones
     fn eval_note_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
@@ -10829,18 +10878,9 @@ impl UnifiedSignalGraph {
                 }
             }
             Signal::Pattern(pattern_str) => {
-                // Parse and evaluate inline pattern at specified cycle position
-                let pattern = parse_mini_notation(pattern_str);
-                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                let state = State {
-                    span: TimeSpan::new(
-                        Fraction::from_float(cycle_pos),
-                        Fraction::from_float(cycle_pos + sample_width),
-                    ),
-                    controls: HashMap::new(),
-                };
-
-                let events = pattern.query(&state);
+                // Evaluate inline pattern at specified cycle position. The parse is memoized
+                // (G6 / pt-F6) so no mini-notation parsing happens on the per-sample path.
+                let events = self.query_inline_pattern(pattern_str, cycle_pos);
                 if let Some(event) = events.first() {
                     let s = event.value.as_str();
                     if s == "~" || s.is_empty() {
@@ -11214,18 +11254,9 @@ impl UnifiedSignalGraph {
                 }
             }
             Signal::Pattern(pattern_str) => {
-                // Parse and evaluate pattern at specified cycle position
-                let pattern = parse_mini_notation(pattern_str);
-                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                let state = State {
-                    span: TimeSpan::new(
-                        Fraction::from_float(cycle_pos),
-                        Fraction::from_float(cycle_pos + sample_width),
-                    ),
-                    controls: HashMap::new(),
-                };
-
-                let events = pattern.query(&state);
+                // Evaluate pattern at specified cycle position. The parse is memoized
+                // (G6 / pt-F6) so no mini-notation parsing happens on the per-sample path.
+                let events = self.query_inline_pattern(pattern_str, cycle_pos);
                 if let Some(event) = events.first() {
                     // Convert pattern value to float
                     // Signal::Pattern is for NUMERIC patterns (frequencies, control values)
