@@ -23714,3 +23714,325 @@ impl UnifiedSignalGraph {
         node_id
     }
 }
+
+/// Render-thread-owned swap wiring for the real audio graph
+/// (task `render-owner-transfer-boundary`, design §4.1/§4.3/§4.5).
+///
+/// This is the concrete [`RenderGraph`](crate::render_swap::RenderGraph)
+/// implementation layered on top of the generic channel primitive in
+/// `src/render_swap.rs`. Every method here runs **on the render thread at a
+/// buffer boundary** (from `RenderSwap::apply_pending_commands`, drained at the
+/// top of the block loop before `process_buffer`), so all work must be in-memory
+/// and bounded. Anything that touches disk (`preload_samples`) or re-parses /
+/// re-compiles the patch stays on the control thread and happens *before* the
+/// [`Cmd::Swap`](crate::render_swap::Cmd::Swap) is enqueued (design §4.4).
+///
+/// The wiring is a **behavior-preserving** move of the existing frontend swap
+/// sequence onto the render thread: it calls the same `transfer_*` functions, in
+/// the same order, with identical voice/FX/timing semantics (design §4.5
+/// non-goals) — the only intended observable difference is that the transfer +
+/// pointer swap now run as one uninterrupted render-thread step, eliminating the
+/// cross-thread borrow race (C1) and the R1/R2/R3 windows.
+impl crate::render_swap::RenderGraph for UnifiedSignalGraph {
+    /// Absorb live state from the outgoing graph `prev` into `self` (the freshly
+    /// compiled incoming graph) at the swap boundary.
+    ///
+    /// Mirrors the transfer sequence the frontends run today
+    /// (`src/main.rs:1207-1211`, `src/modal_editor/mod.rs:773-787`,
+    /// `src/bin/phonon-audio.rs:572-574`, and the glitch harness
+    /// `tests/audio_live_edit_glitch_harness.rs:371-373`), but on the render
+    /// thread with `prev` still exclusively owned:
+    ///
+    /// 1. [`transfer_session_timing`](Self::transfer_session_timing) — carries the
+    ///    wall-clock reference so the beat never jumps (R1). It also calls
+    ///    [`transfer_render_continuity`](Self::transfer_render_continuity), which
+    ///    seeds `self.prev_buffer_tail` so the Phase-4d boundary crossfade fires on
+    ///    `self`'s first block exactly as today (D3 seam behavior unchanged).
+    /// 2. [`transfer_fx_states`](Self::transfer_fx_states) — carries delay / reverb
+    ///    tails.
+    /// 3. [`transfer_voice_manager`](Self::transfer_voice_manager)`(prev.`[`take_voice_manager`](Self::take_voice_manager)`())`
+    ///    — moves the live voice manager across and fades its voices (`release_*`),
+    ///    byte-for-byte as today (design §4.5 non-goal: voice semantics unchanged).
+    ///    Because the take + install happen here and the caller pointer-swaps
+    ///    immediately afterward — all inside one `apply_pending_commands` call
+    ///    between `process_buffer`s — the graph that is rendered next is never
+    ///    voiceless (R3).
+    ///
+    /// `preload_samples` and `enable_wall_clock_timing` are intentionally NOT
+    /// called here: they run on the control thread before the swap is enqueued
+    /// (design §4.4).
+    fn absorb_state(&mut self, prev: &mut Self) {
+        // Immutable-borrow transfers first (timing, then FX tails)...
+        self.transfer_session_timing(prev);
+        self.transfer_fx_states(prev);
+        // ...then the mutable take, which ends only after the shared borrows above.
+        let voices = prev.take_voice_manager();
+        self.transfer_voice_manager(voices);
+    }
+
+    /// `Cmd::Hush` → silence every output channel without tearing down the graph,
+    /// matching the frontends' hush semantics (`hush_all`).
+    fn hush(&mut self) {
+        self.hush_all();
+    }
+
+    /// `Cmd::Panic` → kill every sounding voice and silence all outputs. Uses the
+    /// fully-qualified inherent method so it does not recurse into this trait
+    /// method (both are named `panic`).
+    fn panic(&mut self) {
+        UnifiedSignalGraph::panic(self);
+    }
+
+    /// `Cmd::SetTempo(cps)` → change tempo continuously (rebases without a beat
+    /// teleport, per [`set_cps`](Self::set_cps)).
+    fn set_tempo(&mut self, cps: f64) {
+        self.set_cps(cps as f32);
+    }
+
+    /// `Cmd::SetCycle(cycle)` → jump the absolute cycle position
+    /// ([`set_cycle_position`](Self::set_cycle_position)).
+    fn set_cycle(&mut self, cycle: f64) {
+        self.set_cycle_position(cycle);
+    }
+}
+
+#[cfg(test)]
+mod render_owner_boundary_tests {
+    //! Render-thread-owned boundary-swap tests (task
+    //! `render-owner-transfer-boundary`).
+    //!
+    //! These drive the **real** [`UnifiedSignalGraph`] through the generic
+    //! `render_swap` channel primitive (`src/render_swap.rs`), proving the
+    //! `transfer_*` + pointer-swap sequence runs as one uninterrupted
+    //! render-thread step between `process_buffer` calls (design §4.1, §4.3):
+    //!
+    //! * `test_boundary_swap_no_beat_jump` (R1): the swapped-in graph continues
+    //!   from the outgoing graph's cycle position — the beat never teleports.
+    //! * `test_boundary_swap_no_voiceless_window` (R3): the live voices are carried
+    //!   into the new *current* graph in the same step as the pointer swap, so the
+    //!   rendered graph is never voiceless.
+    use super::UnifiedSignalGraph;
+    use crate::render_swap::render_swap_channel;
+
+    /// Compile a minimal **pure-synth** graph — no dirt-samples on disk are
+    /// required, so these tests are deterministic in any environment.
+    fn synth_graph() -> UnifiedSignalGraph {
+        let (rest, statements) =
+            crate::compositional_parser::parse_program("out $ sine 440 * 0.1").expect("parse");
+        assert!(rest.trim().is_empty(), "unconsumed input: {rest:?}");
+        crate::compositional_compiler::compile_program(statements, 44100.0, None).expect("compile")
+    }
+
+    /// R1: a boundary swap continues the beat from the outgoing graph's position;
+    /// it never jumps back to the freshly-compiled graph's cycle 0.
+    ///
+    /// Deterministic under parallel test load: both graphs share a tempo, so the
+    /// `elapsed * cps` terms in `transfer_session_timing` cancel *exactly* and the
+    /// carried `cycle_offset` is independent of how much wall-clock time passes
+    /// during the transfer (avoids the Instant/elapsed flakiness class).
+    #[test]
+    fn test_boundary_swap_no_beat_jump() {
+        // Old graph is "running" in wall-clock mode at a distinctly non-zero cycle.
+        let mut cur = Box::new(synth_graph());
+        cur.enable_wall_clock_timing();
+        // Pin the clock to cycle ~8 at a fixed tempo (in-crate test: private-field
+        // access OK). Set the field directly so no rebasing perturbs the offset.
+        cur.cps = 0.5;
+        cur.cycle_offset = 8.0;
+        cur.cached_cycle_position = 8.0;
+
+        // Freshly compiled incoming graph starts near cycle 0 — the value the beat
+        // would jump *back* to if the swap skipped the session-timing transfer (the
+        // pre-fix borrow-contention path). Match its tempo to the old graph so the
+        // offset carry is exact.
+        let mut incoming = Box::new(synth_graph());
+        incoming.cps = 0.5;
+        assert!(
+            incoming.get_cycle_position().abs() < 1.0,
+            "fresh graph starts near cycle 0"
+        );
+
+        let (mut tx, mut rsw, _grave) = render_swap_channel::<UnifiedSignalGraph>(8, 8);
+        assert!(tx.swap(incoming).is_ok(), "command ring has room");
+
+        // Boundary swap on the render thread — ALWAYS transfers, never skips.
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+
+        // The swapped-in graph inherited the old graph's clock offset EXACTLY (equal
+        // tempo ⇒ the elapsed-time terms cancel), so the beat continues from ~8 and
+        // never teleports back toward 0 — regardless of transfer latency.
+        assert!(
+            (cur.cycle_offset - 8.0).abs() < 1e-9,
+            "clock offset carried across swap: {} (expected 8.0)",
+            cur.cycle_offset
+        );
+        // And the live position is a continuation of the old beat (>= the ~8 anchor),
+        // never a reset to 0.
+        assert!(
+            cur.current_live_cycle() >= 4.0,
+            "beat did NOT jump back toward zero: {}",
+            cur.current_live_cycle()
+        );
+    }
+
+    /// R3: the live voices are transferred into the new *current* graph in the same
+    /// step as the pointer swap, so the graph that is rendered next is never
+    /// voiceless. Only the retired graph (off the render path) is emptied.
+    #[test]
+    fn test_boundary_swap_no_voiceless_window() {
+        let mut cur = Box::new(synth_graph());
+        cur.enable_wall_clock_timing();
+
+        // Inject active synthesis voices into the OLD graph (deterministic — no
+        // disk samples needed). These are exactly what a hot-swap must carry.
+        const N: usize = 5;
+        {
+            let mut vm = cur.voice_manager.borrow_mut();
+            for _ in 0..N {
+                vm.trigger_synthesis_voice(0, 1.0, 0.0, None, 0.01, 0.5, 0.0);
+            }
+        }
+        assert_eq!(cur.active_voice_count(), N, "old graph has active voices");
+
+        let incoming = Box::new(synth_graph());
+        assert_eq!(incoming.active_voice_count(), 0, "fresh graph is voiceless");
+
+        let (mut tx, mut rsw, mut grave) = render_swap_channel::<UnifiedSignalGraph>(8, 8);
+        assert!(tx.swap(incoming).is_ok(), "command ring has room");
+
+        // Boundary swap: take_voice_manager + transfer_voice_manager + pointer swap
+        // all run inside this ONE call, between process_buffer calls.
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+
+        // The graph rendered NEXT is never voiceless: the voices were moved into it
+        // (released/fading, per the unchanged fade-on-swap semantics), NOT
+        // dropped-to-zero-then-refilled. A released voice stays non-Free while it
+        // fades, so the active count is preserved across the swap.
+        assert_eq!(
+            cur.active_voice_count(),
+            N,
+            "voices carried into the new current graph in the same step as the swap (R3)"
+        );
+
+        // The retired old graph was emptied by take_voice_manager, but it is off the
+        // render path (in the graveyard) — never rendered voiceless.
+        let retired = grave.try_pop().expect("old graph retired to graveyard");
+        assert_eq!(retired.active_voice_count(), 0);
+    }
+
+    /// Integration: a boundary swap performed through the `render_swap` channel and
+    /// applied strictly *between* `process_buffer` calls keeps rendering glitch-free
+    /// and preserves the seam. The Phase-4d crossfade — anchored by
+    /// `transfer_render_continuity`, which `absorb_state` carries automatically
+    /// inside `transfer_session_timing` — makes the first post-swap sample match the
+    /// outgoing graph's last sample, so there is no click. This exercises the full
+    /// render-thread flow the primitive is designed for and pins the D3 seam
+    /// behavior unchanged.
+    #[test]
+    fn test_boundary_swap_render_loop_seam_continuity() {
+        const FRAMES: usize = 256; // stereo frames per buffer (interleaved len = 2×)
+
+        // A loud tone so any *un-smoothed* phase step at the seam would be a large,
+        // easily detected discontinuity: a freshly compiled sine restarts at phase 0
+        // (≈ sample 0), while the outgoing tone is mid-waveform.
+        let code = "out $ sine 200 * 0.8";
+        let compile = |c: &str| {
+            let (rest, st) = crate::compositional_parser::parse_program(c).expect("parse");
+            assert!(rest.trim().is_empty(), "unconsumed input: {rest:?}");
+            crate::compositional_compiler::compile_program(st, 44100.0, None).expect("compile")
+        };
+
+        // Render thread owns the old graph and renders a few buffers.
+        let mut cur = Box::new(compile(code));
+        cur.enable_wall_clock_timing();
+        cur.preload_samples();
+        let mut last_pre = 0.0f32;
+        for _ in 0..4 {
+            let mut buf = vec![0.0f32; FRAMES * 2];
+            cur.process_buffer(&mut buf);
+            last_pre = buf[buf.len() - 2]; // last left-channel sample of this buffer
+        }
+
+        // Control thread compiles + preloads the incoming graph OFF the render
+        // thread (design §4.4) — the render thread only ever runs in-memory work.
+        let mut incoming = Box::new(compile(code));
+        incoming.enable_wall_clock_timing();
+        incoming.preload_samples();
+
+        let (mut tx, mut rsw, grave) = render_swap_channel::<UnifiedSignalGraph>(8, 8);
+        assert!(tx.swap(incoming).is_ok(), "command ring has room");
+
+        // Buffer boundary: drain commands (transfer_* + pointer swap + retire),
+        // THEN render the next buffer — the swap can only take effect between
+        // buffers, never mid-buffer.
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+        assert_eq!(
+            grave.len(),
+            1,
+            "retired graph shipped to graveyard, not dropped on the render thread"
+        );
+
+        // First post-swap buffer.
+        let mut post = vec![0.0f32; FRAMES * 2];
+        cur.process_buffer(&mut post);
+        let first_post = post[0];
+
+        // No NaN/Inf anywhere, and still producing sound (not stuck silent).
+        assert!(post.iter().all(|s| s.is_finite()), "post-swap buffer is finite");
+        let peak = post.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
+        assert!(peak > 0.01, "post-swap graph still renders audio: peak={peak}");
+
+        // Seam continuity: the crossfade makes the first post sample equal the old
+        // graph's last sample — no click. Without the continuity carry the fresh
+        // sine would restart near 0 and leave a step of up to ~0.8.
+        let boundary_delta = (first_post - last_pre).abs();
+        assert!(
+            boundary_delta < 0.05,
+            "seam continuous across channel swap: |{first_post:.4} - {last_pre:.4}| = {boundary_delta:.4}"
+        );
+
+        // Continue rendering — remains finite and audible.
+        for _ in 0..4 {
+            let mut buf = vec![0.0f32; FRAMES * 2];
+            cur.process_buffer(&mut buf);
+            assert!(buf.iter().all(|s| s.is_finite()));
+        }
+    }
+
+    /// The non-swap commands (SetTempo / SetCycle / Hush / Panic) drive the real
+    /// graph's control methods through `apply_pending_commands`, in order. Notably
+    /// this proves `Cmd::Panic` calls the inherent `panic` and does NOT recurse
+    /// into the trait method (both are named `panic`) — an infinite recursion would
+    /// overflow the stack and fail the test.
+    #[test]
+    fn test_boundary_control_commands() {
+        use crate::render_swap::Cmd;
+
+        let mut cur = Box::new(synth_graph());
+        cur.enable_wall_clock_timing();
+        // Give it a voice so Panic has something to kill.
+        cur.voice_manager
+            .borrow_mut()
+            .trigger_synthesis_voice(0, 1.0, 0.0, None, 0.01, 0.5, 0.0);
+        assert_eq!(cur.active_voice_count(), 1);
+
+        let (mut tx, mut rsw, _grave) = render_swap_channel::<UnifiedSignalGraph>(8, 8);
+        assert!(tx.send(Cmd::SetTempo(3.0)).is_ok());
+        assert!(tx.send(Cmd::SetCycle(12.0)).is_ok());
+        assert!(tx.send(Cmd::Hush).is_ok());
+        assert!(tx.send(Cmd::Panic).is_ok());
+
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 4);
+
+        // SetTempo took effect.
+        assert!((cur.get_cps() - 3.0).abs() < 1e-6, "tempo set to 3.0 cps");
+        // SetCycle jumped the absolute position to ~12 (unchanged by hush/panic).
+        assert!(
+            (cur.get_cycle_position() - 12.0).abs() < 0.01,
+            "cycle set to 12, got {}",
+            cur.get_cycle_position()
+        );
+        // Panic killed all voices.
+        assert_eq!(cur.active_voice_count(), 0, "panic killed all voices");
+    }
+}
