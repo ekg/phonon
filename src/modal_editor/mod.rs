@@ -20,7 +20,7 @@ use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
 use crate::midi_input::{MidiEvent, MidiInputHandler, MidiMessageType, MidiRecorder};
 use crate::plugin_host::PluginInstanceManager;
-use crate::unified_graph::UnifiedSignalGraph;
+use crate::unified_graph::{LiveClock, UnifiedSignalGraph};
 use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
@@ -235,6 +235,21 @@ impl ModalEditor {
         thread::spawn(move || {
             // Render in chunks of synthesis_buffer_size samples
             let mut buffer = vec![0.0f32; synthesis_buffer_size];
+            // Frames of cycle-time per chunk. process_buffer_at / process_buffer treat
+            // the buffer as stereo-interleaved (buffer.len()/2 frames), so advance the
+            // live clock by that many samples per chunk (matches src/main.rs).
+            let frames = buffer.len() / 2;
+            // Sample-advancing live clock — THE single source of timing truth
+            // (pattern-timing audit T1 / pt-F1). Advancing by samples emitted (NOT the
+            // wall clock at render time) keeps the pattern on the sample grid even
+            // while this thread renders ahead into the ring, so there is no startup /
+            // post-underrun onset clustering. Tempo comes from the compiled graph; a
+            // C-x swap with a new tempo: rebases via LiveClock::set_cps without
+            // teleporting the position (pt-F2). Mirrors the phonon-live loop (main.rs).
+            let mut clock: Option<LiveClock> = None;
+            // Held so the previously-loaded graph Arc stays alive across iterations —
+            // makes the pointer-identity "did the graph swap?" check ABA-safe.
+            let mut prev_arc: Option<Arc<Option<GraphCell>>> = None;
             let mut iterations = 0u64;
             let mut renders = 0u64;
             let mut sleeps = 0u64;
@@ -269,18 +284,53 @@ impl ModalEditor {
                 ring_fill_clone.store(fill_percent, Ordering::Relaxed);
 
                 if space >= buffer.len() {
-                    // Render a chunk of audio
-                    let graph_snapshot = graph_clone_synth.load();
+                    // Render a chunk of audio. load_full() (owned Arc) so the graph
+                    // pointer stays valid for the ABA-safe swap check below.
+                    let graph_snapshot = graph_clone_synth.load_full();
+                    let is_new_graph = match &prev_arc {
+                        Some(prev) => !Arc::ptr_eq(prev, &graph_snapshot),
+                        None => true,
+                    };
 
-                    if let Some(ref graph_cell) = **graph_snapshot {
+                    if let Some(ref graph_cell) = *graph_snapshot {
                         // Measure synthesis performance
                         let start = std::time::Instant::now();
 
                         // Try to borrow - use try_borrow_mut to avoid panic!
                         match graph_cell.0.try_borrow_mut() {
                             Ok(mut graph) => {
-                                // Synthesize samples using optimized buffer processing
-                                graph.process_buffer(&mut buffer);
+                                // Seed / rebase the live clock, then render with its
+                                // sample-advanced timing (single source of truth).
+                                match clock.as_mut() {
+                                    None => {
+                                        // First graph: seed from its compiled start
+                                        // position so setCycle/resetCycles are honoured.
+                                        clock = Some(LiveClock::new(
+                                            sample_rate,
+                                            graph.get_cps(),
+                                            graph.get_cycle_position(),
+                                        ));
+                                    }
+                                    Some(c) => {
+                                        // Follow the graph tempo, rebasing on change so
+                                        // the position never teleports (pt-F2).
+                                        c.set_cps(graph.get_cps());
+                                        if is_new_graph {
+                                            // Seed the swapped-in graph from the live
+                                            // clock so it continues from the current
+                                            // position instead of re-triggering events
+                                            // between the (wall-clock) transfer position
+                                            // and the sample-advanced position (no C-x burst).
+                                            graph.set_cycle_position(c.position());
+                                        }
+                                    }
+                                }
+
+                                // Advance the clock by exactly this chunk and render
+                                // with that timing (single source of truth).
+                                let c = clock.as_mut().unwrap();
+                                let (start_cycle, increment, cps) = c.advance_buffer(frames);
+                                graph.process_buffer_at(&mut buffer, start_cycle, increment, cps);
                                 renders += 1;
 
                                 let elapsed_us = start.elapsed().as_micros() as usize;
@@ -324,8 +374,11 @@ impl ModalEditor {
                                 if count % 10 == 1 {
                                     eprintln!("⚡ Skipped render during graph swap ({}x)", count);
                                 }
-                                // Don't increment renders counter, don't write to ring buffer
-                                // Just continue to next iteration
+                                // Don't increment renders counter, don't write to ring
+                                // buffer. Skip to the next iteration WITHOUT updating
+                                // prev_arc, so the swap is still detected (and the new
+                                // graph seeded from the clock) on the next attempt.
+                                continue;
                             }
                         }
                     } else {
@@ -341,6 +394,10 @@ impl ModalEditor {
                             eprintln!("⚠️  No graph loaded! ({}x)", count);
                         }
                     }
+
+                    // Remember this graph Arc so the next iteration can detect a swap
+                    // (ABA-safe: the Arc is kept alive here so its address can't be reused).
+                    prev_arc = Some(graph_snapshot);
                 } else {
                     // Ring buffer is full, sleep briefly
                     thread::sleep(StdDuration::from_micros(100));
