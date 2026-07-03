@@ -16,11 +16,13 @@
 //!   cargo run --release --bin glitch_stress -- --seed 42
 
 use phonon::stress_harness::{
-    boundary_delta, count_nonfinite, dc_offset, detect_rms_growth, detect_stuck_voices, inject_click,
-    inject_dc, inject_dropout, inject_nan, is_silent, is_stuck, known_good_pool, max_abs_delta, rms,
-    run_all_scenarios, run_concurrent_session, run_detector_self_tests, run_random_session, sine_buf,
-    Expectation, SessionConfig, Thresholds, SAMPLE_RATE,
+    boundary_delta, build_initial, count_nonfinite, dc_offset, detect_rms_growth,
+    detect_stuck_voices, evaluate_budget, inject_click, inject_dc, inject_dropout, inject_nan,
+    is_silent, is_stuck, known_good_pool, max_abs_delta, rms, run_all_scenarios,
+    run_concurrent_session, run_detector_self_tests, run_random_session, sine_buf, Expectation,
+    SessionConfig, Thresholds, SAMPLE_RATE,
 };
+use std::time::{Duration, Instant};
 
 // ---------------------------------------------------------------------------
 // 1. Detector self-tests (TDD): detectors catch injected defects
@@ -194,6 +196,159 @@ fn test_session_is_reproducible_from_seed() {
         r1.max_boundary_delta.to_bits(),
         r2.max_boundary_delta.to_bits(),
         "boundary delta not reproducible"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 2b. Callback-budget detector: robust to test-runner contention, still catches
+//     a genuinely over-budget program (task make-glitch-stress).
+// ---------------------------------------------------------------------------
+
+/// Burn `target` of real CPU time in a spin loop the optimiser can't elide.
+/// Used to synthesise a genuinely over-budget / spiking render deterministically,
+/// independent of host load.
+fn burn_cpu(target: Duration) {
+    let start = Instant::now();
+    let mut x = 0u64;
+    while start.elapsed() < target {
+        for _ in 0..2048 {
+            x = x.wrapping_mul(6364136223846793005).wrapping_add(1);
+        }
+        std::hint::black_box(x);
+    }
+    std::hint::black_box(x);
+}
+
+fn median_us(xs: &[f64]) -> f64 {
+    let mut v = xs.to_vec();
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    v[v.len() / 2]
+}
+
+/// The standalone real-time budget check must STILL flag a genuinely over-budget
+/// render — the fix must not defang it. Each block here really renders AND burns
+/// > the callback deadline of CPU, so the measured wall time exceeds the deadline
+/// regardless of host load.
+#[test]
+fn test_budget_detector_flags_genuinely_slow_render() {
+    let thr = Thresholds::default();
+    let deadline_us = 512.0 / SAMPLE_RATE as f64 * 1e6; // ~11610 us
+
+    let mut g = build_initial("tempo: 1.0\nout $ sine 110 * 0.3", SAMPLE_RATE)
+        .expect("reference program must compile");
+    let block = 512 * 2;
+    let mut buf = vec![0.0f32; block];
+    let mut render_us = Vec::new();
+    for _ in 0..12 {
+        let t0 = Instant::now();
+        g.process_buffer(&mut buf);
+        // Push the block deliberately over the real-time deadline.
+        burn_cpu(Duration::from_micros((deadline_us * 1.4) as u64));
+        render_us.push(t0.elapsed().as_secs_f64() * 1e6);
+    }
+
+    // Real-time lane on a real-time-capable host (probe ~0): flagged.
+    let v_rt = evaluate_budget(&render_us, deadline_us, 0.0, true, false, &thr);
+    assert!(
+        v_rt.absolute_overrun(&thr) && !v_rt.skipped,
+        "genuinely over-budget render was NOT flagged in the real-time lane: {v_rt:?}"
+    );
+
+    // DEFAULT (cargo test) lane: the SAME over-budget times must NOT hard-fail —
+    // this is the false positive the fix removes.
+    let v_def = evaluate_budget(&render_us, deadline_us, 0.0, false, false, &thr);
+    assert!(
+        v_def.skipped && !v_def.absolute_overrun(&thr),
+        "default (non-real-time) lane hard-failed on a wall-clock overrun: {v_def:?}"
+    );
+}
+
+/// The relative per-block spike detector is normalised to the session's own
+/// median, so it stays valid under global contention AND catches a real
+/// per-block blow-up. A burst of blocks burned to a large multiple of the
+/// measured baseline must trip it — independent of absolute host speed.
+#[test]
+fn test_budget_relative_spike_catches_real_burst() {
+    let thr = Thresholds::default();
+    let deadline_us = 512.0 / SAMPLE_RATE as f64 * 1e6;
+
+    let mut g = build_initial("tempo: 1.0\nout $ sine 110 * 0.3", SAMPLE_RATE)
+        .expect("reference program must compile");
+    let block = 512 * 2;
+    let mut buf = vec![0.0f32; block];
+
+    // Phase 1 — establish the baseline median under the CURRENT host load.
+    let mut warm = Vec::new();
+    for _ in 0..24 {
+        let t0 = Instant::now();
+        g.process_buffer(&mut buf);
+        warm.push(t0.elapsed().as_secs_f64() * 1e6);
+    }
+    let base = median_us(&warm).max(50.0);
+
+    // Phase 2 — half the blocks spike to ~20x the measured baseline (a real CPU
+    // burn), so the spike ratio is host-independent.
+    let mut render_us = warm.clone();
+    for i in 0..40 {
+        let t0 = Instant::now();
+        g.process_buffer(&mut buf);
+        if i % 2 == 0 {
+            burn_cpu(Duration::from_micros((base * 20.0) as u64));
+        }
+        render_us.push(t0.elapsed().as_secs_f64() * 1e6);
+    }
+
+    // ~20 of 64 blocks at ~20x median > the 8x spike gate, and 20/64 > the 20%
+    // block-fraction gate -> a hard defect regardless of the absolute deadline.
+    let v = evaluate_budget(&render_us, deadline_us, 0.0, false, false, &thr);
+    assert!(
+        v.relative_spike(&thr),
+        "real per-block spike burst not detected: spike_fraction={:.3} median={:.0}us",
+        v.relative_spike_fraction,
+        v.session_median_us
+    );
+
+    // A steady (no-burst) session on the same host must NOT trip the spike gate.
+    let steady: Vec<f64> = {
+        let mut s = Vec::new();
+        for _ in 0..48 {
+            let t0 = Instant::now();
+            g.process_buffer(&mut buf);
+            s.push(t0.elapsed().as_secs_f64() * 1e6);
+        }
+        s
+    };
+    let v_steady = evaluate_budget(&steady, deadline_us, 0.0, false, false, &thr);
+    assert!(
+        !v_steady.relative_spike(&thr),
+        "steady render misclassified as a spike: spike_fraction={:.3}",
+        v_steady.relative_spike_fraction
+    );
+}
+
+/// End-to-end: a full seeded session on the KNOWN-GOOD pool must report itself
+/// clean regardless of host load — the budget detector must not manufacture a
+/// false positive from wall-clock inflation. (This is the regression the task
+/// targets; the assertion mirrors the CI gate but is deliberately load-robust.)
+#[test]
+fn test_seeded_session_clean_under_default_lane() {
+    let thr = Thresholds::default();
+    let pool = known_good_pool();
+    let mut cfg = SessionConfig::ci(2718);
+    cfg.target_seconds = 8.0; // shorter; the point is the budget gate, not length
+    // Default lane (enforce_realtime_budget == false): matches `cargo test`.
+    assert!(!cfg.enforce_realtime_budget);
+    let report = run_random_session(&cfg, &pool);
+    assert!(
+        report.is_clean(&thr),
+        "known-good session false-failed under the default lane: {:?}\n{}",
+        report.hard_defects(&thr),
+        report.summary(&thr)
+    );
+    // The absolute overrun must be suppressed (skipped), whatever it measured.
+    assert!(
+        report.budget_check_skipped,
+        "absolute budget check was enforced in the default (cargo test) lane"
     );
 }
 

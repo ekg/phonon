@@ -65,6 +65,14 @@ struct Args {
     #[arg(long, default_value_t = false)]
     self_test: bool,
 
+    /// Measure but do NOT hard-fail on the absolute wall-clock real-time budget
+    /// (for local runs on a shared/loaded box). The relative per-block spike
+    /// check stays active. By default the standalone binary enforces the
+    /// real-time budget, auto-skipping only when its contention probe fires.
+    /// `PHONON_STRESS_FORCE_RT_BUDGET=1` forces enforcement past the probe.
+    #[arg(long, default_value_t = false)]
+    report_budget_only: bool,
+
     /// Verbose per-block progress.
     #[arg(long, default_value_t = false)]
     verbose: bool,
@@ -127,8 +135,21 @@ fn main() {
         cfg.target_seconds = args.seconds;
         cfg.min_swaps = args.swaps;
         cfg.verbose = args.verbose;
+        // The standalone binary is the real-time lane: enforce the absolute
+        // wall-clock deadline (auto-skips under the contention probe) so a
+        // genuinely over-budget program is caught. `--report-budget-only`
+        // downgrades it to report-only for runs on a shared/loaded box.
+        cfg.enforce_realtime_budget = !args.report_budget_only;
         let report = run_random_session(&cfg, &known_good_pool());
         println!("  {}", report.summary(&thr));
+        if report.budget_check_skipped {
+            println!(
+                "  NOTE: absolute real-time budget check SKIPPED — host oversubscribed \
+                 (probe {:.0}us vs deadline {:.0}us). Run on an idle box or set \
+                 PHONON_STRESS_FORCE_RT_BUDGET=1 to enforce.",
+                report.calibration_probe_us, report.deadline_us
+            );
+        }
         if let Some(d) = &report.first_defect {
             println!("  first defect: {d}");
             println!("  reproduce with: --seed {} --random", report.seed);

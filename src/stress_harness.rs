@@ -140,6 +140,24 @@ pub struct Thresholds {
     pub budget_overrun_frac: f64,
     /// Fraction of blocks over budget that hard-fails (robust to jitter).
     pub budget_overrun_block_fraction: f64,
+    /// Contention gate for the *absolute* wall-clock deadline check. A trivial
+    /// reference program is rendered at session start (the calibration probe);
+    /// if its median per-block render time already exceeds
+    /// `contention_probe_frac * deadline`, the environment cannot render even a
+    /// near-zero-work program in real time, so the wall-clock deadline is
+    /// meaningless (oversubscribed test runner / shared CI box). In that case
+    /// the absolute overrun check is SKIPPED (reported, not failed) — see
+    /// [`evaluate_budget`]. The relative spike check below stays active.
+    pub contention_probe_frac: f64,
+    /// A block is a *render-time spike* when it exceeds
+    /// `relative_spike_mult * session_median_render_time`. Because it is
+    /// normalised to the session's own median (which rises together with any
+    /// global contention), this ratio is robust to an oversubscribed runner and
+    /// still catches a catastrophic per-block blow-up (voice-pool realloc storm,
+    /// leak) in ANY environment.
+    pub relative_spike_mult: f64,
+    /// Fraction of spike blocks that hard-fails the relative spike check.
+    pub relative_spike_block_fraction: f64,
 }
 
 impl Default for Thresholds {
@@ -158,6 +176,16 @@ impl Default for Thresholds {
             // program with occasional scheduler jitter overruns <1%. 20% cleanly
             // separates the two and is robust to CI-runner noise.
             budget_overrun_block_fraction: 0.20,
+            // If a trivial reference program can't render in under half the
+            // real-time deadline, the box is not real-time-capable right now
+            // (oversubscribed) and the wall-clock deadline check is skipped.
+            contention_probe_frac: 0.5,
+            // 8x the session's own median with a 20%-of-blocks gate: scheduler
+            // jitter on a loaded box pushes the worst blocks to ~3x median, so
+            // 8x has wide margin, while a realloc/leak storm hits far more than
+            // 20% of blocks at >8x.
+            relative_spike_mult: 8.0,
+            relative_spike_block_fraction: 0.20,
         }
     }
 }
@@ -304,6 +332,165 @@ pub fn budget_overrun_fraction(render_times_s: &[f64], deadline_s: f64, frac: f6
     let limit = frac * deadline_s;
     let over = render_times_s.iter().filter(|&&t| t > limit).count();
     over as f64 / render_times_s.len() as f64
+}
+
+/// Median of an `f64` slice (0.0 when empty). Non-destructive.
+fn median_f64(xs: &[f64]) -> f64 {
+    if xs.is_empty() {
+        return 0.0;
+    }
+    let mut v: Vec<f64> = xs.iter().copied().filter(|x| x.is_finite()).collect();
+    if v.is_empty() {
+        return 0.0;
+    }
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    v[v.len() / 2]
+}
+
+/// Fraction of samples strictly greater than `limit`.
+fn fraction_over(xs: &[f64], limit: f64) -> f64 {
+    if xs.is_empty() {
+        return 0.0;
+    }
+    xs.iter().filter(|&&t| t > limit).count() as f64 / xs.len() as f64
+}
+
+/// Verdict of the callback-budget analysis for one session.
+///
+/// Separates the two independent signals so each is judged on its own terms:
+///   * the **absolute** real-time deadline overrun (meaningful only when the
+///     host can actually deliver real time — gated by the calibration probe),
+///   * the **relative** per-block spike (normalised to the session's own
+///     median, so it stays valid on an oversubscribed test runner).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BudgetVerdict {
+    /// Fraction of blocks over the absolute real-time deadline.
+    pub over_fraction: f64,
+    /// Fraction of blocks over `relative_spike_mult * session_median`.
+    pub relative_spike_fraction: f64,
+    /// Session median per-block render time (µs), the relative baseline.
+    pub session_median_us: f64,
+    /// Calibration-probe median per-block render time (µs) — the cost of a
+    /// trivial program in the current environment.
+    pub probe_us: f64,
+    /// True when the absolute deadline check was skipped because the host is
+    /// oversubscribed (probe over `contention_probe_frac * deadline`) and
+    /// real-time enforcement was not forced.
+    pub skipped: bool,
+    /// Whether real-time enforcement was forced despite contention.
+    pub forced: bool,
+}
+
+impl BudgetVerdict {
+    /// The absolute overrun is a hard defect only when it was not skipped and
+    /// exceeds the block-fraction gate.
+    pub fn absolute_overrun(&self, thr: &Thresholds) -> bool {
+        !self.skipped && self.over_fraction > thr.budget_overrun_block_fraction
+    }
+
+    /// The relative spike check is always active.
+    pub fn relative_spike(&self, thr: &Thresholds) -> bool {
+        self.relative_spike_fraction > thr.relative_spike_block_fraction
+    }
+}
+
+/// Evaluate the callback budget from raw per-block render times.
+///
+/// `render_us`, `deadline_us` and `probe_us` are all in microseconds. `probe_us`
+/// is the calibration-probe median (cost of a trivial reference program in this
+/// environment).
+///
+/// The **absolute** wall-clock deadline check is only meaningful in a real-time
+/// context. Its enforcement has three levels:
+///   * `enforce_requested == false` (the DEFAULT `cargo test` path): the
+///     absolute check is REPORT-ONLY — the overrun is measured but never a hard
+///     defect. This is what keeps a non-real-time, oversubscribed test runner
+///     from false-failing.
+///   * `enforce_requested == true` (the standalone `glitch_stress` real-time
+///     lane): enforce the absolute check UNLESS the calibration probe shows the
+///     host cannot render even a trivial program in real time (auto-skip under
+///     contention, loudly reported).
+///   * `force == true` (`PHONON_STRESS_FORCE_RT_BUDGET=1`, a dedicated isolated
+///     CI lane): enforce unconditionally, ignoring the contention probe.
+///
+/// The **relative** spike check is always active (see [`BudgetVerdict`]).
+///
+/// Pure and deterministic given its inputs — the unit of falsifiable proof that
+/// a genuinely over-budget render IS flagged (enforced lane) and that a
+/// contended runner is skipped, not failed (default lane).
+pub fn evaluate_budget(
+    render_us: &[f64],
+    deadline_us: f64,
+    probe_us: f64,
+    enforce_requested: bool,
+    force: bool,
+    thr: &Thresholds,
+) -> BudgetVerdict {
+    let session_median_us = median_f64(render_us);
+    let over_fraction = budget_overrun_fraction(render_us, deadline_us, thr.budget_overrun_frac);
+    let spike_limit = (session_median_us * thr.relative_spike_mult).max(1.0);
+    let relative_spike_fraction = fraction_over(render_us, spike_limit);
+    let contended = probe_us > thr.contention_probe_frac * deadline_us;
+    let skipped = if force {
+        false
+    } else if !enforce_requested {
+        // Default path: the wall-clock deadline is not a real-time context.
+        true
+    } else {
+        // Real-time lane: enforce unless the host is oversubscribed.
+        contended
+    };
+    BudgetVerdict {
+        over_fraction,
+        relative_spike_fraction,
+        session_median_us,
+        probe_us,
+        skipped,
+        forced: force,
+    }
+}
+
+/// Render a trivial reference program for a fixed number of blocks (after a
+/// short warm-up) and return the median per-block wall-clock render time in µs.
+///
+/// This is the calibration probe: because the program does near-zero work, its
+/// render time is dominated by the environment. On a real-time-capable host it
+/// is a small fraction of the callback deadline; on an oversubscribed test
+/// runner it balloons to (or past) the deadline, which is exactly the signal
+/// [`evaluate_budget`] uses to decide whether the absolute deadline check can be
+/// trusted. Uses its own graph so it never perturbs the seeded swap sequence.
+pub fn calibrate_probe_us(sample_rate: f32, block_frames: usize, channels: usize) -> f64 {
+    // The cheapest possible sounding program — a single sine oscillator.
+    const REF: &str = "tempo: 1.0\nout $ sine 110 * 0.3";
+    let block_len = block_frames * channels;
+    let mut graph = match build_initial(REF, sample_rate) {
+        Ok(g) => g,
+        Err(_) => return 0.0, // never gate on a probe we couldn't build
+    };
+    let warmup = 8usize;
+    let samples = 32usize;
+    let mut buf = vec![0.0f32; block_len];
+    for _ in 0..warmup {
+        graph.process_buffer(&mut buf);
+    }
+    let mut us: Vec<f64> = Vec::with_capacity(samples);
+    for _ in 0..samples {
+        for s in buf.iter_mut() {
+            *s = 0.0;
+        }
+        let t0 = Instant::now();
+        graph.process_buffer(&mut buf);
+        us.push(t0.elapsed().as_secs_f64() * 1e6);
+    }
+    median_f64(&us)
+}
+
+/// Whether a dedicated real-time CI lane has forced enforcement of the absolute
+/// wall-clock deadline check via `PHONON_STRESS_FORCE_RT_BUDGET`.
+pub fn force_realtime_budget() -> bool {
+    std::env::var("PHONON_STRESS_FORCE_RT_BUDGET")
+        .map(|v| v != "0" && !v.is_empty())
+        .unwrap_or(false)
 }
 
 fn median(xs: &[f32]) -> f32 {
@@ -546,6 +733,15 @@ pub struct SessionConfig {
     pub min_swaps: usize,
     pub thresholds: Thresholds,
     pub verbose: bool,
+    /// Request enforcement of the absolute wall-clock real-time deadline check.
+    ///
+    /// Default `false`: under `cargo test` (a non-real-time, oversubscribed
+    /// runner) the wall-clock deadline is meaningless, so the absolute overrun
+    /// is reported but never a hard defect. The standalone `glitch_stress`
+    /// real-time lane sets this `true` (it still auto-skips under a contention
+    /// probe). `PHONON_STRESS_FORCE_RT_BUDGET=1` forces enforcement regardless.
+    /// The relative per-block spike check is always active either way.
+    pub enforce_realtime_budget: bool,
 }
 
 impl SessionConfig {
@@ -561,6 +757,7 @@ impl SessionConfig {
             min_swaps: 50,
             thresholds: Thresholds::default(),
             verbose: false,
+            enforce_realtime_budget: false,
         }
     }
 }
@@ -593,6 +790,17 @@ pub struct SessionReport {
 
     pub budget_overrun_blocks: usize,
     pub budget_overrun_fraction: f64,
+    /// True when the absolute wall-clock deadline check was skipped because the
+    /// host was oversubscribed (calibration probe over the contention gate).
+    /// The overrun is still measured and reported, just not treated as a defect.
+    pub budget_check_skipped: bool,
+    /// True when real-time enforcement was forced despite contention.
+    pub budget_check_forced: bool,
+    /// Median per-block render time of the trivial calibration probe (µs).
+    pub calibration_probe_us: f64,
+    /// Fraction of blocks exceeding `relative_spike_mult * session_median`.
+    pub relative_spike_fraction: f64,
+    pub relative_spike_blocks: usize,
     pub p50_render_us: f64,
     pub p95_render_us: f64,
     pub p99_render_us: f64,
@@ -660,10 +868,25 @@ impl SessionReport {
         if self.stuck_voice_detected {
             v.push(format!("stuck voices (peak {})", self.max_voice_count));
         }
-        if self.budget_overrun_fraction > thr.budget_overrun_block_fraction {
+        // Absolute real-time deadline overrun — a hard defect ONLY when the host
+        // proved real-time-capable (the calibration probe passed). Under an
+        // oversubscribed test runner the wall-clock deadline is meaningless, so
+        // `budget_check_skipped` suppresses it (it is still shown in `summary`).
+        if !self.budget_check_skipped
+            && self.budget_overrun_fraction > thr.budget_overrun_block_fraction
+        {
             v.push(format!(
                 "callback-budget overruns: {:.1}% of blocks over budget",
                 self.budget_overrun_fraction * 100.0
+            ));
+        }
+        // Relative per-block spike — normalised to the session's own median, so
+        // it stays valid under global contention and is always enforced.
+        if self.relative_spike_fraction > thr.relative_spike_block_fraction {
+            v.push(format!(
+                "render-time spikes: {:.1}% of blocks > {:.0}x session median",
+                self.relative_spike_fraction * 100.0,
+                thr.relative_spike_mult
             ));
         }
         v
@@ -681,10 +904,17 @@ impl SessionReport {
         } else {
             format!("DEFECTS: {defects:?}")
         };
+        let budget_mode = if self.budget_check_forced {
+            "FORCED-RT"
+        } else if self.budget_check_skipped {
+            "SKIPPED(contended)"
+        } else {
+            "enforced"
+        };
         format!(
             "seed={} blocks={} swaps={} audio={:.1}s | NaN={} Inf={} clip={} silent_gap={} stuck_out={} \
              max_bnd_delta={:.3} cat_bnd_clk={} dc_blocks={} rms_growth={} max_voices={} \
-             budget_over={:.1}% p50={:.0}us p99={:.0}us max={:.0}us deadline={:.0}us => {}",
+             budget_over={:.1}%[{}] spike={:.1}% probe={:.0}us p50={:.0}us p99={:.0}us max={:.0}us deadline={:.0}us => {}",
             self.seed,
             self.blocks_rendered,
             self.swaps,
@@ -700,6 +930,9 @@ impl SessionReport {
             self.rms_growth_detected,
             self.max_voice_count,
             self.budget_overrun_fraction * 100.0,
+            budget_mode,
+            self.relative_spike_fraction * 100.0,
+            self.calibration_probe_us,
             self.p50_render_us,
             self.p99_render_us,
             self.max_render_us,
@@ -770,6 +1003,15 @@ pub fn run_random_session(cfg: &SessionConfig, pool: &[Program]) -> SessionRepor
         }
     };
     report.swap_sequence.push(current.name.to_string());
+
+    // Calibration probe: measure the per-block cost of a trivial program in the
+    // CURRENT environment, before the timed session. On a real-time-capable host
+    // this is a small fraction of the deadline; on an oversubscribed test runner
+    // it balloons — the signal `evaluate_budget` uses to skip (not fail) the
+    // absolute wall-clock deadline check under contention. Uses its own graph so
+    // the seeded swap sequence is untouched.
+    report.calibration_probe_us =
+        calibrate_probe_us(cfg.sample_rate, cfg.block_frames, cfg.channels);
 
     let mut prev_buf: Vec<f32> = Vec::new();
     let mut prev_prog_code: &str = current.code;
@@ -936,18 +1178,61 @@ pub fn run_random_session(cfg: &SessionConfig, pool: &[Program]) -> SessionRepor
         report.note_defect(format!("stuck voices: peak {peak} > {}", thr.voice_ceiling));
     }
 
-    // `render_us` and the deadline are both in microseconds here.
+    // `render_us` and the deadline are both in microseconds here. The budget
+    // analysis separates the absolute real-time deadline (gated by the
+    // calibration probe — skipped, not failed, under host oversubscription) from
+    // the relative per-block spike (normalised to the session's own median, so
+    // it stays valid on a loaded box). See [`evaluate_budget`].
     let deadline_us = deadline_s * 1e6;
-    let over_frac = budget_overrun_fraction(&render_us, deadline_us, thr.budget_overrun_frac);
-    report.budget_overrun_fraction = over_frac;
+    let force_rt = force_realtime_budget();
+    let enforce_rt = cfg.enforce_realtime_budget || force_rt;
+    let verdict = evaluate_budget(
+        &render_us,
+        deadline_us,
+        report.calibration_probe_us,
+        enforce_rt,
+        force_rt,
+        thr,
+    );
+    report.budget_overrun_fraction = verdict.over_fraction;
+    report.budget_check_skipped = verdict.skipped;
+    report.budget_check_forced = verdict.forced;
+    report.relative_spike_fraction = verdict.relative_spike_fraction;
     report.budget_overrun_blocks = render_us
         .iter()
         .filter(|&&t| t > thr.budget_overrun_frac * deadline_us)
         .count();
-    if over_frac > thr.budget_overrun_block_fraction {
+    let spike_limit = (verdict.session_median_us * thr.relative_spike_mult).max(1.0);
+    report.relative_spike_blocks = render_us.iter().filter(|&&t| t > spike_limit).count();
+    if verdict.absolute_overrun(thr) {
         report.note_defect(format!(
             "callback-budget overruns: {:.1}% of blocks over budget",
-            over_frac * 100.0
+            verdict.over_fraction * 100.0
+        ));
+    } else if verdict.skipped && verdict.over_fraction > thr.budget_overrun_block_fraction {
+        // Loud, non-fatal: the wall-clock overrun is not treated as a defect.
+        let contended = verdict.probe_us > thr.contention_probe_frac * deadline_us;
+        let reason = if !enforce_rt {
+            "non-real-time test lane (enforcement not requested)"
+        } else if contended {
+            "host oversubscribed (probe over the real-time gate)"
+        } else {
+            "real-time budget not enforced"
+        };
+        eprintln!(
+            "  [stress_harness] absolute callback-budget check SKIPPED — {reason}: \
+             probe {:.0}us, deadline {:.0}us, measured overrun {:.1}% (not a defect)",
+            verdict.probe_us,
+            deadline_us,
+            verdict.over_fraction * 100.0
+        );
+    }
+    if verdict.relative_spike(thr) {
+        report.note_defect(format!(
+            "render-time spikes: {:.1}% of blocks > {:.0}x session median ({:.0}us)",
+            verdict.relative_spike_fraction * 100.0,
+            thr.relative_spike_mult,
+            verdict.session_median_us
         ));
     }
 
@@ -1417,7 +1702,7 @@ pub fn run_detector_self_tests() -> Result<usize, String> {
         "bounded voices flagged as leak"
     );
 
-    // --- Callback-budget overrun. ---
+    // --- Callback-budget overrun (raw fraction). ---
     let deadline = 512.0 / SAMPLE_RATE as f64;
     let over: Vec<f64> = vec![deadline * 1.5; 100];
     check!(
@@ -1428,6 +1713,65 @@ pub fn run_detector_self_tests() -> Result<usize, String> {
     check!(
         budget_overrun_fraction(&under, deadline, thr.budget_overrun_frac) < 0.01,
         "under-budget flagged as overrun"
+    );
+
+    // --- Contention-gated absolute deadline check. ---
+    let dl_us = deadline * 1e6;
+    let slow: Vec<f64> = vec![dl_us * 1.5; 100]; // a genuinely over-budget render
+    // (0) DEFAULT (cargo test) path — enforcement NOT requested: even a
+    //     deliberately slow render is REPORT-ONLY, never a hard defect. This is
+    //     the false positive the fix removes: an oversubscribed test runner must
+    //     not fail on wall-clock overruns.
+    let v_default = evaluate_budget(&slow, dl_us, dl_us * 1.5, false, false, &thr);
+    check!(
+        v_default.skipped && !v_default.absolute_overrun(&thr),
+        "default (non-real-time) path hard-failed on a wall-clock overrun"
+    );
+    // (1) Real-time lane on a real-time-capable host (tiny probe): a deliberately
+    //     slow render IS flagged — the standalone real-time check must still bite.
+    let v_rt = evaluate_budget(&slow, dl_us, dl_us * 0.05, true, false, &thr);
+    check!(
+        v_rt.absolute_overrun(&thr) && !v_rt.skipped,
+        "over-budget render not flagged on a real-time-capable host"
+    );
+    // (2) Real-time lane on an oversubscribed host (probe over the deadline): the
+    //     SAME slow render is auto-SKIPPED, not failed.
+    let v_busy = evaluate_budget(&slow, dl_us, dl_us * 1.2, true, false, &thr);
+    check!(
+        v_busy.skipped && !v_busy.absolute_overrun(&thr),
+        "contended host did not skip the absolute budget check"
+    );
+    // (3) Forced real-time lane overrides the contention gate.
+    let v_forced = evaluate_budget(&slow, dl_us, dl_us * 1.2, true, true, &thr);
+    check!(
+        v_forced.forced && v_forced.absolute_overrun(&thr),
+        "forced real-time budget did not override contention"
+    );
+
+    // --- Relative per-block spike (robust to global contention). ---
+    // A burst of blocks far above the session median is a spike, regardless of
+    // the absolute deadline.
+    let mut spiky: Vec<f64> = vec![800.0; 70];
+    spiky.extend(std::iter::repeat(800.0 * 12.0).take(30));
+    let v_spike = evaluate_budget(&spiky, dl_us, dl_us * 0.05, false, false, &thr);
+    check!(
+        v_spike.relative_spike(&thr),
+        "render-time spike burst not detected"
+    );
+    // A uniformly-inflated (contended) session — every block equally slow — is
+    // NOT a spike: the median rises with the contention, so the ratio stays ~1.
+    let uniform_slow: Vec<f64> = vec![dl_us * 1.5; 100];
+    let v_uniform = evaluate_budget(&uniform_slow, dl_us, dl_us * 1.2, false, false, &thr);
+    check!(
+        !v_uniform.relative_spike(&thr),
+        "uniform contention misclassified as a render-time spike"
+    );
+
+    // --- Calibration probe returns a finite, non-negative measurement. ---
+    let probe = calibrate_probe_us(SAMPLE_RATE, 512, 2);
+    check!(
+        probe.is_finite() && probe >= 0.0,
+        "calibration probe returned a non-finite / negative value"
     );
 
     Ok(passed)
