@@ -1921,7 +1921,7 @@ use arc_swap::ArcSwap;
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::HeapRb;
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// Same unsafe primitive the three live paths share
@@ -1950,6 +1950,66 @@ pub struct ConcurrentReport {
     pub notes: Vec<String>,
     /// Running length of the current silent streak (across drain calls).
     running_silent: usize,
+
+    // --- Live-path conformance metrics (I5, `run_concurrent_session_model`) ---
+    // These default to 0 so every existing caller of the concurrent rig is
+    // unaffected; they are only populated by `run_concurrent_session_model`.
+    /// Which frontend swap surface this run modelled (`""` for the legacy rig).
+    pub path_label: &'static str,
+    /// True when this run used the current shared-cell (`ArcSwap<RefCell>`)
+    /// swap protocol; false when it used the render-owner (single-owner) model.
+    pub model_baseline: bool,
+    /// **R1 harm** — swaps whose cross-thread transfer exhausted the
+    /// 50×500 µs retry ceiling and gave up ("could not transfer state" →
+    /// beat jump). Structurally impossible under render-owner.
+    pub could_not_transfer: usize,
+    /// **R1 structural window** — swaps that went through the bounded
+    /// cross-thread retry loop at all (the branch that *can* give up).
+    /// `== transferred swaps` in baseline, `0` under render-owner.
+    pub retry_loop_swaps: usize,
+    /// **R2 harm** — synth-thread render blocks skipped because the reload
+    /// thread held the transfer borrow (`try_borrow_mut` → `Err`). The synth
+    /// starves the ring while it yields. `0` under render-owner (no borrow).
+    pub synth_borrow_skips: usize,
+    /// **R2 structural window** — cross-thread transfer borrows held on the
+    /// published graph. `== transferred swaps` in baseline, `0` under
+    /// render-owner (the transfer never crosses a thread boundary).
+    pub transfer_windows: usize,
+    /// **R3 structural window** — swaps that stripped the *published* graph's
+    /// voice manager (`take_voice_manager`) while it was still the live graph,
+    /// before `store` republished the new one. `== transferred swaps` in
+    /// baseline; `0` under render-owner (take+install+swap is one step).
+    pub voiceless_window_opened: usize,
+    /// **R3 harm** — synth render blocks that actually rendered the published
+    /// graph inside that voice-stripped window.
+    pub voiceless_window_blocks: usize,
+    /// **D3 seam** — largest sample-to-sample delta observed at a swap
+    /// boundary (should stay within the landed crossfade envelope, i.e. below
+    /// `Thresholds::boundary_click_catastrophic`).
+    pub max_swap_boundary_delta: f32,
+}
+
+/// The subset of a [`ConcurrentReport`] that the live-path conformance suite
+/// treats as the **invariant vector**: the guarantees that must hold for every
+/// swap path and be *identical* across paths for a given seed once the
+/// render-owner migration lands. Deliberately excludes timing-dependent figures
+/// (block counts, underruns) so cross-path equality is not flaky.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConformanceInvariants {
+    /// C1 — the synth thread never died.
+    pub synth_thread_alive: bool,
+    /// C1 — no long stuck-silence stretch.
+    pub no_permanent_silence: bool,
+    /// C1 — no non-finite sample reached the device.
+    pub nonfinite_free: bool,
+    /// R1 — no swap gave up its state transfer.
+    pub r1_transfer_never_gave_up: bool,
+    /// R2 — the synth thread was never starved by a transfer borrow.
+    pub r2_no_synth_starvation: bool,
+    /// R3 — no swap left the published graph voiceless.
+    pub r3_no_voiceless_window: bool,
+    /// D3 — every swap seam stayed within the crossfade envelope.
+    pub seam_within_envelope: bool,
 }
 
 impl ConcurrentReport {
@@ -1975,6 +2035,31 @@ impl ConcurrentReport {
 
     pub fn is_clean(&self) -> bool {
         self.hard_defects().is_empty()
+    }
+
+    /// Distil the report down to the conformance invariant vector (see
+    /// [`ConformanceInvariants`]). `seam_envelope` is the crossfade-envelope
+    /// ceiling for the swap seam (typically
+    /// [`Thresholds::boundary_click_catastrophic`]).
+    pub fn invariant_vector(&self, seam_envelope: f32) -> ConformanceInvariants {
+        ConformanceInvariants {
+            synth_thread_alive: self.synth_thread_alive,
+            no_permanent_silence: !self.permanent_silence,
+            nonfinite_free: self.nonfinite_in_output == 0,
+            r1_transfer_never_gave_up: self.could_not_transfer == 0,
+            r2_no_synth_starvation: self.synth_borrow_skips == 0,
+            r3_no_voiceless_window: self.voiceless_window_opened == 0,
+            seam_within_envelope: self.max_swap_boundary_delta < seam_envelope,
+        }
+    }
+
+    /// The R1/R2/R3 *structural windows* this run exposed — the concurrency
+    /// hazards the render-owner model is meant to eliminate. Used by the
+    /// baseline arm of the conformance suite to prove the hazards are present
+    /// on the current protocol (so the POST arm's all-green result is
+    /// meaningful, not vacuous).
+    pub fn exposes_r_windows(&self) -> bool {
+        self.retry_loop_swaps > 0 || self.transfer_windows > 0 || self.voiceless_window_opened > 0
     }
 }
 
@@ -2218,6 +2303,509 @@ fn drain_consumer(
             report.running_silent = 0;
         }
     }
+}
+
+// ===========================================================================
+// Live-path conformance driver (ENABLER I5 — design-render-owner-swap §6.B)
+//
+// `run_concurrent_session_mode` (above) proves the current shared-cell protocol
+// does not *panic*. It cannot show the R1/R2/R3 windows that the render-owner
+// migration is meant to close, and it has no notion of *which* frontend surface
+// is being exercised. This driver extends the same concurrent rig along two
+// axes so the I5 conformance suite (`tests/live_path_conformance.rs`) can run an
+// identical scenario matrix against every frontend and compare an identical
+// invariant vector:
+//
+//   * `LivePath`  — the three reachable frontend swap surfaces. They currently
+//     share one swap protocol (design §3), differing only in the render call
+//     (`phonon-audio` renders on an external clock via `process_buffer_at`).
+//   * `SwapModel` — `SharedCellBaseline` reproduces today's cross-thread
+//     `ArcSwap<RefCell>` transfer (with its R1 retry-ceiling, R2 synth-borrow
+//     starvation, and R3 voiceless-published window instrumented); `RenderOwner`
+//     models the target — a single-owner graph on the render thread, an SPSC
+//     command channel, an in-thread buffer-boundary transfer, and a graveyard
+//     drop — under which all three windows are structurally absent.
+//
+// No frontend engine code is touched: both models are built here out of the
+// same public graph API the frontends call.
+// ===========================================================================
+
+/// The reachable frontend swap surfaces exercised by the conformance suite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LivePath {
+    /// `phonon live` — wall-clock render (`process_buffer`), file-watch trigger
+    /// (`src/main.rs`).
+    PhononLive,
+    /// `phonon-audio` — external-clock render (`process_buffer_at`), IPC trigger
+    /// (`src/bin/phonon-audio.rs`).
+    PhononAudio,
+    /// modal editor — wall-clock render, Ctrl-x trigger
+    /// (`src/modal_editor/mod.rs`).
+    ModalEditor,
+}
+
+impl LivePath {
+    /// Every reachable path — the conformance matrix runs the full set.
+    pub const ALL: [LivePath; 3] = [
+        LivePath::PhononLive,
+        LivePath::PhononAudio,
+        LivePath::ModalEditor,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            LivePath::PhononLive => "phonon-live",
+            LivePath::PhononAudio => "phonon-audio",
+            LivePath::ModalEditor => "modal-editor",
+        }
+    }
+
+    /// `phonon-audio` renders on an external clock (`process_buffer_at`); the
+    /// wall-clock frontends use `process_buffer`.
+    fn external_clock(self) -> bool {
+        matches!(self, LivePath::PhononAudio)
+    }
+}
+
+/// The swap mechanism under test. See the module comment above.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SwapModel {
+    /// Today's protocol: `Arc<ArcSwap<Option<GraphCell(RefCell)>>>` with a
+    /// cross-thread `try_borrow_mut` transfer bounded by a 50×500 µs retry
+    /// ceiling. Exhibits R1/R2/R3.
+    SharedCellBaseline,
+    /// The render-owner target: single-owner render-thread graph, SPSC command
+    /// channel, in-thread buffer-boundary transfer, graveyard drop. No
+    /// cross-thread borrow → no R1/R2/R3.
+    RenderOwner,
+}
+
+impl SwapModel {
+    pub fn label(self) -> &'static str {
+        match self {
+            SwapModel::SharedCellBaseline => "shared-cell-baseline",
+            SwapModel::RenderOwner => "render-owner",
+        }
+    }
+}
+
+/// Atomically fold `val` into the running max stored (as f32 bits) in `slot`.
+fn atomic_max_f32(slot: &AtomicU32, val: f32) {
+    if !val.is_finite() {
+        return;
+    }
+    let mut cur = slot.load(Ordering::Relaxed);
+    loop {
+        if val <= f32::from_bits(cur) {
+            break;
+        }
+        match slot.compare_exchange_weak(cur, val.to_bits(), Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => break,
+            Err(actual) => cur = actual,
+        }
+    }
+}
+
+/// Run a concurrent swap session for one `path` under one `model`.
+///
+/// This is the shared primitive the live-path conformance suite targets — the
+/// path/model-parameterised extension of [`run_concurrent_session_mode`]. The
+/// returned [`ConcurrentReport`] carries both the structural invariants (C1) and
+/// the R1/R2/R3/D3 conformance metrics; reduce it to the comparable
+/// [`ConformanceInvariants`] with [`ConcurrentReport::invariant_vector`].
+pub fn run_concurrent_session_model(
+    cfg: &SessionConfig,
+    pool: &[Program],
+    num_swaps: usize,
+    path: LivePath,
+    model: SwapModel,
+) -> ConcurrentReport {
+    match model {
+        SwapModel::SharedCellBaseline => run_baseline_shared_cell(cfg, pool, num_swaps, path),
+        SwapModel::RenderOwner => run_render_owner(cfg, pool, num_swaps, path),
+    }
+}
+
+/// Baseline: today's cross-thread `ArcSwap<RefCell>` swap, instrumented for the
+/// R1/R2/R3 windows.
+fn run_baseline_shared_cell(
+    cfg: &SessionConfig,
+    pool: &[Program],
+    num_swaps: usize,
+    path: LivePath,
+) -> ConcurrentReport {
+    assert!(!pool.is_empty());
+    let mut rng = Rng::new(cfg.seed);
+    let sr = cfg.sample_rate;
+    let block_frames = cfg.block_frames;
+    let channels = cfg.channels;
+    let block_len = block_frames * channels;
+    let external = path.external_clock();
+
+    let mut report = ConcurrentReport {
+        seed: cfg.seed,
+        path_label: path.label(),
+        model_baseline: true,
+        ..Default::default()
+    };
+
+    let initial = rng.choose(pool).clone();
+    let initial_graph = match build_initial(initial.code, sr) {
+        Ok(g) => g,
+        Err(e) => {
+            report.notes.push(format!("initial compile failed: {e}"));
+            report.synth_thread_alive = true; // never spawned
+            return report;
+        }
+    };
+
+    let graph: Arc<ArcSwap<Option<GraphCell>>> =
+        Arc::new(ArcSwap::from_pointee(Some(GraphCell(RefCell::new(initial_graph)))));
+    let ring = HeapRb::<f32>::new((sr as usize) * channels);
+    let (mut prod, mut cons) = ring.split();
+
+    let stop = Arc::new(AtomicBool::new(false));
+    // Set while the published graph has had its voice manager taken but has not
+    // yet been replaced by `store` (the R3 window).
+    let voiceless_published = Arc::new(AtomicBool::new(false));
+    // Bumped by the control thread on every `store`, so the synth thread can
+    // spot the first post-swap block and measure its seam.
+    let generation = Arc::new(AtomicUsize::new(0));
+    let skips = Arc::new(AtomicUsize::new(0));
+    let voiceless_blocks = Arc::new(AtomicUsize::new(0));
+    let seam_bits = Arc::new(AtomicU32::new(0));
+
+    // --- Synth thread: render through try_borrow_mut+skip, push to ring. ---
+    let synth_graph = Arc::clone(&graph);
+    let synth_stop = Arc::clone(&stop);
+    let synth_voiceless = Arc::clone(&voiceless_published);
+    let synth_gen = Arc::clone(&generation);
+    let synth_skips = Arc::clone(&skips);
+    let synth_vblocks = Arc::clone(&voiceless_blocks);
+    let synth_seam = Arc::clone(&seam_bits);
+    let synth = std::thread::spawn(move || {
+        let mut buf = vec![0.0f32; block_len];
+        let mut prev_tail: Option<f32> = None;
+        let mut last_gen = synth_gen.load(Ordering::Relaxed);
+        let mut ext_cycle = 0.0f64;
+        while !synth_stop.load(Ordering::Relaxed) {
+            let snapshot = synth_graph.load();
+            match &**snapshot {
+                Some(cell) => match cell.0.try_borrow_mut() {
+                    Ok(mut g) => {
+                        for s in buf.iter_mut() {
+                            *s = 0.0;
+                        }
+                        let cur_gen = synth_gen.load(Ordering::Relaxed);
+                        if external {
+                            let cps = g.get_cps();
+                            let incr = cps as f64 / sr as f64;
+                            g.process_buffer_at(&mut buf, ext_cycle, incr, cps);
+                            ext_cycle += incr * block_frames as f64;
+                        } else {
+                            g.process_buffer(&mut buf);
+                        }
+                        // R3 harm: rendered the *published* graph while its voice
+                        // manager had already been taken (pre-`store` window).
+                        if synth_voiceless.load(Ordering::Relaxed) {
+                            synth_vblocks.fetch_add(1, Ordering::Relaxed);
+                        }
+                        drop(g);
+                        // D3 seam: the first block observed after a `store`.
+                        if cur_gen != last_gen {
+                            if let Some(pt) = prev_tail {
+                                let seam =
+                                    boundary_delta(pt, buf.first().copied().unwrap_or(0.0));
+                                atomic_max_f32(&synth_seam, seam);
+                            }
+                            last_gen = cur_gen;
+                        }
+                        prev_tail = buf.last().copied();
+                        if prod.vacant_len() >= buf.len() {
+                            prod.push_slice(&buf);
+                        }
+                        // Model a real audio callback's inter-block gap. A greedy
+                        // spin holds the RefCell ~100% of the time, which is
+                        // *unfaithful*: a real callback renders one block per
+                        // block-period (~11.6 ms) and the borrow is free the rest
+                        // of the time, so a reload almost always wins its borrow.
+                        // A short release here restores that: reloads reliably
+                        // complete their transfer (R2/R3 windows open), the synth
+                        // is still occasionally caught mid-transfer (R2 skips),
+                        // and R1 give-ups become the rare tail event they are in
+                        // practice — without the greedy spin's pathological
+                        // all-give-up storms.
+                        std::thread::sleep(Duration::from_micros(250));
+                    }
+                    Err(_) => {
+                        // R2 harm: reload thread holds the transfer borrow — the
+                        // synth starves the ring while it yields.
+                        synth_skips.fetch_add(1, Ordering::Relaxed);
+                        std::thread::yield_now();
+                    }
+                },
+                None => {
+                    let silence = vec![0.0f32; block_len];
+                    if prod.vacant_len() >= silence.len() {
+                        prod.push_slice(&silence);
+                    }
+                }
+            }
+        }
+    });
+
+    // --- Control thread == this thread: issue swaps, drain the ring. ---
+    std::thread::sleep(Duration::from_millis(5));
+    for i in 0..num_swaps {
+        let gap_us = if i > num_swaps / 3 && i < num_swaps / 2 {
+            rng.range_f32(50.0, 300.0)
+        } else {
+            rng.range_f32(300.0, 3000.0)
+        };
+        std::thread::sleep(Duration::from_micros(gap_us as u64));
+
+        let target = rng.choose(pool).clone();
+        let mut new_graph = match compile_graph(target.code, sr) {
+            Ok(g) => g,
+            Err(e) => {
+                report.notes.push(format!("swap {i} compile failed: {e}"));
+                continue;
+            }
+        };
+        new_graph.enable_wall_clock_timing();
+
+        let snapshot = graph.load();
+        if let Some(cell) = &**snapshot {
+            // R1 structural window: the bounded cross-thread retry loop that
+            // *can* give up.
+            report.retry_loop_swaps += 1;
+            let mut transferred = false;
+            for _ in 0..50 {
+                match cell.0.try_borrow_mut() {
+                    Ok(mut old) => {
+                        // R2 structural window: a transfer borrow held on the
+                        // published graph across the transfer.
+                        report.transfer_windows += 1;
+                        new_graph.transfer_session_timing(&old);
+                        new_graph.transfer_fx_states(&old);
+                        // R3 structural window opens here: the published graph's
+                        // voices are taken but it stays published until `store`.
+                        new_graph.transfer_voice_manager(old.take_voice_manager());
+                        report.voiceless_window_opened += 1;
+                        voiceless_published.store(true, Ordering::Relaxed);
+                        transferred = true;
+                        break;
+                    }
+                    Err(_) => std::thread::sleep(Duration::from_micros(500)),
+                }
+            }
+            if !transferred {
+                // R1 harm: gave up → the swapped-in graph keeps its own timing
+                // (the beat-jump branch).
+                report.could_not_transfer += 1;
+                report
+                    .notes
+                    .push(format!("swap {i}: could not transfer state (R1 window)"));
+            }
+        }
+        drop(snapshot);
+        new_graph.preload_samples();
+        graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+        generation.fetch_add(1, Ordering::Relaxed);
+        // R3 window closes: the new graph (with voices) is now published.
+        voiceless_published.store(false, Ordering::Relaxed);
+        report.swaps += 1;
+        drain_consumer(&mut cons, block_len, &mut report);
+    }
+
+    // Drain a tail so post-swap audio is observed (>= the permanent-silence
+    // detection window of 0.5 s of blocks).
+    for _ in 0..24 {
+        std::thread::sleep(Duration::from_micros(
+            (block_frames as f64 / sr as f64 * 1e6) as u64,
+        ));
+        drain_consumer(&mut cons, block_len, &mut report);
+    }
+
+    stop.store(true, Ordering::Relaxed);
+    report.synth_thread_alive = synth.join().is_ok();
+    report.synth_borrow_skips = skips.load(Ordering::Relaxed);
+    report.voiceless_window_blocks = voiceless_blocks.load(Ordering::Relaxed);
+    report.max_swap_boundary_delta = f32::from_bits(seam_bits.load(Ordering::Relaxed));
+
+    let silence_block_limit = ((0.5 * sr as f64) / block_frames as f64) as usize;
+    if report.max_consecutive_silent > silence_block_limit && report.consumer_blocks > 0 {
+        report.permanent_silence = true;
+    }
+    report
+}
+
+/// A command handed from the control thread to the render-owner thread.
+enum RenderCmd {
+    /// Take ownership of this compiled+preloaded graph and swap it in at the
+    /// next buffer boundary.
+    Swap(Box<UnifiedSignalGraph>),
+}
+
+/// Render-owner target model: the graph is a plain local owned solely by the
+/// render thread. The control thread compiles+preloads off-thread and hands the
+/// finished graph over an SPSC command channel; the render thread applies the
+/// transfer in-thread at a buffer boundary and ships the retired graph to a
+/// janitor for off-thread drop. No `RefCell`, no cross-thread borrow → the
+/// R1/R2/R3 windows are structurally absent.
+fn run_render_owner(
+    cfg: &SessionConfig,
+    pool: &[Program],
+    num_swaps: usize,
+    path: LivePath,
+) -> ConcurrentReport {
+    assert!(!pool.is_empty());
+    let mut rng = Rng::new(cfg.seed);
+    let sr = cfg.sample_rate;
+    let block_frames = cfg.block_frames;
+    let channels = cfg.channels;
+    let block_len = block_frames * channels;
+    let external = path.external_clock();
+
+    let mut report = ConcurrentReport {
+        seed: cfg.seed,
+        path_label: path.label(),
+        model_baseline: false,
+        ..Default::default()
+    };
+
+    let initial = rng.choose(pool).clone();
+    let initial_graph = match build_initial(initial.code, sr) {
+        Ok(g) => g,
+        Err(e) => {
+            report.notes.push(format!("initial compile failed: {e}"));
+            report.synth_thread_alive = true; // never spawned
+            return report;
+        }
+    };
+
+    let ring = HeapRb::<f32>::new((sr as usize) * channels);
+    let (mut prod, mut cons) = ring.split();
+    // Bounded command channel (models the design's SPSC command ring); the
+    // graveyard channel carries retired graphs to a janitor for off-thread drop.
+    let (cmd_tx, cmd_rx) = std::sync::mpsc::sync_channel::<RenderCmd>(8);
+    let (grave_tx, grave_rx) = std::sync::mpsc::channel::<Box<UnifiedSignalGraph>>();
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let seam_bits = Arc::new(AtomicU32::new(0));
+
+    // Janitor: drops retired graphs off the render thread.
+    let janitor = std::thread::spawn(move || {
+        while let Ok(g) = grave_rx.recv() {
+            drop(g);
+        }
+    });
+
+    // --- Render thread: sole owner of `cur`. ---
+    let synth_stop = Arc::clone(&stop);
+    let synth_seam = Arc::clone(&seam_bits);
+    let synth = std::thread::spawn(move || {
+        let mut cur = initial_graph;
+        let mut buf = vec![0.0f32; block_len];
+        let mut prev_tail: Option<f32> = None;
+        let mut ext_cycle = 0.0f64;
+        while !synth_stop.load(Ordering::Relaxed) {
+            // Buffer-boundary command drain — before the render call, so a swap
+            // only ever takes effect *between* buffers.
+            let mut swapped = false;
+            while let Ok(cmd) = cmd_rx.try_recv() {
+                match cmd {
+                    RenderCmd::Swap(next) => {
+                        let mut next = *next;
+                        // In-thread transfer: read the still-owned `cur`, write
+                        // `next`, then swap the owned pointer as one step.
+                        next.transfer_session_timing(&cur);
+                        next.transfer_fx_states(&cur);
+                        next.transfer_voice_manager(cur.take_voice_manager());
+                        let retired = std::mem::replace(&mut cur, next);
+                        let _ = grave_tx.send(Box::new(retired));
+                        swapped = true;
+                    }
+                }
+            }
+            for s in buf.iter_mut() {
+                *s = 0.0;
+            }
+            if external {
+                let cps = cur.get_cps();
+                let incr = cps as f64 / sr as f64;
+                cur.process_buffer_at(&mut buf, ext_cycle, incr, cps);
+                ext_cycle += incr * block_frames as f64;
+            } else {
+                cur.process_buffer(&mut buf);
+            }
+            if swapped {
+                if let Some(pt) = prev_tail {
+                    let seam = boundary_delta(pt, buf.first().copied().unwrap_or(0.0));
+                    atomic_max_f32(&synth_seam, seam);
+                }
+            }
+            prev_tail = buf.last().copied();
+            if prod.vacant_len() >= buf.len() {
+                prod.push_slice(&buf);
+            }
+            // Match the baseline's block cadence (CPU-polite; the render-owner
+            // invariants are timing-independent, so this does not affect them).
+            std::thread::sleep(Duration::from_micros(250));
+        }
+    });
+
+    // --- Control thread == this thread: compile+preload off-thread, hand over. ---
+    std::thread::sleep(Duration::from_millis(5));
+    for i in 0..num_swaps {
+        let gap_us = if i > num_swaps / 3 && i < num_swaps / 2 {
+            rng.range_f32(50.0, 300.0)
+        } else {
+            rng.range_f32(300.0, 3000.0)
+        };
+        std::thread::sleep(Duration::from_micros(gap_us as u64));
+
+        let target = rng.choose(pool).clone();
+        let mut new_graph = match compile_graph(target.code, sr) {
+            Ok(g) => g,
+            Err(e) => {
+                report.notes.push(format!("swap {i} compile failed: {e}"));
+                continue;
+            }
+        };
+        new_graph.enable_wall_clock_timing();
+        // Disk I/O stays on the control thread (design §4.4).
+        new_graph.preload_samples();
+        if cmd_tx.send(RenderCmd::Swap(Box::new(new_graph))).is_ok() {
+            report.swaps += 1;
+        }
+        drain_consumer(&mut cons, block_len, &mut report);
+    }
+
+    // Drain a tail so post-swap audio is observed.
+    for _ in 0..24 {
+        std::thread::sleep(Duration::from_micros(
+            (block_frames as f64 / sr as f64 * 1e6) as u64,
+        ));
+        drain_consumer(&mut cons, block_len, &mut report);
+    }
+
+    stop.store(true, Ordering::Relaxed);
+    report.synth_thread_alive = synth.join().is_ok();
+    // The render thread has exited, dropping its `grave_tx`; closing the command
+    // channel and letting the janitor observe the closed graveyard shuts it down.
+    drop(cmd_tx);
+    let _ = janitor.join();
+
+    report.max_swap_boundary_delta = f32::from_bits(seam_bits.load(Ordering::Relaxed));
+    // R1/R2/R3 metrics stay 0 by construction: no retry loop, no cross-thread
+    // borrow, no pre-`store` voiceless window.
+
+    let silence_block_limit = ((0.5 * sr as f64) / block_frames as f64) as usize;
+    if report.max_consecutive_silent > silence_block_limit && report.consumer_blocks > 0 {
+        report.permanent_silence = true;
+    }
+    report
 }
 
 // ===========================================================================

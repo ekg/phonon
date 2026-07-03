@@ -1,0 +1,24 @@
+# Smoke gate manifest (phonon)
+#
+# `wg done <task>` runs every scenario whose `owners` list contains the task
+# id. If any scenario FAILs (any non-zero exit code other than 77), `wg done`
+# refuses with the broken scenario name. Exit 77 = loud SKIP. Exit 0 = PASS.
+#
+# This manifest is grow-only: every regression a smoke would have caught becomes
+# a permanent scenario. Do not delete entries — extend.
+#
+# Scenarios run as `bash <script>` from the directory containing this manifest
+# (tests/smoke/). Each receives `WG_SMOKE_SCENARIO` and `WG_SMOKE_TIMEOUT_SECS`.
+#
+# Owners are task ids (kebab-case): the task that introduced the guarded
+# behavior and any tasks that must keep it green.
+
+[[scenario]]
+name = "render_owner_live_path_conformance"
+script = "scenarios/render_owner_live_path_conformance.sh"
+owners = [
+    "render-owner-conformance-suite",
+    "verify-render-owner-swap",
+]
+description = "Live-path unification conformance suite (I5 / test-gap P2-A): runs the same scenario matrix against every frontend swap path (phonon-live / phonon-audio / modal) through the shared concurrent primitive, under both the shared-cell baseline (must expose the R1 give-up / R2 synth-starvation / R3 voiceless-published windows) and the render-owner model (must close every window with an identical, all-green invariant vector across all paths: no permanent silence, synth thread alive, zero could-not-transfer, no swap-underrun, no voiceless window, swap seam within the D3 crossfade envelope). Pins design-render-owner-swap-2026-07.md §6.B."
+timeout_seconds = 600
