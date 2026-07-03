@@ -84,13 +84,24 @@
 use crate::envelope::VoiceEnvelope;
 use crate::sample_loader::StereoSample;
 use rayon::prelude::*;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 #[cfg(target_arch = "x86_64")]
 use crate::voice_simd::{apply_panning_simd_x8, interpolate_samples_simd_x8, is_avx2_supported};
 
-/// Default initial voice pool size (preallocated to avoid growth underruns)
-const DEFAULT_INITIAL_VOICES: usize = 256;
+/// Default pre-grown voice ceiling for the product path (`VoiceManager::new()`).
+///
+/// F-4 (rt-safety audit): the pool is grown to this ceiling **once, at
+/// construction** (compile/reload — off the synth thread). During rendering the
+/// synth thread never allocates: when all voices are busy a new trigger *steals*
+/// the oldest voice instead of `push`ing new ones (which would heap-realloc and
+/// memcpy the whole voice Vec, and `eprintln!`, mid-render → underrun).
+///
+/// 512 comfortably exceeds the 256 pool that dense `s "bd*16"` layered patterns
+/// used to exhaust, while keeping the per-block free-voice sweep cheap. It never
+/// exceeds `ABSOLUTE_MAX_VOICES`.
+const DEFAULT_VOICE_CEILING: usize = 512;
 
 /// Absolute maximum voices (hard cap)
 /// With parallel SIMD, we can handle 1000-2000 voices in real-time
@@ -765,11 +776,14 @@ pub struct VoiceManager {
     /// Maximum voices allowed (None = unlimited)
     max_voices: Option<usize>,
 
+    /// Pre-grown voice ceiling: the pool is filled to this size at construction
+    /// (off the synth thread) and never grows past it during rendering. On
+    /// exhaustion the synth thread steals the oldest voice instead of allocating.
+    /// Always `<= ABSOLUTE_MAX_VOICES`. (F-4 — `preallocate-voice-pool`.)
+    voice_ceiling: usize,
+
     /// Initial voice pool size
     initial_voices: usize,
-
-    /// Sample counter for periodic pool shrinking
-    shrink_counter: usize,
 
     /// Performance monitoring: peak voice count
     peak_voice_count: usize,
@@ -788,6 +802,16 @@ pub struct VoiceManager {
 
     /// Performance tracking: samples processed since last adjustment
     samples_since_adjustment: usize,
+
+    /// F-4 telemetry: number of voices added on-demand *after* construction
+    /// (i.e. synth-thread growth). With the pool pre-grown to `voice_ceiling`
+    /// this stays 0 during steady-state rendering. Counted atomically so a
+    /// monitor thread can report it off the synth thread.
+    growth_events: AtomicU64,
+
+    /// F-4 telemetry: number of voices stolen because the pool was saturated at
+    /// the ceiling. Counted atomically for off-thread reporting.
+    steal_events: AtomicU64,
 }
 
 impl Default for VoiceManager {
@@ -797,10 +821,17 @@ impl Default for VoiceManager {
 }
 
 impl VoiceManager {
-    /// Create a new VoiceManager with unlimited voices (grows dynamically from 256)
-    /// Preallocates 256 voices to avoid underruns during startup
+    /// Create a new VoiceManager for the product path.
+    ///
+    /// The pool is **pre-grown to `DEFAULT_VOICE_CEILING` at construction** (off
+    /// the synth thread). During rendering the synth thread never allocates: on
+    /// exhaustion it steals the oldest voice rather than growing the pool. This
+    /// eliminates the F-4 render-time spike (heap realloc/memcpy + `eprintln!`
+    /// on the synth thread when a dense pattern saturated the pool).
     pub fn new() -> Self {
-        Self::with_config(DEFAULT_INITIAL_VOICES, Some(ABSOLUTE_MAX_VOICES))
+        // initial == ceiling ⇒ the pool is fully populated at construction, so
+        // no growth is ever needed on the synth thread.
+        Self::with_config(DEFAULT_VOICE_CEILING, Some(DEFAULT_VOICE_CEILING))
     }
 
     /// Create a new VoiceManager with specified max voices (deprecated, use with_config)
@@ -836,7 +867,15 @@ impl VoiceManager {
         let initial_voices = initial_voices.clamp(1, ABSOLUTE_MAX_VOICES);
         let max_voices = max_voices.map(|m| m.min(ABSOLUTE_MAX_VOICES));
 
-        let mut voices = Vec::with_capacity(initial_voices * 2); // Reserve 2x for growth
+        // The ceiling is the largest the pool may ever be. Reserving capacity to
+        // it here (off the synth thread) guarantees any later `push` — including
+        // the pre-grow below and any `grow_voice_pool` on a non-prewarmed test
+        // manager — never reallocates or memcpys the voice Vec on the hot path.
+        let voice_ceiling = max_voices
+            .unwrap_or(ABSOLUTE_MAX_VOICES)
+            .clamp(initial_voices, ABSOLUTE_MAX_VOICES);
+
+        let mut voices = Vec::with_capacity(voice_ceiling);
         for _ in 0..initial_voices {
             voices.push(Voice::new());
         }
@@ -847,14 +886,16 @@ impl VoiceManager {
             last_triggered_voice_index: None,
             default_source_node: 0,
             max_voices,
+            voice_ceiling,
             initial_voices,
-            shrink_counter: 0,
             peak_voice_count: initial_voices,
             total_samples_processed: 0,
             parallel_threshold: 8, // Very aggressive threshold - enable parallelism with just 8 voices (optimized for 16-core systems)
             processing_times: Vec::with_capacity(1000), // Track last 1000 samples
             underrun_count: 0,
             samples_since_adjustment: 0,
+            growth_events: AtomicU64::new(0),
+            steal_events: AtomicU64::new(0),
         }
     }
 
@@ -900,58 +941,70 @@ impl VoiceManager {
         }
     }
 
-    /// Grow the voice pool by adding more voices
-    /// Returns true if growth succeeded, false if at max_voices limit
+    /// Grow the voice pool toward the pre-configured ceiling.
+    ///
+    /// In the product path the pool is already at `voice_ceiling` (pre-grown in
+    /// `new()`), so this is a no-op and the synth thread never allocates — a
+    /// saturating trigger steals the oldest voice instead. The method stays
+    /// callable for non-prewarmed managers (explicit `with_config`), and even
+    /// then it is **allocation-safe and log-free**: capacity was reserved to the
+    /// ceiling at construction, so `push` never reallocates/memcpys the voice
+    /// Vec, and growth is recorded via an atomic counter rather than an
+    /// `eprintln!` on the hot path (F-4).
+    ///
+    /// Returns true if any voices were added.
     fn grow_voice_pool(&mut self) -> bool {
         let current_count = self.voices.len();
 
-        // NOTE: Use module-level ABSOLUTE_MAX_VOICES constant (4096)
-        // Do NOT shadow it with a local constant!
-
-        // Check if we've hit the max limit
-        if let Some(max) = self.max_voices {
-            if current_count >= max {
-                eprintln!(
-                    "⚠️  Voice limit reached: {} voices (max: {})",
-                    current_count, max
-                );
-                return false;
-            }
-        }
-
-        // Check absolute maximum (uses module-level constant = 4096)
-        if current_count >= ABSOLUTE_MAX_VOICES {
-            eprintln!(
-                "⚠️  Absolute voice limit reached: {} voices (hard cap: {})",
-                current_count, ABSOLUTE_MAX_VOICES
-            );
-            eprintln!(
-                "    Consider using 'cut groups' or longer envelopes to reduce overlapping samples"
-            );
+        // Never grow past the configured ceiling (which already folds in
+        // max_voices and ABSOLUTE_MAX_VOICES). At the ceiling, callers steal.
+        if current_count >= self.voice_ceiling {
             return false;
         }
 
-        // Grow by 50% or 16 voices, whichever is larger
+        // Grow by 50% or 16 voices, whichever is larger, clamped to the ceiling.
         let growth = (current_count / 2).max(16);
-        let new_count = if let Some(max) = self.max_voices {
-            (current_count + growth).min(max).min(ABSOLUTE_MAX_VOICES)
-        } else {
-            (current_count + growth).min(ABSOLUTE_MAX_VOICES)
-        };
+        let new_count = (current_count + growth).min(self.voice_ceiling);
 
         let voices_to_add = new_count - current_count;
         if voices_to_add > 0 {
             for _ in 0..voices_to_add {
+                // Capacity was reserved to the ceiling ⇒ this never reallocates.
                 self.voices.push(Voice::new());
             }
-            eprintln!(
-                "🎵 Voice pool grown: {} → {} voices",
-                current_count, new_count
-            );
+            // Count atomically for off-thread reporting — no `eprintln!` here.
+            self.growth_events
+                .fetch_add(voices_to_add as u64, Ordering::Relaxed);
             true
         } else {
             false
         }
+    }
+
+    /// Record that a voice was stolen (pool saturated at the ceiling). Atomic so
+    /// a monitor thread can read it without touching the synth thread (F-4).
+    #[inline]
+    fn record_steal(&self) {
+        self.steal_events.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// The pre-grown voice ceiling: the pool never grows past this on the synth
+    /// thread. Always `<= ABSOLUTE_MAX_VOICES`.
+    pub fn voice_ceiling(&self) -> usize {
+        self.voice_ceiling
+    }
+
+    /// Number of voices added on-demand *after* construction (synth-thread
+    /// growth). Stays 0 for a pre-grown manager during steady-state rendering.
+    /// Report this off the synth thread rather than logging on the hot path.
+    pub fn growth_event_count(&self) -> u64 {
+        self.growth_events.load(Ordering::Relaxed)
+    }
+
+    /// Number of voices stolen because the pool was saturated at its ceiling.
+    /// Report this off the synth thread rather than logging on the hot path.
+    pub fn steal_event_count(&self) -> u64 {
+        self.steal_events.load(Ordering::Relaxed)
     }
 
     /// Trigger a sample with automatic voice allocation (center pan)
@@ -1064,7 +1117,8 @@ impl VoiceManager {
             }
         }
 
-        // Steal the oldest voice
+        // Steal the oldest voice (no allocation, no logging on the synth thread).
+        self.record_steal();
         self.voices[oldest_idx]
             .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
         self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
@@ -1120,6 +1174,7 @@ impl VoiceManager {
                 oldest_idx = idx;
             }
         }
+        self.record_steal();
         self.voices[oldest_idx].trigger_with_adsr(
             sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
         );
@@ -1172,6 +1227,7 @@ impl VoiceManager {
                 oldest_idx = idx;
             }
         }
+        self.record_steal();
         self.voices[oldest_idx]
             .trigger_with_segments(sample, gain, pan, speed, cut_group, levels, times);
         self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
@@ -1226,6 +1282,7 @@ impl VoiceManager {
                 oldest_idx = idx;
             }
         }
+        self.record_steal();
         self.voices[oldest_idx].trigger_with_curve(
             sample, gain, pan, speed, cut_group, start, end, duration, curve,
         );
@@ -1332,7 +1389,7 @@ impl VoiceManager {
             return;
         }
 
-        // Growth failed - steal oldest voice
+        // Pool saturated at the ceiling - steal oldest voice (no alloc/log).
         let mut oldest_idx = 0;
         let mut oldest_age = 0;
 
@@ -1343,6 +1400,7 @@ impl VoiceManager {
             }
         }
 
+        self.record_steal();
         self.voices[oldest_idx].synthesis_node_id = Some(synthesis_node_id);
         self.voices[oldest_idx].sample_data = None;
         self.voices[oldest_idx].synthesis_sample_cache = 0.0;
@@ -2038,12 +2096,15 @@ impl VoiceManager {
             }
         }
 
-        // Periodic voice pool shrinking (once per second at 44.1kHz)
-        self.shrink_counter += 1;
-        if self.shrink_counter >= 44100 {
-            self.shrink_counter = 0;
-            self.shrink_voice_pool();
-        }
+        // NOTE (F-4 — preallocate-voice-pool): the periodic `shrink_voice_pool()`
+        // call was removed from the synth thread. Shrinking truncates the voice
+        // Vec (dropping Voice structs → deallocation) and used to `eprintln!` —
+        // both are synth-thread heap/IO hazards. It also fought the pre-grown
+        // pool: after a quiet second it would shrink the pool below the ceiling,
+        // and — now that the synth thread never grows — the next dense burst
+        // could only steal at the reduced size. The pool is pre-grown to its
+        // ceiling at construction and stays there; `shrink_voice_pool()` remains
+        // callable off the synth thread (e.g. at reload) if reclamation is wanted.
 
         // Performance monitoring: track peak voice count and samples
         let active_count = self
@@ -3069,9 +3130,15 @@ mod tests {
     #[test]
     fn test_voice_manager_new() {
         let vm = VoiceManager::new();
-        assert_eq!(vm.pool_size(), DEFAULT_INITIAL_VOICES); // 256
+        // The product path pre-grows the pool to the configured ceiling at
+        // construction (F-4) so the synth thread never allocates under load.
+        assert_eq!(vm.pool_size(), DEFAULT_VOICE_CEILING); // 512, pre-grown
+        assert_eq!(vm.voice_ceiling(), DEFAULT_VOICE_CEILING);
         assert_eq!(vm.active_voice_count(), 0);
         assert!(vm.max_voices.is_some());
+        // No growth or steals happened just from constructing the manager.
+        assert_eq!(vm.growth_event_count(), 0);
+        assert_eq!(vm.steal_event_count(), 0);
     }
 
     #[test]
@@ -3744,6 +3811,73 @@ mod tests {
         let grew = vm.grow_voice_pool();
         assert!(!grew, "Pool should not grow beyond max_voices");
         assert_eq!(vm.pool_size(), 4);
+    }
+
+    // =========================================================================
+    // F-4 regression: no heap growth on the synth thread under dense triggers
+    // (task `preallocate-voice-pool`).
+    //
+    // The product path (`VoiceManager::new()`) pre-grows the pool to a configured
+    // ceiling at construction (off the synth thread). Steady-state dense
+    // triggering beyond the ceiling must NOT grow the pool on the synth thread
+    // (which would heap-realloc/memcpy the whole voice Vec and `eprintln!` mid-
+    // render, spiking render time / causing underruns). Exhaustion must steal an
+    // existing voice instead — with no allocation and no logging.
+    // =========================================================================
+
+    #[test]
+    fn test_vm_prewarmed_no_synth_thread_growth_under_dense_triggers() {
+        let mut vm = VoiceManager::new();
+        let ceiling = vm.voice_ceiling();
+
+        // The pool is pre-grown to the ceiling at construction (off the synth
+        // thread), so the synth thread never has to allocate under load.
+        assert_eq!(
+            vm.pool_size(),
+            ceiling,
+            "pool must be pre-grown to the ceiling at construction"
+        );
+
+        let sample = make_mono_sample(4000);
+
+        // Fire far more triggers than the ceiling, interleaving short renders so
+        // voices accrue age (as they would during live play). This mimics dense
+        // `s \"bd*16\"` layered patterns with long tails that saturate the pool.
+        let triggers = ceiling + 512;
+        for i in 0..triggers {
+            vm.trigger_sample(sample.clone(), 0.8);
+            if i % 8 == 0 {
+                // Advance a small block so voices age → stealing has an order.
+                let _ = vm.render_block(32);
+            }
+        }
+
+        // Steady-state: the pool size is unchanged — no growth on the synth thread.
+        assert_eq!(
+            vm.pool_size(),
+            ceiling,
+            "pool must not grow on the synth thread under dense triggers"
+        );
+        // The atomic growth counter proves no on-demand growth happened while
+        // rendering (this is where the alloc/memcpy + eprintln used to live).
+        assert_eq!(
+            vm.growth_event_count(),
+            0,
+            "no synth-thread voice-pool growth is allowed during rendering"
+        );
+        // Saturation beyond the ceiling was handled by stealing (fallback ran).
+        assert!(
+            vm.steal_event_count() > 0,
+            "saturation beyond the ceiling must steal voices (counted atomically)"
+        );
+    }
+
+    #[test]
+    fn test_vm_voice_ceiling_never_exceeds_absolute_max() {
+        // A configured ceiling can never exceed the absolute hard cap.
+        let vm = VoiceManager::with_config(10_000, Some(10_000));
+        assert!(vm.voice_ceiling() <= ABSOLUTE_MAX_VOICES);
+        assert!(vm.pool_size() <= ABSOLUTE_MAX_VOICES);
     }
 
     #[test]
