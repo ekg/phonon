@@ -23,7 +23,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_gain_parameter_pattern() {
     let code = r#"
 tempo: 0.5
-d1: s "bd bd" gain="0.5 1.0"
+d1: s "bd bd" # gain "0.5 1.0"
 "#;
 
     let audio = render_dsl(code, 2);
@@ -42,7 +42,7 @@ d1: s "bd bd" gain="0.5 1.0"
 fn test_pan_parameter_pattern() {
     let code = r#"
 tempo: 0.5
-d1: s "bd bd" pan="-1.0 1.0"
+d1: s "bd bd" # pan "-1.0 1.0"
 "#;
 
     let audio = render_dsl(code, 2);
@@ -61,7 +61,7 @@ d1: s "bd bd" pan="-1.0 1.0"
 fn test_speed_parameter_pattern() {
     let code = r#"
 tempo: 0.5
-d1: s "bd bd" speed="1.0 2.0"
+d1: s "bd bd" # speed "1.0 2.0"
 "#;
 
     let audio = render_dsl(code, 2);
@@ -80,7 +80,7 @@ d1: s "bd bd" speed="1.0 2.0"
 fn test_multiple_parameters() {
     let code = r#"
 tempo: 0.5
-d1: s "bd sn" gain="0.8 1.0" pan="-1.0 1.0" speed="1.0 0.5"
+d1: s "bd sn" # gain "0.8 1.0" # pan "-1.0 1.0" # speed "1.0 0.5"
 "#;
 
     let audio = render_dsl(code, 2);
@@ -100,7 +100,7 @@ fn test_continuous_modulation() {
     let code = r#"
 tempo: 0.5
 ~lfo $ sine 0.25
-d1: s "hh*8" pan=~lfo
+d1: s "hh*8" # pan ~lfo
 "#;
 
     let audio = render_dsl(code, 4);

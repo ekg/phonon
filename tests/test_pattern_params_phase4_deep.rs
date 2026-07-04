@@ -33,6 +33,29 @@ fn render_dsl(code: &str, duration: f64) -> Vec<f32> {
     output
 }
 
+/// Measure how much the spectral centroid VARIES over time (max - min across
+/// 100 ms windows). Time-varying modulation (a swept filter, a chorus LFO)
+/// produces a large spread, while a static spectrum stays near-flat. This is a
+/// far more sensitive discriminator of modulation than comparing the full-signal
+/// AVERAGE centroid, which barely moves for a modulation that is symmetric about
+/// its center frequency.
+fn windowed_centroid_spread(audio: &[f32]) -> f32 {
+    let window = 4410; // 100 ms at 44.1 kHz
+    if audio.len() < window {
+        return 0.0;
+    }
+    let mut min_c = f32::INFINITY;
+    let mut max_c = f32::NEG_INFINITY;
+    let mut i = 0;
+    while i + window <= audio.len() {
+        let c = calculate_spectral_centroid(&audio[i..i + window], SAMPLE_RATE);
+        min_c = min_c.min(c);
+        max_c = max_c.max(c);
+        i += window;
+    }
+    max_c - min_c
+}
+
 // ============================================================================
 // AUDIO-RATE MODULATION TESTS
 //
@@ -237,13 +260,25 @@ out $ ~filtered
     let audio_constant = render_dsl(code_constant, TEST_DURATION);
     let audio_modulated = render_dsl(code_modulated, TEST_DURATION);
 
-    // Use spectral analysis to verify modulation creates different content
-    assert_spectral_difference(
-        &audio_constant,
-        &audio_modulated,
-        SAMPLE_RATE,
-        100.0, // Expect at least 100 Hz difference in centroid
-        "LPF cutoff modulation should create spectral difference",
+    // A static LPF holds a near-constant spectral centroid; a pattern-modulated
+    // cutoff sweeps it, so the centroid must VARY far more over time. Comparing
+    // full-signal AVERAGE centroids is a poor test here: the LFO sweep is
+    // symmetric about 2000 Hz, so the averages of the two signals are close even
+    // though the modulation is unmistakably present.
+    let spread_constant = windowed_centroid_spread(&audio_constant);
+    let spread_modulated = windowed_centroid_spread(&audio_modulated);
+
+    println!(
+        "LPF centroid spread: constant={:.1} Hz, modulated={:.1} Hz",
+        spread_constant, spread_modulated
+    );
+
+    assert!(
+        spread_modulated > spread_constant + 200.0,
+        "LPF cutoff modulation should make the spectral centroid vary over time \
+         far more than a static filter: modulated spread {:.1} Hz vs constant {:.1} Hz",
+        spread_modulated,
+        spread_constant
     );
 }
 
@@ -342,18 +377,26 @@ out $ ~chorused
     let audio_dry = render_dsl(code_dry, TEST_DURATION);
     let audio_chorus = render_dsl(code_chorus, TEST_DURATION);
 
-    // Chorus should create spectral richness (centroid may go up or down depending on implementation)
-    assert_spectral_difference(
-        &audio_dry,
-        &audio_chorus,
-        SAMPLE_RATE,
-        100.0, // Expect at least 100 Hz difference in centroid
-        "Chorus effect should create spectral difference",
+    // A dry saw has an essentially static spectrum, so its windowed centroid
+    // barely moves. Chorus modulates a short delay with an LFO, producing a
+    // time-varying comb filter whose centroid sweeps: the important, measurable
+    // signature of the effect is that the spectrum CHANGES over time. (Comparing
+    // full-signal average centroids understates this, since the comb averages out.)
+    let spread_dry = windowed_centroid_spread(&audio_dry);
+    let spread_chorus = windowed_centroid_spread(&audio_chorus);
+
+    println!(
+        "Chorus centroid spread: dry={:.1} Hz, chorus={:.1} Hz",
+        spread_dry, spread_chorus
     );
 
-    // Chorus creates spectral difference, but direction depends on implementation
-    // (some chorus implementations emphasize lower frequencies, others higher)
-    // The important part is that the spectrum CHANGES, not which direction
+    assert!(
+        spread_chorus > spread_dry + 200.0,
+        "Chorus should make the spectral centroid vary over time far more than a \
+         dry signal: chorus spread {:.1} Hz vs dry {:.1} Hz",
+        spread_chorus,
+        spread_dry
+    );
 }
 
 // ============================================================================

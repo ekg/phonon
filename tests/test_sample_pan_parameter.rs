@@ -10,11 +10,12 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_pan_parameter_affects_stereo_position() {
-    // Pattern with two events: bd hard left, sn hard right
-    // Positional args: s("pattern", gain, pan, speed)
+    // Pattern with two events: bd hard left, sn hard right.
+    // Canonical syntax: per-event pan via `# pan "..."`.
+    // tempo: 2 => 1 cycle == 22050 samples, so both events render.
     let input = r#"
-        tempo: 0.5
-        out $ s("bd sn", "1.0 1.0", "-1 1")
+        tempo: 2
+        out $ s "bd sn" # pan "-1 1"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -56,8 +57,8 @@ fn test_pan_parameter_affects_stereo_position() {
 fn test_pan_center_produces_equal_stereo() {
     // Sample with center pan (0.0) should produce equal left/right channels
     let input = r#"
-        tempo: 0.5
-        out $ s("bd", "1.0", "0")
+        tempo: 2
+        out $ s "bd" # pan 0
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -77,8 +78,8 @@ fn test_pan_center_produces_equal_stereo() {
 fn test_pan_pattern_with_multiple_events() {
     // Four hi-hats panning from left to right
     let input = r#"
-        tempo: 0.5
-        out $ s("hh*4", "1.0 1.0 1.0 1.0", "-1 -0.33 0.33 1")
+        tempo: 2
+        out $ s "hh*4" # pan "-1 -0.33 0.33 1"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -114,12 +115,12 @@ fn test_pan_pattern_with_multiple_events() {
 fn test_pan_default_is_center() {
     // Without pan parameter, should default to 0.0 (center)
     let input_with_pan = r#"
-        tempo: 0.5
-        out $ s("bd", "1.0", "0")
+        tempo: 2
+        out $ s "bd" # pan 0
     "#;
 
     let input_without_pan = r#"
-        tempo: 0.5
+        tempo: 2
         out $ s "bd"
     "#;
 

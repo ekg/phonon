@@ -88,7 +88,7 @@ fn test_gain_halves_amplitude() {
 #[test]
 fn test_gain_pattern_varies_per_event() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*4" # gain "1.0 0.8 0.6 0.4"
     "#;
 
@@ -165,7 +165,7 @@ fn test_pan_right_produces_audio() {
 #[test]
 fn test_pan_pattern_varies_per_event() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*3" # pan "-1 0 1"
     "#;
 
@@ -270,7 +270,7 @@ fn test_speed_negative_plays_backwards() {
 #[test]
 fn test_speed_pattern_varies_per_event() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*3" # speed "1 2 0.5"
     "#;
 
@@ -338,7 +338,7 @@ fn test_note_negative_shifts_pitch_down() {
 #[test]
 fn test_note_pattern_varies_pitch() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*3" # note "0 5 7"
     "#;
 
@@ -431,7 +431,7 @@ fn test_begin_half_starts_at_midpoint() {
 #[test]
 fn test_begin_pattern_varies_start_point() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*3" # begin "0.0 0.25 0.5"
     "#;
 
@@ -561,7 +561,7 @@ fn test_loop_true_continues_playing() {
 #[test]
 fn test_loop_pattern_varies_per_event() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*2" # loop "0 1"
     "#;
 
@@ -616,7 +616,7 @@ fn test_unit_c_uses_cycle_mode() {
 #[test]
 fn test_unit_pattern_varies_mode() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*2" # unit "r c"
     "#;
 
@@ -692,7 +692,7 @@ fn test_cut_group_stops_previous() {
 #[test]
 fn test_cut_pattern_varies_groups() {
     let code = r#"
-        tempo: 0.5
+        tempo: 1
         out $ s "bd*3" # cut "0 1 2"
     "#;
 

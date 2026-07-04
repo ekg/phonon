@@ -142,10 +142,10 @@ out $ s "bd*4" * 0.8"#;
 fn test_sample_gain_parameter_affects_amplitude() {
     // Test: Gain parameter should scale amplitude
     let quiet = r#"bpm 120
-out $ s("bd", 0.2)"#; // gain 0.2
+out $ s "bd" # gain 0.2"#; // gain 0.2
 
     let loud = r#"bpm 120
-out $ s("bd", 1.0)"#; // gain 1.0
+out $ s "bd" # gain 1.0"#; // gain 1.0
 
     let audio_quiet = compile_and_render(quiet, 22050);
     let audio_loud = compile_and_render(loud, 22050);
@@ -179,10 +179,10 @@ out $ s("bd", 1.0)"#; // gain 1.0
 fn test_pattern_gain_varies_amplitude() {
     // Test: Pattern-specified gain values should vary amplitude
     let constant = r#"bpm 120
-out $ s("bd bd bd bd", 0.5) * 0.8"#;
+out $ s "bd bd bd bd" # gain 0.5 * 0.8"#;
 
     let pattern = r#"bpm 120
-out $ s("bd bd bd bd", "0.2 0.4 0.6 0.8") * 0.8"#;
+out $ s "bd bd bd bd" # gain "0.2 0.4 0.6 0.8" * 0.8"#;
 
     let audio_constant = compile_and_render(constant, 22050);
     let audio_pattern = compile_and_render(pattern, 22050);

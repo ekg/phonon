@@ -93,7 +93,7 @@ fn test_sample_selection() {
 
 #[test]
 fn test_pattern_with_gain_modulation() {
-    let input = r#"out $ s("bd*4", "1.0 0.8 0.6 0.4")"#; // Decreasing gain
+    let input = r#"out $ s "bd*4" # gain "1.0 0.8 0.6 0.4""#; // Decreasing gain
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);
@@ -108,7 +108,7 @@ fn test_pattern_with_gain_modulation() {
 
 #[test]
 fn test_pattern_with_speed_modulation() {
-    let input = r#"out $ s("bd*4", 1.0, 0.0, "1.0 1.2 0.8 1.5")"#; // Speed changes
+    let input = r#"out $ s "bd*4" # speed "1.0 1.2 0.8 1.5""#; // Speed changes
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);

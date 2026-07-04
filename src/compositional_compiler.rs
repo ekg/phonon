@@ -7161,6 +7161,8 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
                 note,
                 unit_mode,
                 loop_enabled,
+                begin,
+                end,
                 ..
             } = sample_node
             {
@@ -7185,8 +7187,9 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
                     }),
                     unit_mode: unit_mode.clone(),
                     loop_enabled: loop_enabled.clone(),
-                    begin: Signal::Value(0.0),
-                    end: Signal::Value(1.0),
+                    // Preserve slice window when adding an envelope
+                    begin: begin.clone(),
+                    end: end.clone(),
                 };
 
                 Ok(ctx.graph.add_node(new_sample))
@@ -7707,6 +7710,8 @@ fn modify_sample_param(
         envelope_type,
         unit_mode,
         loop_enabled,
+        begin,
+        end,
         ..
     } = sample_node
     {
@@ -7772,12 +7777,24 @@ fn modify_sample_param(
                 unit_mode.clone()
             },
             loop_enabled: if param_name == "loop" {
-                new_value
+                new_value.clone()
             } else {
                 loop_enabled.clone()
             },
-            begin: Signal::Value(0.0),
-            end: Signal::Value(1.0),
+            // Preserve begin/end across chained modifiers, and honor them when
+            // this call IS the begin/end modifier. Previously these were hardcoded
+            // to defaults, so `# begin 0.5` never took effect and any modifier
+            // chained after `# begin`/`# end` silently reset the slice window.
+            begin: if param_name == "begin" {
+                new_value.clone()
+            } else {
+                begin.clone()
+            },
+            end: if param_name == "end" {
+                new_value
+            } else {
+                end.clone()
+            },
         };
 
         Ok(ctx.graph.add_node(new_sample))

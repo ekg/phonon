@@ -36,7 +36,7 @@ fn test_s_function_compiles() {
 
 #[test]
 fn test_s_function_with_gain_param() {
-    let input = r#"out $ s("bd*4", 0.5)"#;
+    let input = r#"out $ s "bd*4" # gain 0.5"#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     let compiler = DslCompiler::new(44100.0);
@@ -52,7 +52,7 @@ fn test_s_function_with_gain_param() {
 
 #[test]
 fn test_s_function_with_pattern_gain() {
-    let input = r#"out $ s("bd*4", "0.5 1.0 0.7 0.3")"#;
+    let input = r#"out $ s "bd*4" # gain "0.5 1.0 0.7 0.3""#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     let compiler = DslCompiler::new(44100.0);

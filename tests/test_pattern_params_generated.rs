@@ -171,7 +171,7 @@ fn test_bitcrush_pattern_bits() {
 fn test_multiple_pattern_modulation() {
     let code = r#"
         tempo: 0.5
-        ~lfout $ sine 0.5 * 1500 + 500
+        ~lfo1 $ sine 0.5 * 1500 + 500
         ~lfo2 $ sine 2.0 * 3.0 + 3.0
         out $ saw 110 # lpf ~lfo1 ~lfo2
     "#;
@@ -186,7 +186,7 @@ fn test_multiple_pattern_modulation() {
 fn test_nested_arithmetic_pattern() {
     let code = r#"
         tempo: 0.5
-        ~lfout $ sine 0.25
+        ~lfo1 $ sine 0.25
         ~lfo2 $ sine 0.5
         out $ sine ((~lfo1 * 100.0 + ~lfo2 * 50.0) + 440.0)
     "#;

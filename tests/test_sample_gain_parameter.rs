@@ -9,11 +9,14 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_gain_parameter_affects_amplitude() {
-    // Pattern with two events at different gains
-    // Positional args: s("pattern", gain, pan, speed)
+    // Pattern with two events at different gains.
+    // Canonical syntax: per-event gain via `# gain "..."`.
+    // Use the SAME sample ("bd bd") so the amplitude ratio isolates gain
+    // rather than the intrinsic loudness difference between bd and sn.
+    // tempo: 2 => 1 cycle == 22050 samples, so both events render.
     let input = r#"
-        tempo: 0.5
-        out $ s("bd sn", "0.5 1.0")
+        tempo: 2
+        out $ s "bd bd" # gain "0.5 1.0"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -52,8 +55,8 @@ fn test_gain_parameter_affects_amplitude() {
 fn test_gain_pattern_with_multiple_events() {
     // Four kick drums with descending gain
     let input = r#"
-        tempo: 0.5
-        out $ s("bd*4", "1.0 0.75 0.5 0.25")
+        tempo: 2
+        out $ s "bd*4" # gain "1.0 0.75 0.5 0.25"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -107,10 +110,10 @@ fn test_gain_pattern_with_multiple_events() {
 
 #[test]
 fn test_gain_zero_produces_silence() {
-    // Sample with gain=0 should produce no audio
+    // Sample with gain=0 should produce no audio (use same sample for both events)
     let input = r#"
-        tempo: 0.5
-        out $ s("bd sn", "0.0 1.0")
+        tempo: 2
+        out $ s "bd bd" # gain "0.0 1.0"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -138,12 +141,12 @@ fn test_gain_zero_produces_silence() {
 fn test_gain_default_is_one() {
     // Without gain parameter, should default to 1.0
     let input_with_gain = r#"
-        tempo: 0.5
-        out $ s("bd", "1.0")
+        tempo: 2
+        out $ s "bd" # gain 1.0
     "#;
 
     let input_without_gain = r#"
-        tempo: 0.5
+        tempo: 2
         out $ s "bd"
     "#;
 

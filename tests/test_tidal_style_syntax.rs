@@ -27,11 +27,14 @@ fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {
 #[test]
 fn test_tidal_gain_constant() {
     // Test: s "bd" # gain 0.5
+    // NOTE: no post-gain "* 50" boost — that pushed both signals into the output
+    // limiter's saturation region, collapsing the gain ratio to ~1x. The bd sample
+    // is already audible, so the gain ratio is measured directly.
     let quiet = r#"bpm 120
-out $ s "bd" # gain 0.3 * 50"#;
+out $ s "bd" # gain 0.3"#;
 
     let loud = r#"bpm 120
-out $ s "bd" # gain 1.0 * 50"#;
+out $ s "bd" # gain 1.0"#;
 
     let audio_quiet = compile_and_render(quiet, 22050);
     let audio_loud = compile_and_render(loud, 22050);

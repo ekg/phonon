@@ -13,12 +13,14 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_cut_group_stops_previous_voice() {
-    // Two hi-hats in cut group 1
-    // The second should stop the first
-    // Positional args: s("pattern", gain, pan, speed, cut_group)
+    // Dense hi-hat pattern so consecutive voices overlap in time; all in cut
+    // group 1. Canonical syntax: `# cut N`. The cut applies a 10ms fade-out to
+    // the previous same-group voice (not an instant kill), so at most one fading
+    // voice can briefly coexist with the freshly-triggered one => max_voices <= 2.
+    // (Without a cut group, hh*8 overlaps up to ~9 voices.)
     let input = r#"
-        tempo: 0.5
-        out $ s("hh hh", "1.0 1.0", "0 0", "1 1", "1 1")
+        tempo: 2
+        out $ s "hh*8" # cut 1
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -61,11 +63,11 @@ fn test_cut_group_stops_previous_voice() {
         &max_positions[..max_positions.len().min(10)]
     );
 
-    // With cut groups, we should never have more than 1 voice active
-    // (second voice stops first voice)
+    // With cut groups, overlap is limited to the fading previous voice plus the
+    // new voice (10ms fade-out, so <= 2), far below the ~9 voices without a cut group.
     assert!(
-        max_voices <= 1,
-        "Cut group should limit to 1 voice, but found {} voices",
+        max_voices <= 2,
+        "Cut group should limit overlap (<=2 with 10ms fade), but found {} voices",
         max_voices
     );
 
@@ -77,11 +79,10 @@ fn test_cut_group_stops_previous_voice() {
 
 #[test]
 fn test_no_cut_group_allows_overlap() {
-    // Two hi-hats with cut group 0 (no cutting)
-    // Both should play simultaneously
+    // Dense hi-hat pattern with no cut group: all voices should overlap.
     let input = r#"
-        tempo: 0.5
-        out $ s("hh hh", "1.0 1.0", "0 0", "1 1", "0 0")
+        tempo: 2
+        out $ s "hh*8"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -110,11 +111,12 @@ fn test_no_cut_group_allows_overlap() {
 
 #[test]
 fn test_different_cut_groups_dont_interact() {
-    // Two samples in different cut groups
-    // They should not stop each other
+    // Alternating cut groups 1 and 2: voices in group 1 cut each other and
+    // voices in group 2 cut each other, but a group-1 voice and a group-2 voice
+    // can play simultaneously, so overlap still exceeds a single group.
     let input = r#"
-        tempo: 0.5
-        out $ s("hh hh", "1.0 1.0", "0 0", "1 1", "1 2")
+        tempo: 2
+        out $ s "hh*8" # cut "1 2 1 2 1 2 1 2"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -143,11 +145,11 @@ fn test_different_cut_groups_dont_interact() {
 
 #[test]
 fn test_cut_group_pattern() {
-    // Pattern with alternating cut groups
-    // Cut group 1 events should stop each other
+    // Every event in the same cut group (1): each new hit fades out the previous
+    // same-group voice, so overlap stays at <= 2 (fading + new).
     let input = r#"
-        tempo: 0.5
-        out $ s("hh*8", "1 1 1 1 1 1 1 1", "0 0 0 0 0 0 0 0", "1 1 1 1 1 1 1 1", "1 1 1 1 1 1 1 1")
+        tempo: 2
+        out $ s "hh*8" # cut 1
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -166,10 +168,10 @@ fn test_cut_group_pattern() {
 
     println!("Max voices with cut group pattern: {}", max_voices);
 
-    // With all in same cut group, should never exceed 1 voice
+    // With all in same cut group, overlap stays at <= 2 (fading + new voice)
     assert!(
-        max_voices <= 1,
-        "Cut group pattern should limit to 1 voice, but found {}",
+        max_voices <= 2,
+        "Cut group pattern should limit overlap (<=2 with 10ms fade), but found {}",
         max_voices
     );
 }
@@ -179,13 +181,13 @@ fn test_cut_group_default_is_zero() {
     // Without cut group parameter, should default to 0 (no cutting)
     // This allows multiple voices to overlap
     let input_with_cut = r#"
-        tempo: 0.5
-        out $ s("hh hh", "1.0 1.0", "0 0", "1 1", "0 0")
+        tempo: 2
+        out $ s "hh*8" # cut 0
     "#;
 
     let input_without_cut = r#"
-        tempo: 0.5
-        out $ s "hh hh"
+        tempo: 2
+        out $ s "hh*8"
     "#;
 
     // With explicit cut group 0
@@ -237,8 +239,8 @@ fn test_hi_hat_open_close_simulation() {
     // Realistic hi-hat scenario: closed hits stop open hits
     // hh:0 = open, hh:1 = closed (both in cut group 1)
     let input = r#"
-        tempo: 0.5
-        out $ s("hh:0 hh:1 hh:0 hh:1", "1 1 1 1", "0 0 0 0", "1 1 1 1", "1 1 1 1")
+        tempo: 2
+        out $ s "hh:0 hh:1 hh:0 hh:1" # cut 1
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -268,10 +270,11 @@ fn test_hi_hat_open_close_simulation() {
 
     println!("Max voices in hi-hat simulation: {}", max_voices);
 
-    // Should never exceed 1 voice (each new hit stops previous)
+    // Each new hit fades out the previous same-group voice (10ms), so overlap
+    // stays at <= 2 (one fading + the new hit).
     assert!(
-        max_voices <= 1,
-        "Hi-hat cut group should keep max 1 voice, found {}",
+        max_voices <= 2,
+        "Hi-hat cut group should keep overlap <= 2 (10ms fade), found {}",
         max_voices
     );
 }

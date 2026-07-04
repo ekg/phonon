@@ -11262,10 +11262,11 @@ impl UnifiedSignalGraph {
         // TODO: Only clear cache when cycle position crosses event boundary
         // self.value_cache.clear();
 
-        // Clear stateful_value_cache every sample to prevent stateful nodes
-        // (oscillators, filters, envelopes) from being frozen at their first-sample
-        // value. Without this, eval_node returns the cached sample-0 result forever,
-        // so oscillator phase never advances and stereo output is silent/DC.
+        // Clear stateful_value_cache every sample to prevent stateful nodes from being
+        // frozen at their first-sample value. Without this, eval_node returns the cached
+        // sample-0 result forever: oscillator/filter/envelope phase never advances, and a
+        // Sample node (evaluated once before any voice exists → silence) stays silent, so
+        // multi-channel/stereo output produced no sound or DC. Mirrors process_sample().
         self.stateful_value_cache.clear();
 
         // Process voice manager ONCE per sample and cache per-node outputs

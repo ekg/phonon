@@ -217,6 +217,10 @@ struct SamplePatternFields {
     attack: Option<Box<DslExpression>>,
     release: Option<Box<DslExpression>>,
     envelope_type: Option<SampleEnvelopeType>,
+    begin: Option<Box<DslExpression>>,
+    end: Option<Box<DslExpression>>,
+    loop_enabled: Option<Box<DslExpression>>,
+    unit_mode: Option<Box<DslExpression>>,
 }
 
 /// DSL expressions
@@ -305,6 +309,14 @@ pub enum DslExpression {
         attack: Option<Box<DslExpression>>,
         release: Option<Box<DslExpression>>,
         envelope_type: Option<SampleEnvelopeType>,
+        /// Sample start point (0.0 = start, 1.0 = end), slicing
+        begin: Option<Box<DslExpression>>,
+        /// Sample end point (0.0 = start, 1.0 = end), slicing
+        end: Option<Box<DslExpression>>,
+        /// Loop mode (0 = play once, 1 = loop continuously)
+        loop_enabled: Option<Box<DslExpression>>,
+        /// Unit/time mode (0 = rate, 1 = cycle-sync)
+        unit_mode: Option<Box<DslExpression>>,
     },
     /// Scale quantization (space-separated args): scale "0 1 2 3 4" "major" "c4"
     Scale {
@@ -342,6 +354,14 @@ pub enum DslExpression {
     /// Note modifier for pitch shifting: s "bd" # note 12 or s "bd" # note "0 5 7 12"
     /// Note values are in semitones: 0 = original, 12 = octave up, -12 = octave down
     Note { value: Box<DslExpression> },
+    /// Begin modifier (sample slicing start): s "bd" # begin 0.25
+    Begin { value: Box<DslExpression> },
+    /// End modifier (sample slicing end): s "bd" # end 0.75
+    End { value: Box<DslExpression> },
+    /// Loop modifier: s "bd" # loop 1
+    Loop { value: Box<DslExpression> },
+    /// Unit/time-mode modifier: s "bd" # unit "r" (rate) or "c" (cycle)
+    Unit { value: Box<DslExpression> },
     /// Envelope modifiers for per-event envelopes
     /// Segments envelope: s "bd" # segments "0 1 0" "0.1 0.2"
     SegmentsModifier {
@@ -746,6 +766,57 @@ fn note_modifier(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Parse sample-slicing / playback modifiers: begin, end, loop, unit
+/// These map onto the already-supported SignalNode::Sample fields:
+///   begin 0.25    -> sample start point (0.0..1.0)
+///   end 0.75      -> sample end point (0.0..1.0)
+///   loop 1        -> loop mode (0 = play once, 1 = loop)
+///   unit "r"/"c"  -> time mode (rate vs cycle-sync)
+fn sample_slice_modifier(input: &str) -> IResult<&str, DslExpression> {
+    alt((
+        // begin <value>
+        map(preceded(tag("begin"), function_args), |args| {
+            DslExpression::Begin {
+                value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+            }
+        }),
+        // end <value>
+        map(preceded(tag("end"), function_args), |args| {
+            DslExpression::End {
+                value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(1.0))),
+            }
+        }),
+        // loop <value> (0 = play once, 1 = loop)
+        map(preceded(tag("loop"), function_args), |args| {
+            DslExpression::Loop {
+                value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+            }
+        }),
+        // unit "r" | "c" | pattern of them -> numeric 0 (rate) / 1 (cycle)
+        map(preceded(tag("unit"), function_args), |args| {
+            let value = match args.first() {
+                Some(DslExpression::Pattern(s)) => {
+                    // Map letter tokens to numeric mode: r->0 (rate), c->1 (cycle)
+                    let mapped: String = s
+                        .split_whitespace()
+                        .map(|tok| match tok {
+                            "c" | "cycle" => "1",
+                            _ => "0", // "r"/"rate"/anything else -> rate
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    DslExpression::Pattern(mapped)
+                }
+                Some(other) => other.clone(),
+                None => DslExpression::Value(0.0),
+            };
+            DslExpression::Unit {
+                value: Box::new(value),
+            }
+        }),
+    ))(input)
+}
+
 /// Parse envelope modifiers: segments, curve, or adsr
 fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
     alt((
@@ -910,6 +981,10 @@ fn extract_pattern_and_rebuild_transforms(
                 attack,
                 release,
                 envelope_type: None,
+                begin: None,
+                end: None,
+                loop_enabled: None,
+                unit_mode: None,
             }
         }
         DslExpression::PatternTransform { pattern, transform } => {
@@ -935,6 +1010,10 @@ fn extract_pattern_and_rebuild_transforms(
                 attack,
                 release,
                 envelope_type: None,
+                begin: None,
+                end: None,
+                loop_enabled: None,
+                unit_mode: None,
             }
         }
     }
@@ -973,6 +1052,10 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     attack,
                     release,
                     envelope_type: None,
+                    begin: None,
+                    end: None,
+                    loop_enabled: None,
+                    unit_mode: None,
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
@@ -1003,6 +1086,10 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     attack,
                     release,
                     envelope_type: None,
+                    begin: None,
+                    end: None,
+                    loop_enabled: None,
+                    unit_mode: None,
                 }
             }
         }
@@ -1298,6 +1385,7 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
         )),
         alt((
             envelope_modifier, // Envelope modifiers (segments, curve, adsr)
+            sample_slice_modifier, // Sample slicing/playback: begin, end, loop, unit
             generic_function_call, // Generic functions: struct, gate, tar, trig, tadsr
             oscillator,
             filter,
@@ -2052,6 +2140,34 @@ impl DslCompiler {
                         });
                         self.compile_expression(modified_left)
                     }
+                    DslExpression::Begin { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.begin = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::End { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.end = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::Loop { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.loop_enabled = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::Unit { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.unit_mode = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
                     DslExpression::SegmentsModifier {
                         levels_str,
                         times_str,
@@ -2607,6 +2723,10 @@ impl DslCompiler {
                 attack,
                 release,
                 envelope_type,
+                begin,
+                end,
+                loop_enabled,
+                unit_mode,
             } => {
                 use std::collections::HashMap;
 
@@ -2645,6 +2765,20 @@ impl DslCompiler {
                 let release_signal = release
                     .map(|e| self.compile_expression_to_signal(*e))
                     .unwrap_or(Signal::Value(0.0)); // No release envelope by default
+
+                // Sample slicing / playback modifiers (begin/end/loop/unit)
+                let begin_signal = begin
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // Start of sample
+                let end_signal = end
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(1.0)); // End of sample
+                let loop_signal = loop_enabled
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // Play once by default
+                let unit_signal = unit_mode
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // Rate mode by default
 
                 // Convert envelope_type to RuntimeEnvelopeType
                 let runtime_envelope = envelope_type.map(|env_type| match env_type {
@@ -2701,10 +2835,10 @@ impl DslCompiler {
                     attack: attack_signal,
                     release: release_signal,
                     envelope_type: runtime_envelope,
-                    unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
-                    loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
-                    begin: Signal::Value(0.0),
-                    end: Signal::Value(1.0),
+                    unit_mode: unit_signal,
+                    loop_enabled: loop_signal,
+                    begin: begin_signal,
+                    end: end_signal,
                 })
             }
             DslExpression::Scale {
@@ -2959,6 +3093,10 @@ impl DslCompiler {
                         attack,
                         release,
                         envelope_type,
+                        begin,
+                        end,
+                        loop_enabled,
+                        unit_mode,
                     } => {
                         // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
@@ -3004,6 +3142,19 @@ impl DslCompiler {
                             .map(|e| self.compile_expression_to_signal(*e))
                             .unwrap_or(Signal::Value(0.0));
 
+                        let begin_signal = begin
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+                        let end_signal = end
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(1.0));
+                        let loop_signal = loop_enabled
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+                        let unit_signal = unit_mode
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+
                         // Create Sample node with transformed pattern
                         use std::collections::HashMap;
                         self.graph.add_node(SignalNode::Sample {
@@ -3021,10 +3172,10 @@ impl DslCompiler {
                             attack: attack_signal,
                             release: release_signal,
                             envelope_type: None, // TODO: Support envelope in this case
-                            unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
-                            loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
-                            begin: Signal::Value(0.0),
-                            end: Signal::Value(1.0),
+                            unit_mode: unit_signal,
+                            loop_enabled: loop_signal,
+                            begin: begin_signal,
+                            end: end_signal,
                         })
                     }
                     DslExpression::BusRef(bus_name) => {
@@ -3322,6 +3473,10 @@ impl DslCompiler {
                 attack,
                 release,
                 envelope_type,
+                begin,
+                end,
+                loop_enabled,
+                unit_mode,
             } => {
                 let fields = SamplePatternFields {
                     pattern,
@@ -3333,7 +3488,12 @@ impl DslCompiler {
                     note,
                     attack,
                     release,
-                    envelope_type: None,
+                    // Preserve any previously-applied fields when chaining modifiers
+                    envelope_type,
+                    begin,
+                    end,
+                    loop_enabled,
+                    unit_mode,
                 };
                 let modified = modify(fields);
                 DslExpression::SamplePattern {
@@ -3347,6 +3507,10 @@ impl DslCompiler {
                     attack: modified.attack,
                     release: modified.release,
                     envelope_type: modified.envelope_type,
+                    begin: modified.begin,
+                    end: modified.end,
+                    loop_enabled: modified.loop_enabled,
+                    unit_mode: modified.unit_mode,
                 }
             }
             // Recursive case: chain with modifiers
