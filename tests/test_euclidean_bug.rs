@@ -88,18 +88,33 @@ mod render_tests {
     use super::*;
     use std::fs;
     use std::process::Command;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     fn render_dsl(code: &str, cycles: u32, tempo: f64) -> Vec<f32> {
-        let test_file = "/tmp/test_euclidean_unit.ph";
-        let output_file = "/tmp/test_euclidean_unit.wav";
+        // Use a UNIQUE temp path per call. The two render_tests in this binary run
+        // in parallel under default `cargo test`, and previously both wrote+read the
+        // FIXED path /tmp/test_euclidean_unit.wav. That raced: one test would read the
+        // WAV while the other's `phonon render` was still writing it, yielding a
+        // truncated file => hound "Failed to read enough bytes". Deriving the name from
+        // the process id + a per-call atomic counter makes each render self-contained and
+        // also disambiguates across parallel test binaries sharing /tmp.
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let uniq = format!(
+            "{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        );
+        let dir = std::env::temp_dir();
+        let test_file = dir.join(format!("test_euclidean_unit_{}.ph", uniq));
+        let output_file = dir.join(format!("test_euclidean_unit_{}.wav", uniq));
 
         // Write DSL code with specified tempo
         let full_code = format!("tempo: {}\n{}", tempo, code);
-        fs::write(test_file, full_code).expect("Failed to write test file");
+        fs::write(&test_file, full_code).expect("Failed to write test file");
 
         // Render to WAV
         let status = Command::new("cargo")
-            .args(&[
+            .args([
                 "run",
                 "--release",
                 "--bin",
@@ -108,8 +123,8 @@ mod render_tests {
                 "render",
                 "--cycles",
                 &cycles.to_string(),
-                test_file,
-                output_file,
+                test_file.to_str().expect("temp path is valid UTF-8"),
+                output_file.to_str().expect("temp path is valid UTF-8"),
             ])
             .status()
             .expect("Failed to run phonon render");
@@ -117,11 +132,15 @@ mod render_tests {
         assert!(status.success(), "Rendering failed");
 
         // Read WAV file
-        let mut reader = hound::WavReader::open(output_file).expect("Failed to open WAV");
+        let mut reader = hound::WavReader::open(&output_file).expect("Failed to open WAV");
         let samples: Vec<f32> = reader
             .samples::<i16>()
             .map(|s| s.unwrap() as f32 / 32768.0)
             .collect();
+
+        // Clean up so /tmp does not accumulate one WAV per test run.
+        let _ = fs::remove_file(&test_file);
+        let _ = fs::remove_file(&output_file);
 
         samples
     }
