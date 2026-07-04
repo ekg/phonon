@@ -122,12 +122,17 @@ fn test_struct_level1_euclidean_pattern() {
 
 #[test]
 fn test_struct_level2_simple_produces_events() {
+    // render_dsl assumes 0.5 cps (88200 samples/cycle); use tempo: 0.5 so that
+    // `render_dsl(code, 4)` renders exactly 4 cycles rather than 8.
     let code = r#"
-tempo: 1.0
+tempo: 0.5
 out $ s "bd sn hh cp" $ struct "t ~ t ~"
 "#;
     let audio = render_dsl(code, 4);
-    let onsets = detect_audio_events(&audio, 44100.0, 0.05);
+    // Lower threshold (0.02) than the all-`bd` tests: this structure fills its
+    // two slots per cycle with cycling values bd/sn/hh/cp, and the quieter
+    // samples (hh/cp) do not clear a 0.05 RMS jump.
+    let onsets = detect_audio_events(&audio, 44100.0, 0.02);
 
     // Should detect 2 events per cycle × 4 cycles = 8 events
     assert!(
@@ -140,7 +145,7 @@ out $ s "bd sn hh cp" $ struct "t ~ t ~"
 #[test]
 fn test_struct_level2_euclidean_timing() {
     let code = r#"
-tempo: 1.0
+tempo: 0.5
 out $ s "bd" $ struct "t(3,8)"
 "#;
     let audio = render_dsl(code, 4);
@@ -227,7 +232,7 @@ out $ s "bd sn hh" $ struct "t(3,7)"
 fn test_struct_integration_simple_rhythm() {
     // Simple four-on-the-floor with struct
     let code = r#"
-tempo: 1.0
+tempo: 0.5
 out $ s "bd" $ struct "t t t t"
 "#;
     let audio = render_dsl(code, 4);

@@ -19524,16 +19524,67 @@ impl UnifiedSignalGraph {
                 };
 
                 if let Some(pattern) = pattern_opt {
-                    let state = State {
-                        span: TimeSpan::new(
-                            Fraction::from_float(start_cycle),
-                            Fraction::from_float(end_cycle),
-                        ),
-                        controls: HashMap::new(),
-                    };
-
-                    // Query pattern once for entire buffer
-                    let mut events = pattern.query(&state);
+                    // Query the pattern ONE CYCLE AT A TIME across the buffer span
+                    // rather than as a single multi-cycle query.
+                    //
+                    // Why: cycle-conditional transforms (every, sometimes,
+                    // someCycles, whenmod, ...) decide what to do from
+                    // `state.span.begin.floor()` -- the cycle number. A single
+                    // query over [start_cycle, end_cycle) makes that read the
+                    // FIRST cycle only, so one cycle's decision is (incorrectly)
+                    // applied to the whole span. For offline `render(N)` the
+                    // "buffer" is the entire render, so `every 2 (fast 2)` used to
+                    // fast EVERY cycle and `sometimes (fast 2)` used to do nothing
+                    // (whenever cycle 0's coin-flip said "no"). Per-cycle querying
+                    // gives each cycle its own decision.
+                    //
+                    // Events that span cycle boundaries (e.g. `slow`) are returned
+                    // as one fragment per touched cycle, all sharing the same
+                    // `whole`. Downstream triggering dedups by `whole.begin`, but
+                    // the delta computation below would see the duplicate onsets
+                    // and assign a near-zero release. So collapse fragments that
+                    // share a `whole` here, keeping the earliest part.
+                    let mut events: Vec<crate::pattern::Hap<String>> = Vec::new();
+                    let first_cycle = start_cycle.floor() as i64;
+                    // `end_cycle` is exclusive; the last cycle actually touched is
+                    // the floor of a value just below it.
+                    let last_cycle = (end_cycle - 1e-9).floor() as i64;
+                    for c in first_cycle..=last_cycle {
+                        let q_begin = (c as f64).max(start_cycle);
+                        let q_end = ((c + 1) as f64).min(end_cycle);
+                        if q_end <= q_begin {
+                            continue;
+                        }
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(q_begin),
+                                Fraction::from_float(q_end),
+                            ),
+                            controls: HashMap::new(),
+                        };
+                        for hap in pattern.query(&state) {
+                            // Drop later fragments of an event already present
+                            // (same whole span) so cross-cycle notes keep a single
+                            // onset with a correct slot-length delta.
+                            if let Some(w) = &hap.whole {
+                                let dup = events.iter().any(|e| {
+                                    e.whole
+                                        .as_ref()
+                                        .map(|ew| {
+                                            (ew.begin.to_float() - w.begin.to_float()).abs() < 1e-9
+                                                && (ew.end.to_float() - w.end.to_float()).abs()
+                                                    < 1e-9
+                                        })
+                                        .unwrap_or(false)
+                                        && e.value == hap.value
+                                });
+                                if dup {
+                                    continue;
+                                }
+                            }
+                            events.push(hap);
+                        }
+                    }
 
                     // Calculate delta (inter-onset time) for each event
                     // This matches Tidal/SuperDirt behavior - delta is time to next event

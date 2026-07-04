@@ -52,31 +52,61 @@ pub fn get_expected_events(
 }
 
 /// Detect events in audio buffer using onset detection
+///
+/// Onset = a rising edge in short-window RMS. Two properties keep the count
+/// close to the number of real note attacks rather than exploding on sustained
+/// or slowly-decaying material:
+///
+/// 1. `prev_rms` tracks the PREVIOUS window's RMS with no artificial decay.
+///    A constant (sustained) or falling level yields `onset_strength <= 0`, so
+///    it never re-triggers. (The old code used `prev_rms = rms * 0.9`, which
+///    made every sustained window read as a fresh +0.1·rms onset — firing a
+///    false onset every hop, ~400/sec, and inflating counts 10-100x.)
+/// 2. A short refractory window collapses the multi-hop attack ramp of a single
+///    hit into one onset. It is deliberately shorter than the spacing of any
+///    realistic pattern event so genuinely distinct hits stay separate.
 pub fn detect_audio_events(audio: &[f32], sample_rate: f32, threshold: f32) -> Vec<Event> {
     let mut events = Vec::new();
 
     // Simple onset detection: look for sudden increases in RMS
-    let window_size = (sample_rate * 0.01) as usize; // 10ms window
-    let hop_size = window_size / 4;
+    let window_size = ((sample_rate * 0.01) as usize).max(1); // 10ms window
+    let hop_size = (window_size / 4).max(1);
+
+    // Refractory period: a single hit's attack transient (and a percussive
+    // sample's internal body/resonance transients) spans several hops. Suppress
+    // new onsets for ~30ms after one fires so a single hit reads as ONE onset.
+    // 30ms still resolves events up to ~33/sec apart, finer than any pattern
+    // these tests exercise. Onset-count-from-audio remains approximate: quiet
+    // samples may not clear `threshold` and dense overlap may merge, so callers
+    // should assert tolerant ranges, not exact counts.
+    let refractory_hops = (((sample_rate * 0.03) as usize) / hop_size).max(1);
 
     let mut prev_rms = 0.0;
+    let mut last_onset_hop: Option<usize> = None;
 
     for (i, window) in audio.windows(window_size).step_by(hop_size).enumerate() {
         let rms: f32 = (window.iter().map(|x| x * x).sum::<f32>() / window.len() as f32).sqrt();
 
-        // Detect onset: current RMS is significantly higher than previous
+        // Detect onset: current RMS is significantly higher than previous window.
         let onset_strength = (rms - prev_rms).max(0.0);
 
         if onset_strength > threshold {
-            let time = (i * hop_size) as f64 / sample_rate as f64;
-            events.push(Event {
-                time,
-                value: None,
-                amplitude: rms,
-            });
+            let past_refractory = match last_onset_hop {
+                Some(last) => i - last >= refractory_hops,
+                None => true,
+            };
+            if past_refractory {
+                let time = (i * hop_size) as f64 / sample_rate as f64;
+                events.push(Event {
+                    time,
+                    value: None,
+                    amplitude: rms,
+                });
+                last_onset_hop = Some(i);
+            }
         }
 
-        prev_rms = rms * 0.9; // Decay for next comparison
+        prev_rms = rms; // No decay: sustained/decaying level must not re-trigger.
     }
 
     events

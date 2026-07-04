@@ -124,10 +124,16 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 for i in 0..n {
                     let begin = hap.part.begin + step * Fraction::new(i as i64, 1);
                     let end = begin + step;
+                    let sub_span = TimeSpan::new(begin, end);
 
+                    // Each ply copy is a distinct onset. Give it its own `whole`
+                    // sub-span (not the original event's whole) so the sample render
+                    // path — which keys voice triggers off `whole.begin` — fires
+                    // every repeat instead of collapsing them into one trigger.
+                    // Preserve None for analog/continuous fragments.
                     result.push(Hap::new(
-                        hap.whole,
-                        TimeSpan::new(begin, end),
+                        hap.whole.map(|_| sub_span),
+                        sub_span,
                         hap.value.clone(),
                     ));
                 }

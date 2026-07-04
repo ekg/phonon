@@ -3077,6 +3077,58 @@ impl DslCompiler {
                                 begin: Signal::Value(0.0),
                                 end: Signal::Value(1.0),
                             })
+                        } else if let Some(SignalNode::Oscillator {
+                            freq: Signal::Node(freq_id),
+                            waveform,
+                            ..
+                        }) = node
+                        {
+                            // Inner node is an oscillator driven by a Pattern-node
+                            // frequency (produced by an earlier freq-pattern
+                            // transform). Chain the next transform onto that
+                            // frequency pattern and rebuild the oscillator, e.g.
+                            // `sine "110 220" $ fast 2 $ rev`.
+                            let freq_id = *freq_id;
+                            let waveform = *waveform;
+                            if let Some(SignalNode::Pattern {
+                                pattern: freq_pattern,
+                                pattern_str,
+                                ..
+                            }) = self.graph.get_node(freq_id)
+                            {
+                                let freq_data = (freq_pattern.clone(), pattern_str.clone());
+                                let (freq_pattern, pattern_str) = freq_data;
+                                let transformed = match self
+                                    .apply_pattern_transform(freq_pattern.clone(), transform)
+                                {
+                                    Ok(p) => p,
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Warning: Failed to chain transform onto oscillator freq: {}",
+                                            e
+                                        );
+                                        freq_pattern
+                                    }
+                                };
+                                let new_freq = self.graph.add_node(SignalNode::Pattern {
+                                    pattern_str,
+                                    pattern: transformed,
+                                    last_value: 0.0,
+                                    last_trigger_time: -1.0,
+                                });
+                                self.graph.add_node(SignalNode::Oscillator {
+                                    freq: Signal::Node(new_freq),
+                                    semitone_offset: 0.0,
+                                    waveform,
+                                    phase: RefCell::new(0.0),
+                                    pending_freq: RefCell::new(None),
+                                    last_sample: RefCell::new(0.0),
+                                })
+                            } else {
+                                // Freq is a plain node, not a transformable pattern;
+                                // leave the oscillator unchanged.
+                                inner_node_id
+                            }
                         } else {
                             eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
                             self.graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -3291,6 +3343,57 @@ impl DslCompiler {
                         } else {
                             eprintln!("Warning: Bus '{}' does not contain a pattern or sample node - cannot apply transform", bus_name);
                             self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                        }
+                    }
+                    // Transform applied to an oscillator whose frequency is a
+                    // PATTERN, e.g. `sine "110 220" $ fast 2`. Apply the transform
+                    // to the frequency pattern and drive the oscillator with the
+                    // transformed pattern signal. This is the Phonon promise that a
+                    // pattern can modulate ANY parameter -- here the oscillator freq.
+                    DslExpression::Oscillator { waveform, freq, .. } => {
+                        if let DslExpression::Pattern(pattern_str) = *freq {
+                            let base_pattern = parse_mini_notation(&pattern_str);
+                            let transformed_pattern =
+                                match self.apply_pattern_transform(base_pattern, transform) {
+                                    Ok(p) => p,
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Warning: Failed to apply transform to oscillator freq: {}",
+                                            e
+                                        );
+                                        parse_mini_notation(&pattern_str)
+                                    }
+                                };
+                            // A Pattern node emits the current pattern value as a
+                            // continuous numeric signal (same node kind used for
+                            // pan/speed/cutoff modulation), so it works as freq.
+                            let freq_node = self.graph.add_node(SignalNode::Pattern {
+                                pattern_str: pattern_str.clone(),
+                                pattern: transformed_pattern,
+                                last_value: 0.0,
+                                last_trigger_time: -1.0,
+                            });
+                            self.graph.add_node(SignalNode::Oscillator {
+                                freq: Signal::Node(freq_node),
+                                semitone_offset: 0.0,
+                                waveform,
+                                phase: RefCell::new(0.0),
+                                pending_freq: RefCell::new(None),
+                                last_sample: RefCell::new(0.0),
+                            })
+                        } else {
+                            // Non-pattern frequency (e.g. `sine 220`): a pattern
+                            // transform has nothing to act on, so just build the
+                            // oscillator with its original frequency.
+                            let freq_signal = self.compile_expression_to_signal(*freq);
+                            self.graph.add_node(SignalNode::Oscillator {
+                                freq: freq_signal,
+                                semitone_offset: 0.0,
+                                waveform,
+                                phase: RefCell::new(0.0),
+                                pending_freq: RefCell::new(None),
+                                last_sample: RefCell::new(0.0),
+                            })
                         }
                     }
                     _ => {

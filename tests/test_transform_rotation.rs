@@ -40,31 +40,42 @@ fn test_rotl_level1_shifts_backward() {
         controls: HashMap::new(),
     };
 
-    let base_haps = pattern.query(&state);
-    let rotl_haps = pattern.clone().rotate_left(0.25).query(&state);
+    let mut base_haps = pattern.query(&state);
+    let mut rotl_haps = pattern.clone().rotate_left(0.25).query(&state);
+    base_haps.sort_by(|a, b| a.part.begin.partial_cmp(&b.part.begin).unwrap());
+    rotl_haps.sort_by(|a, b| a.part.begin.partial_cmp(&b.part.begin).unwrap());
 
-    // rotL shifts events backward by 0.25
+    // rotL shifts the whole pattern earlier in time (Tidal's `<~`). For a pattern
+    // that tiles the cycle ("bd sn hh cp" at 0, .25, .5, .75), a 0.25 rotation
+    // lands events back on the SAME grid but with the VALUES rotated left by one
+    // slot: the value that was at 0.25 is now at 0.0, and the first value wraps to
+    // the end. So the onset grid is unchanged; the values rotate.
     assert_eq!(
         base_haps.len(),
         rotl_haps.len(),
         "rotL preserves event count"
     );
 
-    // Check that events are shifted
     for i in 0..base_haps.len() {
-        let base_time = base_haps[i].part.begin.to_float();
-        let rotl_time = rotl_haps[i].part.begin.to_float();
-        let shift = base_time - rotl_time;
-
+        // Grid positions are unchanged.
         assert!(
-            (shift - 0.25).abs() < 0.001,
-            "Event {}: shift should be 0.25, got {:.3}",
+            (base_haps[i].part.begin.to_float() - rotl_haps[i].part.begin.to_float()).abs()
+                < 0.001,
+            "Slot {}: rotL keeps the onset grid, base={:.3} rotl={:.3}",
             i,
-            shift
+            base_haps[i].part.begin.to_float(),
+            rotl_haps[i].part.begin.to_float()
+        );
+        // Values are rotated left by one slot (0.25 cycle = 1 of 4 events).
+        let expected = &base_haps[(i + 1) % base_haps.len()].value;
+        assert_eq!(
+            &rotl_haps[i].value, expected,
+            "Slot {}: rotL value should be base[i+1] ({}), got {}",
+            i, expected, rotl_haps[i].value
         );
     }
 
-    println!("✅ rotL Level 1: Shifts events backward by specified amount");
+    println!("✅ rotL Level 1: Rotates values left by the specified amount");
 }
 
 #[test]
@@ -76,31 +87,40 @@ fn test_rotr_level1_shifts_forward() {
         controls: HashMap::new(),
     };
 
-    let base_haps = pattern.query(&state);
-    let rotr_haps = pattern.clone().rotate_right(0.25).query(&state);
+    let mut base_haps = pattern.query(&state);
+    let mut rotr_haps = pattern.clone().rotate_right(0.25).query(&state);
+    base_haps.sort_by(|a, b| a.part.begin.partial_cmp(&b.part.begin).unwrap());
+    rotr_haps.sort_by(|a, b| a.part.begin.partial_cmp(&b.part.begin).unwrap());
 
-    // rotR shifts events forward by 0.25
+    // rotR shifts the whole pattern later in time (Tidal's `~>`). For a pattern
+    // that tiles the cycle, a 0.25 rotation lands events back on the SAME grid but
+    // with the VALUES rotated right by one slot: the last value wraps to 0.0. So
+    // the onset grid is unchanged; the values rotate the opposite way from rotL.
     assert_eq!(
         base_haps.len(),
         rotr_haps.len(),
         "rotR preserves event count"
     );
 
-    // Check that events are shifted
     for i in 0..base_haps.len() {
-        let base_time = base_haps[i].part.begin.to_float();
-        let rotr_time = rotr_haps[i].part.begin.to_float();
-        let shift = rotr_time - base_time;
-
         assert!(
-            (shift - 0.25).abs() < 0.001,
-            "Event {}: shift should be 0.25, got {:.3}",
+            (base_haps[i].part.begin.to_float() - rotr_haps[i].part.begin.to_float()).abs()
+                < 0.001,
+            "Slot {}: rotR keeps the onset grid, base={:.3} rotr={:.3}",
             i,
-            shift
+            base_haps[i].part.begin.to_float(),
+            rotr_haps[i].part.begin.to_float()
+        );
+        let n = base_haps.len();
+        let expected = &base_haps[(i + n - 1) % n].value;
+        assert_eq!(
+            &rotr_haps[i].value, expected,
+            "Slot {}: rotR value should be base[i-1] ({}), got {}",
+            i, expected, rotr_haps[i].value
         );
     }
 
-    println!("✅ rotR Level 1: Shifts events forward by specified amount");
+    println!("✅ rotR Level 1: Rotates values right by the specified amount");
 }
 
 #[test]

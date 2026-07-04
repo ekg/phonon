@@ -100,6 +100,71 @@ fn test_template_chained_transforms() {
     assert!(result.is_ok());
 }
 
+/// Render helper: compile + render DSL to a mono audio buffer.
+fn render(code: &str, duration: f32) -> Vec<f32> {
+    let sample_rate = 44100.0;
+    let (_, statements) = parse_program(code).expect("Parse failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compile failed");
+    graph.render((duration * sample_rate) as usize)
+}
+
+#[test]
+fn test_template_chained_transforms_semantics() {
+    // A chained-transform template must expand to the SAME result as writing
+    // the transform chain inline (macro expansion is faithful), and must
+    // actually alter the pattern versus the untransformed source.
+    let tpl = render(
+        r#"
+        tempo: 1.0
+        @crazy: fast 2 $ rev
+        out $ s "bd sn hh cp" $ @crazy
+        "#,
+        2.0,
+    );
+    let inline = render(
+        r#"
+        tempo: 1.0
+        out $ s "bd sn hh cp" $ fast 2 $ rev
+        "#,
+        2.0,
+    );
+    let plain = render(
+        r#"
+        tempo: 1.0
+        out $ s "bd sn hh cp"
+        "#,
+        2.0,
+    );
+
+    assert_eq!(tpl.len(), inline.len());
+
+    // Faithful expansion: template render == inline-chain render, sample-for-sample.
+    let max_diff = tpl
+        .iter()
+        .zip(inline.iter())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0.0f32, f32::max);
+    assert!(
+        max_diff < 1e-6,
+        "Template @crazy must render identically to inline 'fast 2 $ rev', max sample diff {}",
+        max_diff
+    );
+
+    // If samples produced audio, the transform must have changed the output.
+    let tpl_energy: f32 = tpl.iter().map(|s| s.abs()).sum();
+    if tpl_energy > 0.0 {
+        let diff_energy: f32 = tpl
+            .iter()
+            .zip(plain.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum();
+        assert!(
+            diff_energy > 0.0,
+            "Chained template transform should change the rendered output vs the plain pattern"
+        );
+    }
+}
+
 #[test]
 fn test_template_in_bus() {
     // Use template in bus definition

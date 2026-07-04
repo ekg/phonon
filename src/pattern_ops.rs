@@ -186,10 +186,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             self.query(state)
                 .into_iter()
                 .filter_map(|hap| {
-                    // Use the event's time position and cycle to generate seed
-                    // This ensures each event gets a unique random value
-                    let cycle = hap.part.begin.to_float().floor() as u64;
-                    let position_hash = (hap.part.begin.to_float() * 1000000.0) as u64;
+                    // Seed from the event's ONSET (whole.begin), not part.begin.
+                    // part.begin is clipped to the query window, so a narrow query
+                    // (e.g. sample-by-sample rendering) would hash a fragment's
+                    // clipped start to a different seed than a full-cycle query and
+                    // flip the keep/drop decision -- making degrade depend on the
+                    // query window. Hashing the onset makes every fragment of an
+                    // event share one deterministic decision.
+                    let onset = hap
+                        .whole
+                        .as_ref()
+                        .map(|w| w.begin.to_float())
+                        .unwrap_or_else(|| hap.part.begin.to_float());
+                    let cycle = onset.floor() as u64;
+                    let position_hash = (onset * 1000000.0) as u64;
                     let event_seed = cycle
                         .wrapping_mul(2654435761) // Large prime
                         .wrapping_add(position_hash);
@@ -484,11 +494,18 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     (0..n)
                         .map(|i| {
                             let offset = i as f64 * step;
-                            let mut new_hap = hap.clone();
-                            new_hap.part = TimeSpan::new(
+                            let new_span = TimeSpan::new(
                                 Fraction::from_float(hap.part.begin.to_float() + offset),
                                 Fraction::from_float(hap.part.begin.to_float() + offset + step),
                             );
+                            let mut new_hap = hap.clone();
+                            // Each stutter copy is a distinct onset. Give it its own
+                            // `whole` sub-span (not the original event's whole) so the
+                            // sample render path — which keys voice triggers off
+                            // `whole.begin` — fires every repeat instead of collapsing
+                            // them into a single trigger. Preserve None (analog frags).
+                            new_hap.whole = hap.whole.map(|_| new_span);
+                            new_hap.part = new_span;
                             new_hap
                         })
                         .collect::<Vec<_>>()

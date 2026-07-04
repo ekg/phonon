@@ -61,7 +61,7 @@ fn test_fast_three_level_verification() {
     let fast2 = pattern.clone().fast(Pattern::pure(2.0));
 
     let cycles = 4;
-    let tempo = 2.0; // CPS
+    let tempo = 0.5; // CPS (matches `tempo: 0.5` in the rendered code)
 
     // ═══════════════════════════════════════════════════════════════
     // LEVEL 1: Pattern Query Verification
@@ -188,7 +188,7 @@ fn test_slow_three_level_verification() {
     let slow2 = pattern.clone().slow(Pattern::pure(2.0));
 
     let cycles = 4;
-    let tempo = 2.0;
+    let tempo = 0.5; // matches `tempo: 0.5` in the rendered code
 
     // ═══════════════════════════════════════════════════════════════
     // LEVEL 1: Pattern Query

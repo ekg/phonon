@@ -8388,6 +8388,32 @@ fn create_signal_pattern_for_transform(
     Ok(pattern)
 }
 
+/// Flatten a template body expression into an ordered list of transforms.
+///
+/// A template body (`@name: <expr>`) may be:
+///   - a single transform call:   `@swing: swing 0.6`   -> `Expr::Call`
+///   - a chained transform:       `@crazy: fast 2 $ rev` -> `Expr::Transform { .. }`
+///     (parsed right-associative: the outer `transform` field is applied LAST,
+///      the innermost `expr` is applied FIRST)
+///
+/// Returns the transforms in application order (first element applied first),
+/// or `None` if the body is not a transform chain.
+fn template_body_to_transforms(expr: &Expr) -> Option<Vec<Transform>> {
+    match expr {
+        Expr::Call { name, args } => parse_transform_from_call(name, args).ok().map(|t| vec![t]),
+        Expr::Transform {
+            expr: inner,
+            transform,
+        } => {
+            // The inner expression is applied first, then the outer transform.
+            let mut v = template_body_to_transforms(inner)?;
+            v.push(transform.clone());
+            Some(v)
+        }
+        _ => None,
+    }
+}
+
 /// Helper for applying transforms in closures where we only have templates
 /// This version doesn't support Expr::Bus in transform parameters
 /// For bus support, use apply_transform_to_pattern with full CompilerContext
@@ -8423,20 +8449,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 .cloned()
                 .ok_or_else(|| format!("Undefined template: @{}", name))?;
 
-            // The template should be a transform function call
-            // Extract the transform from the expression
-            if let Expr::Call {
-                name: fn_name,
-                args,
-            } = template_expr
-            {
-                // Use central transform parser
-                let transform = parse_transform_from_call(&fn_name, &args)?;
-                // Recursively apply the extracted transform
-                apply_transform_to_pattern(ctx, pattern, transform)
-            } else {
-                Err(format!("Template @{} is not a transform function", name))
+            // The template body is a transform chain. It may be a single call
+            // (`@swing: swing 0.6`) or a chained transform (`@crazy: fast 2 $ rev`).
+            // Flatten it into an ordered transform list and apply each in turn.
+            let transforms = template_body_to_transforms(&template_expr)
+                .ok_or_else(|| format!("Template @{} is not a transform function", name))?;
+            let mut result = pattern;
+            for transform in transforms {
+                result = apply_transform_to_pattern(ctx, result, transform)?;
             }
+            Ok(result)
         }
         // Transform bus reference: look up transform bus and apply stored transform
         Transform::TransformBusRef(name) => {
@@ -8852,13 +8874,23 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             ))
         }
         Transform::Stut { n, time, decay } => {
-            let n_val = extract_number(&n)?;
-            let time_val = extract_number(&time)?;
-            let decay_val = extract_number(&decay)?;
+            // Every parameter is a pattern: a bare number becomes Pattern::pure,
+            // a quoted string ("0.125 0.25") becomes a mini-notation pattern of
+            // f64s. This mirrors late/early and lets stut timing/decay be pattern
+            // modulated, e.g. `stut 3 "0.125 0.25" 0.7`.
+            let to_f64_pattern = |expr: &Expr| -> Result<Pattern<f64>, String> {
+                match expr {
+                    Expr::String(s) => {
+                        let string_pattern = parse_mini_notation(s);
+                        Ok(string_pattern.fmap(|v| v.parse::<f64>().unwrap_or(0.0)))
+                    }
+                    _ => Ok(Pattern::pure(extract_number(expr)?)),
+                }
+            };
             Ok(pattern.stut(
-                Pattern::pure(n_val),
-                Pattern::pure(time_val),
-                Pattern::pure(decay_val),
+                to_f64_pattern(&n)?,
+                to_f64_pattern(&time)?,
+                to_f64_pattern(&decay)?,
             ))
         }
         Transform::Segment(n_expr) => {

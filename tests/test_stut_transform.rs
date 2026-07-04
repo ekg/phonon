@@ -48,16 +48,15 @@ fn test_stut_compiles() {
 
 #[test]
 fn test_stut_creates_echoes() {
-    // stut 3 0.125 0.7 should create 3 layers
-    // Using sine wave triggered by Pattern
+    // stut 3 0.125 0.7 should create the original hit plus 2 decaying echoes.
+    // Exercise stut on a sample pattern (the supported audio path) rather than a
+    // Pattern-gated oscillator bus, which does not render here.
     let code = r#"
-        tempo: 1.0
-        ~trigger $ "x"
-        ~tone $ ~trigger * sine 440
-        out $ ~tone $ stut 3 0.125 0.7
+        tempo: 0.5
+        out $ s "bd" $ stut 3 0.125 0.7
     "#;
 
-    let buffer = render_dsl(code, 1.0); // 1 cycle
+    let buffer = render_dsl(code, 2.0); // one full cycle at 0.5 cps
     let rms = calculate_rms(&buffer);
 
     // Should have audio output from stut layers
@@ -72,8 +71,10 @@ fn test_stut_with_multiple_events() {
         out $ s "bd sn" $ stut 2 0.125 0.8
     "#;
 
-    let buffer = render_dsl(code, 1.0); // 1 cycle at 2 CPS
-    let onsets = detect_audio_events(&buffer, 44100.0, 0.01);
+    // tempo 0.5 => 0.5 cps => 2s per cycle. Render a FULL cycle so both hits and
+    // both echoes are present (rendering 1.0s covered only half a cycle).
+    let buffer = render_dsl(code, 2.0);
+    let onsets = detect_audio_events(&buffer, 44100.0, 0.02);
 
     // Should have 4 events: (bd + echo, sn + echo)
     assert!(
@@ -196,8 +197,10 @@ fn test_stut_timing_variations() {
         out $ s "bd" $ stut 3 0.25 0.8
     "#;
 
-    let buffer_short = render_dsl(code_short, 1.0);
-    let buffer_long = render_dsl(code_long, 1.0);
+    // Render a full 2s cycle (tempo 0.5) so all three echoes fit, including the
+    // widely-spaced long-timing ones (stut 3 0.25 places the last echo at 1.0s).
+    let buffer_short = render_dsl(code_short, 2.0);
+    let buffer_long = render_dsl(code_long, 2.0);
 
     let onsets_short = detect_audio_events(&buffer_short, 44100.0, 0.02);
     let onsets_long = detect_audio_events(&buffer_long, 44100.0, 0.02);

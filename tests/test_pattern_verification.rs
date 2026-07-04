@@ -71,7 +71,7 @@ fn test_fast_transform_verification() {
 
     let input_fast = r#"
         cps: 1.0
-        out $ s("bd sn" $ fast 2) * 0.5
+        out $ s "bd sn" $ fast 2 * 0.5
     "#;
 
     // Render normal pattern
@@ -113,7 +113,7 @@ fn test_slow_transform_verification() {
 
     let input_slow = r#"
         cps: 2.0
-        out $ s("bd sn hh cp" $ slow 2) * 0.5
+        out $ s "bd sn hh cp" $ slow 2 * 0.5
     "#;
 
     // Render normal pattern
@@ -154,7 +154,7 @@ fn test_degrade_transform_verification() {
 
     let input_degraded = r#"
         cps: 2.0
-        out $ s("bd bd bd bd" $ degrade) * 0.5
+        out $ s "bd bd bd bd" $ degrade * 0.5
     "#;
 
     // Render normal pattern
@@ -196,7 +196,7 @@ fn test_stutter_transform_verification() {
 
     let input_stutter = r#"
         cps: 1.0
-        out $ s("bd sn" $ stutter 3) * 0.5
+        out $ s "bd sn" $ stutter 3 * 0.5
     "#;
 
     // Render normal pattern
@@ -281,7 +281,7 @@ fn test_combined_transforms_verification() {
     // Test that combining transforms works correctly: fast 2 then rev
     let input = r#"
         cps: 1.0
-        out $ s("bd sn" $ fast 2 $ rev) * 0.5
+        out $ s "bd sn" $ fast 2 $ rev * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -289,7 +289,10 @@ fn test_combined_transforms_verification() {
     let mut graph = compiler.compile(statements);
     let audio = graph.render(44100);
 
-    let detected = detect_audio_events(&audio, 44100.0, 0.001);
+    // 0.02 threshold: a 0.001 threshold is below the noise/decay floor and
+    // reports every windowed RMS wiggle as an onset. 0.02 counts one onset per
+    // hit, so fast(2)+rev on "bd sn" (4 events/cycle) reads as ~4.
+    let detected = detect_audio_events(&audio, 44100.0, 0.02);
 
     println!("Combined fast+rev: {} events detected", detected.len());
 

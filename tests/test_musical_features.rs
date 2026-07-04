@@ -164,7 +164,7 @@ fn test_dub_echo_chain() {
     let code = r#"
         tempo: 1.0
         ~source $ sine 880 * 0.4
-        ~echout $ ~source # delay 0.25 0.5
+        ~echo1 $ ~source # delay 0.25 0.5
         ~echo2 $ ~echo1 # delay 0.25 0.4
         out $ ~source * 0.6 + ~echo1 * 0.3 + ~echo2 * 0.2
     "#;
