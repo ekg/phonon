@@ -31,6 +31,11 @@ use phonon::compositional_parser::parse_program;
 #[cfg(unix)]
 use phonon::ipc::{AudioServer, IpcMessage};
 #[cfg(unix)]
+use phonon::link_clock::{
+    needs_hard_reseek, nudged_cps, snapshot_from_source, LinkSnapshot, TempoSource,
+    DEFAULT_BEATS_PER_CYCLE,
+};
+#[cfg(unix)]
 use phonon::render_swap::{render_swap_channel_default, Cmd, CommandSender};
 #[cfg(unix)]
 use phonon::unified_graph::UnifiedSignalGraph;
@@ -46,6 +51,8 @@ use std::io::BufWriter;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 #[cfg(unix)]
 use std::sync::Arc;
+#[cfg(unix)]
+use std::sync::Mutex;
 #[cfg(unix)]
 use std::thread;
 #[cfg(unix)]
@@ -156,6 +163,21 @@ impl GlobalClock {
         self.cps
     }
 
+    /// Jump to an absolute cycle position — a DELIBERATE discontinuity, used ONLY
+    /// for the bounded Link join / large-error reseek (design §4.3 regimes 1 & 3),
+    /// never per buffer. Unlike `set_cps` (which preserves the current position to
+    /// keep tempo changes continuous), this re-anchors both the base position AND
+    /// the base time so `get_position()` returns exactly `position` at the instant
+    /// of the call and accumulates forward from there. On the phonon-audio path the
+    /// GlobalClock is the position authority (`process_buffer_at` overrides the
+    /// graph's cycle from it every buffer), so this is what actually realizes a
+    /// hard reseek; the paired `Cmd::SetCycle` only keeps the owned graph's own
+    /// cycle consistent (mirroring how `SetTempo` also routes `Cmd::SetTempo`).
+    fn set_position(&mut self, position: f64) {
+        self.base_cycle_position = position;
+        self.base_time = std::time::Instant::now();
+    }
+
     /// Get buffer timing info atomically (position AND increment together)
     /// Returns (buffer_start_cycle, sample_increment, cps)
     /// This ensures consistent values even if tempo is changing
@@ -196,6 +218,133 @@ fn send_cmd_retry(tx: &mut CommandSender<UnifiedSignalGraph>, cmd: Cmd<UnifiedSi
         }
     }
     false
+}
+
+/// The outcome of folding one Link `TempoSource` sample into the `GlobalClock`.
+///
+/// `clock` is the updated snapshot to publish; `reseek` is `Some(target_cycle)`
+/// only when the phase error is large enough that a soft varispeed slew would be
+/// audibly long — the caller then enqueues a single `Cmd::SetCycle` so the owned
+/// graph's cycle follows the clock's hard reseek (design §4.3 regimes 2 vs 3).
+#[cfg(unix)]
+struct LinkClockUpdate {
+    clock: GlobalClock,
+    reseek: Option<f64>,
+}
+
+/// Fold one Link snapshot into a `GlobalClock`, choosing between a bounded
+/// steady-state varispeed nudge and a single hard reseek (design §4.3).
+///
+/// - **Steady state** (`|err| <= HARD_RESEEK_THRESHOLD_CYCLES`): the phase error
+///   `err = target_cycle - live_position` is folded into `cps` via `nudged_cps`
+///   (≤0.5 %) and applied through `set_cps`, which re-anchors at the current
+///   position — so position stays sample-accumulated and CONTINUOUS. No teleport,
+///   no reseek (`reseek == None`). This is the invariant-T1 path.
+/// - **Large error** (join / dropout / new peer): a soft slew would take too long,
+///   so the clock is hard-reseeked to the network phase with `set_position`
+///   (`reseek == Some(target_cycle)`). Because that snaps the live position onto
+///   the network, the *next* fold sees `err ≈ 0` and returns to the steady-state
+///   branch — hence a large error yields ONE reseek, not a per-buffer snap.
+///
+/// Pure and lock-free — takes the clock by value (`Copy`) and returns a fresh one,
+/// exactly the read-modify-write the `SetTempo` IPC handler performs on the
+/// `ArcSwap<GlobalClock>` (`:660-675`).
+#[cfg(unix)]
+fn fold_link_snapshot(clock: GlobalClock, snap: LinkSnapshot) -> LinkClockUpdate {
+    let err = snap.target_cycle - clock.get_position();
+    let mut clock = clock;
+    if needs_hard_reseek(err) {
+        // Regime 3: one deliberate reseek. Set the network tempo, then jump the
+        // position onto the network phase (the jump overrides set_cps's re-anchor).
+        clock.set_cps(snap.cps as f32);
+        clock.set_position(snap.target_cycle);
+        LinkClockUpdate {
+            clock,
+            reseek: Some(snap.target_cycle),
+        }
+    } else {
+        // Regime 2: bounded varispeed folded into cps; position stays accumulated.
+        clock.set_cps(nudged_cps(snap.cps, err) as f32);
+        LinkClockUpdate {
+            clock,
+            reseek: None,
+        }
+    }
+}
+
+/// One control-side Link cadence step: sample the shared tempo `src` at wall-clock
+/// instant `at`, fold it into the lock-free `ArcSwap<GlobalClock>` (load → copy →
+/// `set_cps`/`set_position` → store, the SAME single-writer discipline as the
+/// `SetTempo` IPC handler at `:660-675`), and return `Some(target_cycle)` when the
+/// caller should enqueue a single `Cmd::SetCycle` hard reseek.
+///
+/// This is the single writer to the clock snapshot; it takes no lock and never
+/// touches the graph. The render thread keeps its lock-free `.load()` once per
+/// buffer (`:341-344`), unchanged. Returns `None` when the transport is stopped or
+/// in steady state (no reseek needed).
+#[cfg(unix)]
+fn link_reader_step<S: TempoSource + ?Sized>(
+    clock: &ArcSwap<GlobalClock>,
+    src: &S,
+    beats_per_cycle: f64,
+    at: std::time::Instant,
+) -> Option<f64> {
+    let snap = snapshot_from_source(src, at, beats_per_cycle, 0);
+    // Transport stopped: leave the clock untouched (no tempo drive, no reseek).
+    if !snap.playing {
+        return None;
+    }
+    let update = fold_link_snapshot(**clock.load(), snap);
+    clock.store(Arc::new(update.clock));
+    update.reseek
+}
+
+/// The control-side Link reader thread body (design §5, phonon-audio path): at a
+/// modest cadence, fold the shared tempo `src` into the `GlobalClock` and, on a
+/// hard reseek, enqueue ONE `Cmd::SetCycle` through the render-owner ring — the
+/// SAME ring the IPC thread uses, serialized by a control-side `Mutex` so the ring
+/// keeps its single-producer invariant. The `Mutex` is never on the render path
+/// (the render thread only *consumes* the ring via `apply_pending_commands` and
+/// reads the clock lock-free), so RT-safety (F-3) and C1 (graph stays `Send`-only,
+/// never shared) are untouched.
+///
+/// Runs only when a real Link source is present; the default build acquires none
+/// (`acquire_link_source` returns `None`) and never spawns this — a complete no-op.
+#[cfg(unix)]
+fn run_link_reader(
+    clock: Arc<ArcSwap<GlobalClock>>,
+    cmd_tx: Arc<Mutex<CommandSender<UnifiedSignalGraph>>>,
+    src: Box<dyn TempoSource + Send>,
+    beats_per_cycle: f64,
+) {
+    // Poll a little faster than a typical audio buffer so phase tracking stays
+    // ahead of the render thread's per-buffer clock load. Control-side only.
+    let cadence = StdDuration::from_millis(3);
+    loop {
+        let at = std::time::Instant::now();
+        if let Some(target_cycle) = link_reader_step(&clock, src.as_ref(), beats_per_cycle, at) {
+            // Hard reseek: enqueue ONE Cmd::SetCycle with a brief control-side lock
+            // (a single non-blocking push). If the ring is momentarily full the
+            // reseek defers to the next cadence; the GlobalClock — the position
+            // authority on this path — already carries it, so no phase is lost.
+            if let Ok(mut tx) = cmd_tx.lock() {
+                let _ = tx.send(Cmd::SetCycle(target_cycle));
+            }
+        }
+        thread::sleep(cadence);
+    }
+}
+
+/// Acquire a shared tempo source for the Link reader thread, if one is available.
+///
+/// The real Ableton Link backend (`rusty_link`) lives behind the off-by-default
+/// `link` Cargo feature (design §3/§7; the `link-backend-rusty` task), so the
+/// stock build compiles no backend and this returns `None`. With no source the
+/// reader thread is never spawned and the whole Link path is a no-op: the
+/// `GlobalClock`, the render loop, and audio timing are byte-identical to before.
+#[cfg(unix)]
+fn acquire_link_source() -> Option<Box<dyn TempoSource + Send>> {
+    None
 }
 
 #[cfg(unix)]
@@ -282,9 +431,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // no `Arc`, no `RefCell`, no `ArcSwap<GraphCell>`, and no cross-thread borrow
     // of the graph — which is exactly what removes the C1 race and the R1/R2/R3
     // swap windows.
-    let (mut cmd_tx, render_swap, graveyard) =
+    let (cmd_tx, render_swap, graveyard) =
         render_swap_channel_default::<UnifiedSignalGraph>();
+    // Wrap the single-producer command sender in a control-side `Mutex` so BOTH the
+    // IPC thread and the optional Link reader thread can feed the render-owner ring
+    // while it keeps its single-producer invariant. This `Mutex` is control-side
+    // ONLY: the render thread consumes the ring (`apply_pending_commands`) and reads
+    // the clock lock-free — it never locks this, so RT-safety (F-3) and the
+    // `Send`-only graph (C1) are unchanged. With no Link source the reader never
+    // spawns and this lock is always uncontended (behaviorally a no-op).
+    let cmd_tx = Arc::new(Mutex::new(cmd_tx));
     eprintln!("🔀 Render-owner swap channel initialized (single-owner graph handoff)");
+
+    // Optional Link tempo-sync reader (design §5, phonon-audio path). No backend is
+    // compiled into the default build (the `rusty_link` backend is behind the
+    // off-by-default `link` Cargo feature), so `acquire_link_source` returns `None`,
+    // no thread spawns, and the GlobalClock / render path stay byte-identical.
+    if let Some(src) = acquire_link_source() {
+        let link_clock = Arc::clone(&global_clock);
+        let link_cmd_tx = Arc::clone(&cmd_tx);
+        thread::spawn(move || {
+            eprintln!("🔗 Link tempo-sync reader started");
+            run_link_reader(link_clock, link_cmd_tx, src, DEFAULT_BEATS_PER_CYCLE);
+        });
+    }
 
     // Ring buffer: background synth writes, audio callback reads
     // Size: 2 seconds of audio = smooth playback even with synthesis spikes
@@ -621,7 +791,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             // cross-thread borrow, no 50×500µs try_borrow_mut retry
                                             // loop, no "could not transfer state" give-up (R1), no
                                             // synth starvation (R2), and no voiceless window (R3).
-                                            if !send_cmd_retry(&mut cmd_tx, Cmd::Swap(Box::new(new_graph))) {
+                                            if !send_cmd_retry(&mut cmd_tx.lock().unwrap(), Cmd::Swap(Box::new(new_graph))) {
                                                 eprintln!("⚠️  Swap channel full after retries — dropping this reload");
                                             }
                                         }
@@ -642,7 +812,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // §4.2): the render thread applies `hush_all` to its
                             // owned graph at the next boundary — silencing every
                             // output channel — instead of dropping a shared graph.
-                            if !send_cmd_retry(&mut cmd_tx, Cmd::Hush) {
+                            if !send_cmd_retry(&mut cmd_tx.lock().unwrap(), Cmd::Hush) {
                                 eprintln!("⚠️  Swap channel full after retries — hush not applied");
                             }
                         }
@@ -652,7 +822,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Route panic through the render-owner channel: the
                             // render thread kills all voices and hushes all outputs
                             // (`panic`) on its owned graph at the next boundary.
-                            if !send_cmd_retry(&mut cmd_tx, Cmd::Panic) {
+                            if !send_cmd_retry(&mut cmd_tx.lock().unwrap(), Cmd::Panic) {
                                 eprintln!("⚠️  Swap channel full after retries — panic not applied");
                             }
                         }
@@ -669,7 +839,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Also route the tempo through the render-owner channel so
                             // the owned graph's own cps stays consistent (design §4.2
                             // unifies control messages onto one ordered stream).
-                            if !send_cmd_retry(&mut cmd_tx, Cmd::SetTempo(cps as f64)) {
+                            if !send_cmd_retry(&mut cmd_tx.lock().unwrap(), Cmd::SetTempo(cps as f64)) {
                                 eprintln!("⚠️  Swap channel full after retries — tempo not routed to graph");
                             }
                         }
@@ -825,5 +995,137 @@ mod tests {
 
         // Janitor drops the retired graph off the render thread.
         assert_eq!(grave.collect(), 1, "janitor collected the retired graph");
+    }
+
+    // ---- Link tempo-sync wiring (design §4.3 / §5, phonon-audio path) --------
+    //
+    // These exercise the control-side Link reader logic that folds a shared
+    // `TempoSource` into the lock-free `ArcSwap<GlobalClock>` — the SAME
+    // load→copy→set_cps→store discipline as the `SetTempo` IPC handler
+    // (`:660-675`) — and routes a SINGLE `Cmd::SetCycle` through the render-owner
+    // ring on a large phase error, never a per-buffer snap. All deterministic and
+    // in-process (mock source, no native dep, no audio device).
+    use phonon::link_clock::{bpm_to_cps, MockTempoSource};
+
+    /// Steady state (small phase error): the nudge is folded into `cps` and the
+    /// clock position is CONTINUOUS across the tempo change — never snapped to the
+    /// network's absolute phase (invariant T1, no per-buffer teleport).
+    #[test]
+    fn test_link_reader_set_cps_continuity_no_teleport() {
+        let sr = 44100.0f32;
+        // A clock mid-set at cycle 5.0, 120 BPM (== 0.5 cps).
+        let clock = GlobalClock {
+            base_time: std::time::Instant::now(),
+            base_cycle_position: 5.0,
+            cps: 0.5,
+            sample_rate: sr,
+        };
+        let pos_before = clock.get_position();
+        // Network a tiny phase ahead (steady-state regime) at a slightly higher tempo.
+        let snap = LinkSnapshot {
+            cps: bpm_to_cps(121.0, DEFAULT_BEATS_PER_CYCLE),
+            target_cycle: pos_before + 0.02,
+            epoch: 1,
+            playing: true,
+        };
+        let update = fold_link_snapshot(clock, snap);
+
+        // Small phase error stays in the soft band: no hard reseek.
+        assert!(
+            update.reseek.is_none(),
+            "small phase error must NOT hard-reseek"
+        );
+        // No teleport: position is continuous across the tempo change (only µs of
+        // wall-clock elapse), NOT snapped to the network's absolute phase.
+        let pos_after = update.clock.get_position();
+        assert!(
+            (pos_after - pos_before).abs() < 1e-3,
+            "set_cps must be continuous, got teleport {pos_before} -> {pos_after}"
+        );
+        // The bounded varispeed nudge sped the clock up (network ahead) and stayed
+        // within the ≤0.5 % clamp.
+        let base_cps = bpm_to_cps(121.0, DEFAULT_BEATS_PER_CYCLE) as f32;
+        assert!(
+            update.clock.cps > base_cps,
+            "positive phase error should nudge cps up: {} !> {}",
+            update.clock.cps,
+            base_cps
+        );
+        assert!(
+            (update.clock.cps - base_cps) / base_cps <= 0.005 + 1e-6,
+            "nudge exceeded the 0.5% clamp: {} vs {}",
+            update.clock.cps,
+            base_cps
+        );
+    }
+
+    /// Large phase error (join / dropout): the reader routes EXACTLY ONE
+    /// `Cmd::SetCycle` — the first cadence hard-reseeks the `GlobalClock` to the
+    /// network phase (`set_position`), so every later cadence falls inside the soft
+    /// band and nudges `cps` only. This is the anti-per-buffer-snap guard (T1).
+    #[test]
+    fn test_link_reader_large_error_routes_single_setcycle() {
+        let sr = 44100.0f32;
+        // GlobalClock starts at position 0, cps 0.5.
+        let clock = Arc::new(ArcSwap::from_pointee(GlobalClock {
+            base_time: std::time::Instant::now(),
+            base_cycle_position: 0.0,
+            cps: 0.5,
+            sample_rate: sr,
+        }));
+        // A source ~10 cycles ahead: 120 BPM (== 0.5 cps, matches the clock) with a
+        // base beat of 40 → cycle 10, a phase error far past the half-cycle threshold.
+        let base = std::time::Instant::now();
+        let src = MockTempoSource::with_origin(120.0, DEFAULT_BEATS_PER_CYCLE, base, 40.0);
+
+        // A real render-owner ring — exactly the type the synth thread consumes.
+        let (mut tx, _rsw, _grave) = render_swap_channel_default::<UnifiedSignalGraph>();
+
+        // Drive many control-side cadences (the reader thread's loop, unrolled).
+        let mut reseeks = 0usize;
+        for _ in 0..500 {
+            let at = std::time::Instant::now();
+            if let Some(target) = link_reader_step(&clock, &src, DEFAULT_BEATS_PER_CYCLE, at) {
+                assert!(
+                    send_cmd_retry(&mut tx, Cmd::SetCycle(target)),
+                    "SetCycle must enqueue"
+                );
+                reseeks += 1;
+            }
+        }
+
+        // Exactly ONE hard reseek across all cadences (not one-per-buffer): the
+        // first snaps the clock to the network phase, the rest stay in the soft band.
+        assert_eq!(
+            reseeks, 1,
+            "large phase error must route a SINGLE Cmd::SetCycle, not a per-buffer snap"
+        );
+        // And exactly one SetCycle actually reached the render-owner ring.
+        assert_eq!(tx.occupied_len(), 1, "exactly one Cmd::SetCycle in the ring");
+    }
+
+    /// A stopped transport drives nothing: no tempo change, no reseek. This is what
+    /// keeps the default build a no-op when a source exists but is not playing.
+    #[test]
+    fn test_link_reader_stopped_transport_is_noop() {
+        let sr = 44100.0f32;
+        let clock = Arc::new(ArcSwap::from_pointee(GlobalClock {
+            base_time: std::time::Instant::now(),
+            base_cycle_position: 0.0,
+            cps: 0.5,
+            sample_rate: sr,
+        }));
+        let cps_before = clock.load().cps;
+        let mut src =
+            MockTempoSource::with_origin(140.0, DEFAULT_BEATS_PER_CYCLE, std::time::Instant::now(), 40.0);
+        src.set_playing(false);
+
+        let out = link_reader_step(&clock, &src, DEFAULT_BEATS_PER_CYCLE, std::time::Instant::now());
+        assert!(out.is_none(), "stopped transport must not reseek");
+        assert_eq!(
+            clock.load().cps,
+            cps_before,
+            "stopped transport must not change tempo"
+        );
     }
 }
