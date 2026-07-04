@@ -5391,15 +5391,22 @@ pub struct UnifiedSignalGraph {
     pub vst2_plugins: RefCell<HashMap<String, Vst2PluginInstance>>,
 }
 
-// SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
-// that each graph instance is only accessed by a single thread at a time.
-// In live mode:
-// - Audio thread has its own Arc instance (via ArcSwap::load())
-// - File watcher creates NEW graphs and stores them atomically
-// - They never access the same graph instance concurrently
-// Therefore, it's safe to send UnifiedSignalGraph between threads and share references.
+// SAFETY: UnifiedSignalGraph contains `Rc`/`RefCell` interior state which is
+// `!Send` and `!Sync`. Under the **render-owner** graph-swap model (design
+// `docs/audits/design-render-owner-swap-2026-07.md` §4), a graph is owned by
+// *exactly one* thread at a time and ownership is **transferred, never shared**:
+// the control thread compiles a fresh graph and *moves* it to the render (synth)
+// thread through an SPSC swap channel (`src/render_swap.rs`); the render thread
+// then becomes the sole owner. Because the value is only ever moved between
+// threads (never `&`-shared), `Send` is sound but `Sync` is NOT required.
+//
+// `unsafe impl Sync` was the C1-root of the historical borrow race (design §2.1,
+// site `src/unified_graph.rs:5327-5328`); it is deleted here now that the last
+// shared-cell swap path is gone. Re-adding it would reintroduce the ability to
+// alias a `&UnifiedSignalGraph` across threads and mutate its `RefCell`s
+// concurrently — the exact data race the render-owner migration eliminated. The
+// `render_owner_graph_is_send_but_not_sync` regression test locks this in.
 unsafe impl Send for UnifiedSignalGraph {}
-unsafe impl Sync for UnifiedSignalGraph {}
 
 impl Clone for UnifiedSignalGraph {
     fn clone(&self) -> Self {

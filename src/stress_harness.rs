@@ -2937,6 +2937,131 @@ mod tests {
         );
     }
 
+    /// Render-owner counterpart to `run_borrow_flag_race_probe`: drives a
+    /// **many-swap concurrent session** through the *real*
+    /// [`crate::render_swap::render_swap_channel`] primitive.
+    ///
+    /// A single-owner render thread renders blocks against its owned `Box<G>`; a
+    /// control thread hands freshly-built graphs over by **move** (`Cmd::Swap`);
+    /// a janitor thread `Drop`s the retired graphs off the render thread. There
+    /// is no `RefCell`, no shared `Arc`, and no `unsafe impl Sync`: ownership is
+    /// *transferred, never aliased*, so there is no cross-thread access to race
+    /// on. Under `-Zsanitizer=thread` this session is **clean** — the A/B partner
+    /// of `concurrent_swap_borrow_flag_race_is_tsan_dirty` (design §6.A(2),
+    /// docs/RACE_DETECTION.md "Target (post-migration)").
+    ///
+    /// Returns `(swaps_applied, graphs_reclaimed)`; on a correct run both equal
+    /// `swaps` — the sole owner applies every issued swap and every retired graph
+    /// is reclaimed off the render thread.
+    fn render_owner_swap_probe(swaps: usize) -> (usize, usize) {
+        use crate::render_swap::{render_swap_channel, Cmd, RenderGraph};
+
+        // Minimal render-owned payload (cf. `RaceProbeCell`, but *owned* not
+        // shared): the render thread mutates its own copy each block; nobody
+        // else can reach it.
+        struct ProbeGraph {
+            installs: u64,
+            blocks: u64,
+        }
+        impl RenderGraph for ProbeGraph {
+            fn absorb_state(&mut self, prev: &mut Self) {
+                // Carry live state across the seam, like the real graph absorbing
+                // session timing from the outgoing graph.
+                self.blocks = prev.blocks;
+                self.installs = prev.installs + 1;
+            }
+        }
+
+        let (mut tx, mut rsw, mut grave) = render_swap_channel::<ProbeGraph>(8, 8);
+
+        // Janitor: reclaim retired graphs off the render thread until all `swaps`
+        // retirements have been collected.
+        let janitor = std::thread::spawn(move || {
+            let mut total = 0usize;
+            let mut safety = 0usize;
+            while total < swaps {
+                total += grave.collect();
+                safety += 1;
+                if safety > 500_000_000 {
+                    break; // liveness backstop; the asserts below catch a shortfall
+                }
+                std::hint::spin_loop();
+            }
+            total
+        });
+
+        // Control/reload thread: hand `swaps` freshly-compiled graphs over by move.
+        let control = std::thread::spawn(move || {
+            for i in 0..swaps {
+                let mut g = Box::new(ProbeGraph {
+                    installs: i as u64,
+                    blocks: 0,
+                });
+                // Never block the render thread: retry on backpressure.
+                loop {
+                    match tx.swap(g) {
+                        Ok(()) => break,
+                        Err(Cmd::Swap(returned)) => {
+                            g = returned;
+                            std::hint::spin_loop();
+                        }
+                        Err(_) => unreachable!("swap() only ever returns Cmd::Swap on full"),
+                    }
+                }
+            }
+        });
+
+        // Render (synth) thread == this thread: sole owner of `cur`.
+        let mut cur = Box::new(ProbeGraph {
+            installs: 0,
+            blocks: 0,
+        });
+        let mut applied_total = 0usize;
+        let mut safety = 0usize;
+        while applied_total < swaps {
+            applied_total += rsw.apply_pending_commands(&mut cur);
+            // "Render a block": mutate owned state — single-owner, unaliased.
+            cur.blocks = cur.blocks.wrapping_add(1);
+            safety += 1;
+            if safety > 500_000_000 {
+                break; // liveness backstop
+            }
+            std::hint::spin_loop();
+        }
+        // Flush any stashed retirements so every retired graph reaches the janitor.
+        while rsw.stashed_retired() > 0 {
+            rsw.apply_pending_commands(&mut cur);
+            std::hint::spin_loop();
+        }
+
+        let _ = control.join();
+        let collected = janitor.join().unwrap_or(0);
+        (applied_total, collected)
+    }
+
+    /// TSan lane **target (must be CLEAN)**: the render-owner single-owner path
+    /// run across a many-swap concurrent session. Skipped in normal `cargo test`
+    /// (the `#[ignore]`) exactly like its dirty baseline partner, so the same
+    /// `concurrent_swap` filter drives both under `-Zsanitizer=thread`:
+    /// `RUSTFLAGS="-Zsanitizer=thread" cargo +nightly test -Z build-std \
+    ///  --target x86_64-unknown-linux-gnu --lib concurrent_swap -- --ignored`.
+    /// The move-only handoff has no shared mutable state, so TSan reports no data
+    /// race (whereas the baseline races on the `RefCell` borrow flag).
+    ///
+    /// The correctness asserts (every swap applied by the sole owner, every
+    /// retired graph reclaimed off-thread) hold with or without the sanitizer, so
+    /// this doubles as a plain many-swap handoff regression under the lane.
+    #[test]
+    #[ignore = "TSan lane only: RUSTFLAGS=\"-Zsanitizer=thread\" cargo +nightly test --ignored concurrent_swap"]
+    fn concurrent_swap_render_owner_is_tsan_clean() {
+        let (applied, collected) = render_owner_swap_probe(2_000);
+        assert_eq!(applied, 2_000, "render thread must apply every issued swap");
+        assert_eq!(
+            collected, 2_000,
+            "janitor must reclaim every retired graph off the render thread"
+        );
+    }
+
     #[test]
     fn rng_is_deterministic_for_seed() {
         let mut a = Rng::new(12345);
