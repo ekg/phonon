@@ -1255,6 +1255,44 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
 // ============= Pattern Combinators =============
 
+/// Compute the sample playback `begin`/`end` fraction (0..1 within the sample
+/// buffer) for a slice window `[slice_begin, slice_end]` (given in cycle time)
+/// that matched a source event whose original `whole` span is `source_whole`.
+///
+/// The fraction is taken RELATIVE to the matched sample's own temporal extent,
+/// which makes `slice`/`splice` behave correctly for both shapes of input:
+///
+/// - **Multi-sample pattern** (`s "bd sn hh cp"`): each event fills exactly one
+///   slice window, so `slice_begin == whole.begin` and `slice_end == whole.end`
+///   → `(0.0, 1.0)`. The full discrete sample is played and merely REORDERED.
+/// - **Single long sample** (`s "break"` spanning the whole cycle): `whole` is
+///   `[0,1]`, so the fraction is `(slice_begin, slice_end)` → a sub-slice of the
+///   sample buffer (classic Tidal breakbeat slicing).
+/// - Samples spanning several slices split proportionally across their buffer.
+///
+/// A continuous/analog event (`whole == None`) keeps the global slice fractions.
+fn slice_sample_range(
+    source_whole: Option<TimeSpan>,
+    slice_begin: f64,
+    slice_end: f64,
+) -> (f64, f64) {
+    match source_whole {
+        Some(w) => {
+            let w_begin = w.begin.to_float();
+            let w_dur = w.end.to_float() - w_begin;
+            if w_dur > 1e-9 {
+                (
+                    ((slice_begin - w_begin) / w_dur).clamp(0.0, 1.0),
+                    ((slice_end - w_begin) / w_dur).clamp(0.0, 1.0),
+                )
+            } else {
+                (0.0, 1.0)
+            }
+        }
+        None => (slice_begin, slice_end),
+    }
+}
+
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Stack patterns on top of each other (play simultaneously)
     pub fn stack(patterns: Vec<Pattern<T>>) -> Pattern<T> {
@@ -1853,6 +1891,12 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                     // Map the slice events to the index event's time window
                     for mut hap in slice_haps {
+                        // The source event's ORIGINAL whole span (in cycle time),
+                        // captured BEFORE we remap it into the index event's window
+                        // below. The sample begin/end fractions are computed relative
+                        // to THIS sample's own extent — not the global cycle position.
+                        let source_whole = hap.whole;
+
                         // Calculate relative position within slice
                         let hap_begin = hap.part.begin.to_float();
                         let hap_end = hap.part.end.to_float();
@@ -1879,10 +1923,17 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             )
                         });
 
-                        // Add begin/end to context for sample slicing
+                        // Add begin/end to context for sample slicing, RELATIVE to the
+                        // matched sample's own whole span (see slice_sample_range):
+                        //   - multi-sample pattern (each event fills one slice window)
+                        //     -> begin=0,end=1  => full discrete sample is reordered
+                        //   - single long sample spanning the cycle
+                        //     -> begin=slice_begin,end=slice_end => sub-buffer slice
+                        let (sample_begin, sample_end) =
+                            slice_sample_range(source_whole, slice_begin, slice_end);
                         hap.context
-                            .insert("begin".to_string(), slice_begin.to_string());
-                        hap.context.insert("end".to_string(), slice_end.to_string());
+                            .insert("begin".to_string(), sample_begin.to_string());
+                        hap.context.insert("end".to_string(), sample_end.to_string());
 
                         result.push(hap);
                     }
@@ -1960,6 +2011,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                     // Map the slice events to the index event's time window
                     for mut hap in slice_haps {
+                        // Source event's ORIGINAL whole span, captured before remap
+                        // (see slice_pattern / slice_sample_range for rationale).
+                        let source_whole = hap.whole;
+
                         let hap_begin = hap.part.begin.to_float();
                         let hap_end = hap.part.end.to_float();
 
@@ -1985,10 +2040,13 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             )
                         });
 
-                        // Add begin/end to context for sample slicing
+                        // begin/end relative to the matched sample's own whole span,
+                        // matching slice_pattern (splice differs only by adding speed).
+                        let (sample_begin, sample_end) =
+                            slice_sample_range(source_whole, slice_begin, slice_end);
                         hap.context
-                            .insert("begin".to_string(), slice_begin.to_string());
-                        hap.context.insert("end".to_string(), slice_end.to_string());
+                            .insert("begin".to_string(), sample_begin.to_string());
+                        hap.context.insert("end".to_string(), sample_end.to_string());
                         // Distinguishing feature of splice: playback speed stretches
                         // the slice to fill its event slot.
                         hap.context.insert("speed".to_string(), speed.to_string());
