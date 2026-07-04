@@ -149,7 +149,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, multispace1},
-    combinator::{map, map_res, recognize, value},
+    combinator::{map, map_res, opt, recognize, value},
     multi::many0,
     number::complete::float,
     sequence::{delimited, pair, preceded, tuple},
@@ -1421,19 +1421,51 @@ fn chain(input: &str) -> IResult<&str, DslExpression> {
 /// Pattern transform has precedence between chain and arithmetic
 /// Example: "bd sn" $ fast 2 * 0.5 parses as ("bd sn" $ fast 2) * 0.5
 fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = chain(input)?;
+    let (mut input, mut acc) = chain(input)?;
 
-    let (input, transforms) = many0(preceded(ws(char('$')), ws(parse_transform_op)))(input)?;
+    loop {
+        // Try to consume a `$` separator (with surrounding whitespace).
+        let (after_dollar, dollar) = opt(ws(char('$')))(input)?;
+        if dollar.is_none() {
+            break;
+        }
 
-    let expr =
-        transforms
-            .into_iter()
-            .fold(first, |acc, transform| DslExpression::PatternTransform {
+        // Usual case: pattern-transform application, `... $ fast 2`.
+        if let Ok((rest, transform)) = ws(parse_transform_op)(after_dollar) {
+            acc = DslExpression::PatternTransform {
                 pattern: Box::new(acc),
                 transform,
-            });
+            };
+            input = rest;
+            continue;
+        }
 
-    Ok((input, expr))
+        // Tidal-style source injection: `struct "t(3,8,1)" $ sine "66"`. When the
+        // left side is a generic function call (struct/gate/trig/tar/tadsr) and the
+        // `$` is NOT followed by a transform op, the right-hand side is a full
+        // expression that becomes an additional argument to the call. `$` is
+        // right-associative and low-precedence, so it consumes the rest of the
+        // expression (including any `#` chain or arithmetic on the source).
+        if matches!(acc, DslExpression::FunctionCall { .. }) {
+            let (rest, source) = expression(after_dollar)?;
+            if let DslExpression::FunctionCall { name, mut args } = acc {
+                args.push(source);
+                acc = DslExpression::FunctionCall { name, args };
+            } else {
+                unreachable!("guarded by matches! above");
+            }
+            input = rest;
+            break;
+        }
+
+        // The `$` doesn't belong to us (not a transform op, and the left side is
+        // not a function call that accepts a source). Leave it unconsumed so the
+        // caller surfaces it rather than us silently absorbing it. `input` is
+        // unchanged because `opt` discards its consumption on the inner failure.
+        break;
+    }
+
+    Ok((input, acc))
 }
 
 /// Parse multiplication and division
@@ -1767,6 +1799,21 @@ pub fn parse_dsl(input: &str) -> IResult<&str, Vec<DslStatement>> {
             }
             Err(_) => break,
         }
+    }
+
+    // Defensive: if a statement failed to parse, `remaining` still holds the
+    // leftover input. parse_dsl returns Ok with that tail (callers may inspect
+    // it), but historically the tail was silently discarded, so an unsupported
+    // form would drop that statement AND every statement after it (e.g. the
+    // `struct "pat" $ src` chaining bug). Surface any non-empty tail loudly so
+    // future unsupported forms fail visibly instead of vanishing.
+    if !remaining.trim().is_empty() {
+        let preview: String = remaining.chars().take(60).collect();
+        eprintln!(
+            "WARNING: parse_dsl left {} unparsed byte(s); statements after this point were dropped. Tail starts: {:?}",
+            remaining.len(),
+            preview
+        );
     }
 
     Ok((remaining, statements))
