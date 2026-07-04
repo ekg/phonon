@@ -107,6 +107,12 @@ base64 = "0.22"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3.24.0"
+# Generative fuzzing of the two DSL front-ends (wave-3 I4 / test-gap P1-B).
+# Dev-only; drives tests/dsl_fuzz.rs. Determinism is pinned inside the harness
+# (fixed-seed TestRng), and case count honours the PROPTEST_CASES env var so
+# verify-wave3 / CI can run a bounded smoke pass. This is the ONLY wave-3 task
+# that edits Cargo.toml (golden rule).
+proptest = "1"
 
 # Race-detection harness (ENABLER I2, render-owner graph swap). loom is pulled in
 # ONLY when the crate is built with `--cfg loom` (RUSTFLAGS="--cfg loom"), so it
