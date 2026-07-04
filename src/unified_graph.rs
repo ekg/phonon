@@ -16606,20 +16606,53 @@ impl UnifiedSignalGraph {
                                     // Samples should play naturally unless user specifies otherwise.
                                     let smart_release = final_release;
 
-                                    // Trigger voice using appropriate envelope type
-                                    // TIDAL-COMPATIBLE DURATION: Use delta as default (notes fill their slot)
-                                    // Priority: dur (absolute) > legato (relative) > delta (slot duration)
-                                    // BUT: If user specified explicit ar envelope, respect that instead of delta
+                                    // Trigger voice using appropriate envelope type.
+                                    //
+                                    // DEFAULT NOTE DURATION for a one-shot (non-looping) sample =
+                                    // the sample's NATURAL playback length (how long until the sample
+                                    // data is exhausted at the current speed), NOT the pattern slot.
+                                    // One-shot samples play to their natural end and are free to
+                                    // OVERLAP with later hits, matching Tidal/SuperDirt one-shot
+                                    // semantics.
+                                    //
+                                    // The old default was the inter-onset `delta` (slot duration),
+                                    // which auto-released each voice at its slot boundary. For dense
+                                    // patterns of long samples (e.g. `hh*8` with a ~0.9s hi-hat) that
+                                    // collapsed every voice to a single non-overlapping hit and made
+                                    // cut groups meaningless (see tests/test_sample_cut_groups.rs).
+                                    //
+                                    // Using the sample length as the auto-release still BOUNDS the
+                                    // voice count (each voice is reclaimed shortly after its sample
+                                    // ends, with a 3ms release), so this does NOT reintroduce the
+                                    // voice-accumulation bug. A small margin keeps the auto-release
+                                    // strictly at/after the natural end so short samples (shorter than
+                                    // their slot) behave exactly as before — they are freed by the
+                                    // sample-end path before the auto-release ever fires.
+                                    //
+                                    // LOOPING samples are the exception: they have no natural end, so
+                                    // they keep the slot `delta` as their duration and loop to fill
+                                    // that slot (matching `loop`/`unit` semantics).
+                                    //
+                                    // Priority: dur (absolute) > legato (relative) > default.
+                                    // An explicit ar envelope takes over release entirely.
                                     let delta_seconds_opt = event
                                         .context
                                         .get("delta")
                                         .and_then(|s| s.parse::<f32>().ok());
+                                    let natural_length_seconds = sliced_sample_data.len() as f32
+                                        / (self.sample_rate * final_speed.abs().max(1e-6))
+                                        + 0.01;
+                                    // A looping voice fills its slot; a one-shot plays its full length.
+                                    let default_duration_opt = if loop_enabled_bool {
+                                        delta_seconds_opt
+                                    } else {
+                                        Some(natural_length_seconds)
+                                    };
 
-                                    // Only use delta as default if no explicit ar envelope was set
                                     let user_specified_ar = attack_val != 0.0 || release_val != 0.0;
                                     let duration_seconds_opt = dur_seconds_opt
                                         .or_else(|| legato_duration_opt.map(|cycles| cycles / self.cps))
-                                        .or_else(|| if user_specified_ar { None } else { delta_seconds_opt });
+                                        .or_else(|| if user_specified_ar { None } else { default_duration_opt });
 
                                     if let Some(duration_seconds) = duration_seconds_opt {
                                         // Use ADSR with brick-wall envelope for controlled duration
