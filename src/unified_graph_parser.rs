@@ -1399,29 +1399,12 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
     ))(input)
 }
 
-/// Parse signal chain: a # b
-/// Chain has the HIGHEST precedence (after primary), so it binds tighter than arithmetic
-/// Example: a # b * c parses as (a # b) * c
-fn chain(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = primary(input)?;
-
-    let (input, chains) = many0(preceded(ws(char('#')), primary))(input)?;
-
-    let expr = chains
-        .into_iter()
-        .fold(first, |acc, right| DslExpression::Chain {
-            left: Box::new(acc),
-            right: Box::new(right),
-        });
-
-    Ok((input, expr))
-}
-
 /// Parse pattern transforms: pattern $ transform
-/// Pattern transform has precedence between chain and arithmetic
+/// Pattern transform binds tighter than the chain/arithmetic operators (`#`, `*`,
+/// `/`, `+`, `-`), so it is the operand handed to `term`.
 /// Example: "bd sn" $ fast 2 * 0.5 parses as ("bd sn" $ fast 2) * 0.5
 fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
-    let (mut input, mut acc) = chain(input)?;
+    let (mut input, mut acc) = primary(input)?;
 
     loop {
         // Try to consume a `$` separator (with surrounding whitespace).
@@ -1468,22 +1451,42 @@ fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
     Ok((input, acc))
 }
 
-/// Parse multiplication and division
+/// Parse multiplication, division, and signal chaining (`*`, `/`, `#`).
+///
+/// These three operators share one precedence level and are left-associative, so
+/// they combine strictly left-to-right. This is what lets both chaining idioms
+/// read naturally without parentheses:
+///   - `saw 55 # lpf 500 1.2 * 0.25`  parses as `((saw 55 # lpf 500 1.2) * 0.25)`
+///     (filter the source, then scale the result)
+///   - `~drums * 0.7 # lpf 4000 0.7`  parses as `((~drums * 0.7) # lpf 4000 0.7)`
+///     (scale the source, then filter the result)
+/// If `#` bound tighter than `*` (as it used to), the second form would wrongly
+/// group as `~drums * (0.7 # lpf ...)`, filtering the bare `0.7` constant (a DC
+/// signal a low-pass leaves unchanged) and leaving the audio unfiltered.
 fn term(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = pattern_transform(input)?; // Pattern transform has higher precedence
+    let (input, first) = pattern_transform(input)?; // Pattern transform ($) binds tighter
 
-    let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), pattern_transform)))(input)?;
+    let (input, ops) = many0(tuple((
+        ws(alt((char('*'), char('/'), char('#')))),
+        pattern_transform,
+    )))(input)?;
 
-    let expr = ops.into_iter().fold(first, |acc, (op, right)| {
-        let operator = match op {
-            '*' => BinaryOperator::Multiply,
-            '/' => BinaryOperator::Divide,
-            _ => unreachable!(),
-        };
-        DslExpression::BinaryOp {
-            op: operator,
+    let expr = ops.into_iter().fold(first, |acc, (op, right)| match op {
+        '#' => DslExpression::Chain {
             left: Box::new(acc),
             right: Box::new(right),
+        },
+        _ => {
+            let operator = match op {
+                '*' => BinaryOperator::Multiply,
+                '/' => BinaryOperator::Divide,
+                _ => unreachable!(),
+            };
+            DslExpression::BinaryOp {
+                op: operator,
+                left: Box::new(acc),
+                right: Box::new(right),
+            }
         }
     });
 
