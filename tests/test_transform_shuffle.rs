@@ -174,13 +174,48 @@ out $ s "bd sn hh cp bd sn hh cp" $ shuffle 0.02
     let shuffle_audio = render_dsl(shuffle_code, cycles);
     let sample_rate = 44100.0;
 
+    let query_state = State {
+        span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(cycles as f64)),
+        controls: HashMap::new(),
+    };
+    let base_pattern = parse_mini_notation("bd sn hh cp bd sn hh cp");
+    let shuffle_pattern = base_pattern.clone().shuffle(Pattern::pure(0.02));
+    let base_haps = base_pattern.query(&query_state);
+    let shuffle_haps = shuffle_pattern.query(&query_state);
+    assert_eq!(
+        shuffle_haps.len(),
+        base_haps.len(),
+        "shuffle should preserve queried event count before audio rendering"
+    );
+
+    let mut shuffled_starts: Vec<f64> = shuffle_haps
+        .iter()
+        .map(|hap| {
+            hap.whole
+                .as_ref()
+                .map(|whole| whole.begin.to_float())
+                .unwrap_or_else(|| hap.part.begin.to_float())
+        })
+        .collect();
+    shuffled_starts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    for pair in shuffled_starts.windows(2) {
+        assert!(
+            (pair[1] - pair[0]).abs() > 1e-6,
+            "shuffle should not duplicate event onsets at {:.9}",
+            pair[0]
+        );
+    }
+
     let base_onsets = detect_audio_events(&base_audio, sample_rate, 0.01);
     let shuffle_onsets = detect_audio_events(&shuffle_audio, sample_rate, 0.01);
 
-    // Onset count should be similar (allowing ~5% variance)
+    // Audio onset detection is approximate: slight timing shifts can separate
+    // sample transients that the unshuffled render merged, so keep this as a
+    // tolerant audio sanity check and rely on the pattern query above for exact
+    // event-count and duplicate-onset preservation.
     let ratio = shuffle_onsets.len() as f32 / base_onsets.len() as f32;
     assert!(
-        ratio > 0.95 && ratio < 1.05,
+        ratio > 0.90 && ratio < 1.15,
         "shuffle should preserve most onsets: base={}, shuffle={}, ratio={:.3}",
         base_onsets.len(),
         shuffle_onsets.len(),
