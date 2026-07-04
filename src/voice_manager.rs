@@ -2448,6 +2448,104 @@ impl VoiceManager {
         }
     }
 
+    /// Preserve currently-sounding voices across a graph swap instead of fading
+    /// them (feature G7 — see [`UnifiedSignalGraph::set_preserve_voices_on_swap`]).
+    ///
+    /// The default swap behaviour ([`release_synthesis_voices`] +
+    /// [`release_sample_voices`]) quick-releases *every* voice on every swap,
+    /// producing an amplitude notch on each live edit (`C-x`) and truncating
+    /// long/held samples. This method carries held notes across the swap instead,
+    /// with a bounded voice-stealing policy so repeated swaps cannot accumulate
+    /// voices without limit:
+    ///
+    /// * **Sample voices** own their audio (`sample_data` + playback `position`),
+    ///   independent of any graph node, so they are left untouched and continue
+    ///   playing to their natural end — this is what kills the "held sample cut on
+    ///   every edit" truncation and the per-swap notch.
+    /// * **Synthesis voices** reference a graph node (`synthesis_node_id`) for
+    ///   their audio. A voice whose node id is still present in the *new* graph
+    ///   (`valid_synth_nodes`) keeps its identity and continues sounding; one whose
+    ///   node no longer exists is quick-released (10 ms fade) and detached — the
+    ///   exact flag-off fallback for those voices, so a preserved voice never
+    ///   evaluates a stale/out-of-bounds node.
+    /// * **Accumulation bound:** after preservation, if more than `max_active`
+    ///   voices are still sounding, the oldest are stolen (freed) down to the cap
+    ///   by the private `cap_active_voices` helper. This bounds voice count across
+    ///   a long session of edits and reserves pool headroom for the incoming
+    ///   graph's new triggers.
+    ///
+    /// [`release_synthesis_voices`]: Self::release_synthesis_voices
+    /// [`release_sample_voices`]: Self::release_sample_voices
+    /// [`UnifiedSignalGraph::set_preserve_voices_on_swap`]: crate::unified_graph::UnifiedSignalGraph::set_preserve_voices_on_swap
+    pub fn preserve_voices_across_swap(
+        &mut self,
+        valid_synth_nodes: &std::collections::HashSet<usize>,
+        max_active: usize,
+    ) {
+        // 1. Detach only the synthesis voices whose node is gone in the new graph.
+        //    Sample voices and still-valid synthesis voices keep playing untouched
+        //    (no release) so there is no amplitude notch and no truncation.
+        for voice in &mut self.voices {
+            if voice.state == VoiceState::Free {
+                continue;
+            }
+            if let Some(node_id) = voice.synthesis_node_id {
+                if !valid_synth_nodes.contains(&node_id) {
+                    // Stale node reference: fall back to the flag-off fade so we
+                    // never evaluate a node that no longer exists in the new graph.
+                    voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
+                    voice.synthesis_node_id = None;
+                }
+            }
+        }
+
+        // 2. Bound accumulation: steal the oldest voices down to the cap.
+        self.cap_active_voices(max_active);
+    }
+
+    /// Steal (free) the oldest sounding voices until at most `max_active` remain
+    /// non-[`Free`](VoiceState::Free). This is the voice-stealing policy that
+    /// bounds accumulation when [`preserve_voices_across_swap`] keeps held voices
+    /// across many swaps. The oldest voices (largest `age`) are the least
+    /// musically relevant, so they are the ones stolen; each steal is counted in
+    /// [`steal_event_count`].
+    ///
+    /// [`preserve_voices_across_swap`]: Self::preserve_voices_across_swap
+    /// [`steal_event_count`]: Self::steal_event_count
+    fn cap_active_voices(&mut self, max_active: usize) {
+        loop {
+            let active: usize = self
+                .voices
+                .iter()
+                .filter(|v| v.state != VoiceState::Free)
+                .count();
+            if active <= max_active {
+                break;
+            }
+            // Find the oldest sounding voice and steal it.
+            let mut oldest_idx = None;
+            let mut oldest_age = 0usize;
+            for (idx, voice) in self.voices.iter().enumerate() {
+                if voice.state != VoiceState::Free && (oldest_idx.is_none() || voice.age >= oldest_age)
+                {
+                    oldest_age = voice.age;
+                    oldest_idx = Some(idx);
+                }
+            }
+            match oldest_idx {
+                Some(idx) => {
+                    let voice = &mut self.voices[idx];
+                    voice.state = VoiceState::Free;
+                    voice.sample_data = None;
+                    voice.synthesis_node_id = None;
+                    voice.fadeout_remaining = 0;
+                    self.record_steal();
+                }
+                None => break, // no sounding voices left (shouldn't happen)
+            }
+        }
+    }
+
     /// Get peak voice count since startup
     pub fn peak_voice_count(&self) -> usize {
         self.peak_voice_count
@@ -4266,5 +4364,116 @@ mod tests {
         assert_eq!(UnitMode::Rate, UnitMode::Rate);
         assert_eq!(UnitMode::Cycle, UnitMode::Cycle);
         assert_ne!(UnitMode::Rate, UnitMode::Cycle);
+    }
+
+    // =========================================================================
+    // G7 — voice preservation across graph swap (feat-voice-preservation-swap)
+    // =========================================================================
+
+    /// Sample voices own their audio (sample_data + position), independent of any
+    /// graph node, so preservation must leave them untouched — they continue
+    /// playing to their natural end instead of being quick-released. This is the
+    /// fix for "held/long samples truncated on every C-x".
+    #[test]
+    fn test_preserve_keeps_sample_voices_untouched() {
+        let mut vm = make_small_vm(8);
+        let sample = make_const_sample(44100, 0.5); // 1s held sample
+        vm.trigger_sample(sample, 1.0);
+        assert_eq!(vm.active_voice_count(), 1);
+
+        // Empty valid-node set: no synthesis nodes exist, but sample voices do not
+        // reference nodes, so they must survive regardless.
+        let valid = std::collections::HashSet::new();
+        vm.preserve_voices_across_swap(&valid, 64);
+
+        assert_eq!(
+            vm.active_voice_count(),
+            1,
+            "sample voice preserved across swap (not truncated)"
+        );
+        let (sample_voices, _synth, _free) = vm.voice_type_breakdown();
+        assert_eq!(sample_voices, 1, "still a live sample voice");
+    }
+
+    /// A synthesis voice whose node still exists in the new graph keeps its
+    /// identity (same voice→node mapping) and continues sounding; one whose node
+    /// is gone is quick-released and detached — the safe flag-off fallback.
+    #[test]
+    fn test_preserve_synth_identity_and_stale_detach() {
+        let mut vm = make_small_vm(8);
+        // Voice A references node 7 (which will still exist in the new graph).
+        vm.trigger_synthesis_voice(7, 1.0, 0.0, None, 0.01, 0.5, 0.0);
+        // Voice B references node 99 (which will NOT exist in the new graph).
+        vm.trigger_synthesis_voice(99, 1.0, 0.0, None, 0.01, 0.5, 0.0);
+        assert_eq!(vm.active_voice_count(), 2);
+
+        let mut valid = std::collections::HashSet::new();
+        valid.insert(7usize); // node 7 survives, node 99 does not
+
+        vm.preserve_voices_across_swap(&valid, 64);
+
+        // Node 7's voice keeps its identity → still an active synthesis voice.
+        let active_synth: Vec<usize> = vm
+            .get_active_synthesis_node_ids_with_pitch()
+            .into_iter()
+            .map(|(node_id, _pitch)| node_id)
+            .collect();
+        assert!(
+            active_synth.contains(&7),
+            "voice→node identity for node 7 preserved across swap: {active_synth:?}"
+        );
+        assert!(
+            !active_synth.contains(&99),
+            "stale node 99 detached (no longer an active synthesis node)"
+        );
+    }
+
+    /// The voice-stealing policy caps sounding voices at the bound: injecting more
+    /// held voices than the cap and preserving steals the oldest down to the cap,
+    /// bounding accumulation across repeated swaps.
+    #[test]
+    fn test_preserve_caps_active_voices_at_bound() {
+        let mut vm = make_small_vm(16);
+        // 10 held sample voices, aged so "oldest" is well-defined.
+        for _ in 0..10 {
+            let s = make_const_sample(44100, 0.3);
+            vm.trigger_sample(s, 1.0);
+            // Age each voice a little so cap_active_voices has a deterministic order.
+            vm.process_stereo();
+        }
+        assert_eq!(vm.active_voice_count(), 10);
+        let steals_before = vm.steal_event_count();
+
+        let valid = std::collections::HashSet::new();
+        vm.preserve_voices_across_swap(&valid, 4); // cap at 4
+
+        assert_eq!(
+            vm.active_voice_count(),
+            4,
+            "accumulation bounded: active voices capped at 4"
+        );
+        assert_eq!(
+            vm.steal_event_count() - steals_before,
+            6,
+            "6 oldest voices stolen to reach the cap"
+        );
+    }
+
+    /// Cap is a no-op when the active count is already within bound.
+    #[test]
+    fn test_preserve_cap_noop_when_under_bound() {
+        let mut vm = make_small_vm(8);
+        for _ in 0..3 {
+            vm.trigger_sample(make_const_sample(1000, 0.4), 1.0);
+        }
+        let steals_before = vm.steal_event_count();
+        let valid = std::collections::HashSet::new();
+        vm.preserve_voices_across_swap(&valid, 64);
+        assert_eq!(vm.active_voice_count(), 3);
+        assert_eq!(
+            vm.steal_event_count(),
+            steals_before,
+            "no steals when under the cap"
+        );
     }
 }

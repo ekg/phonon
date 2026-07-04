@@ -5363,6 +5363,17 @@ pub struct UnifiedSignalGraph {
     /// stuck-silence behaviour deterministically.
     node_state_sanitize: bool,
 
+    /// G7 (`feat-voice-preservation-swap`): when set, a graph swap **preserves**
+    /// currently-sounding voices instead of quick-releasing them all. Held
+    /// samples continue to their natural end and synthesis voices whose node
+    /// still exists in the new graph keep sounding, eliminating the amplitude
+    /// notch on every live edit. Off by default so the swap path reproduces the
+    /// current 10 ms fade exactly (no stability regression). The render-owner
+    /// swap ([`absorb_state`](crate::render_swap::RenderGraph::absorb_state))
+    /// carries the flag forward from the outgoing graph, so a live session keeps
+    /// it once enabled. See [`Self::set_preserve_voices_on_swap`].
+    preserve_voices_on_swap: bool,
+
     /// Previous buffer tail (stereo interleaved) for zero-crossing crossfade.
     /// Stores the last N stereo sample pairs from the previous buffer to smooth
     /// discontinuities at buffer boundaries.
@@ -5471,6 +5482,7 @@ impl Clone for UnifiedSignalGraph {
             raw_probe_enabled: self.raw_probe_enabled,
             last_raw_probe: RawSignalProbe::default(),
             node_state_sanitize: self.node_state_sanitize,
+            preserve_voices_on_swap: self.preserve_voices_on_swap,
             prev_buffer_tail: Vec::new(),
             // Plugin manager is shared via Arc
             plugin_manager: self.plugin_manager.clone(),
@@ -5570,6 +5582,9 @@ impl UnifiedSignalGraph {
             raw_probe_enabled: false, // Off by default: zero overhead on the render path
             last_raw_probe: RawSignalProbe::default(),
             node_state_sanitize: true, // The F-6 fix is on by default
+            // G7: default from PHONON_PRESERVE_VOICES so a live user can opt in
+            // without a code change; unset ⇒ false ⇒ exact current fade behavior.
+            preserve_voices_on_swap: read_env_flag("PHONON_PRESERVE_VOICES"),
             prev_buffer_tail: Vec::new(),
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
@@ -6770,6 +6785,58 @@ impl UnifiedSignalGraph {
         // Release sample voices - they would accumulate during rapid graph swaps
         voice_manager.release_sample_voices();
         *self.voice_manager.get_mut() = voice_manager;
+    }
+
+    /// Whether graph swaps preserve currently-sounding voices (G7). See
+    /// [`Self::set_preserve_voices_on_swap`].
+    pub fn preserve_voices_on_swap(&self) -> bool {
+        self.preserve_voices_on_swap
+    }
+
+    /// Enable/disable voice preservation across graph swaps (G7 —
+    /// `feat-voice-preservation-swap`).
+    ///
+    /// When enabled, [`absorb_state`](crate::render_swap::RenderGraph::absorb_state)
+    /// carries held voices across the swap via
+    /// [`transfer_voice_manager_preserving`](Self::transfer_voice_manager_preserving)
+    /// instead of the default [`transfer_voice_manager`](Self::transfer_voice_manager)
+    /// fade — eliminating the per-edit amplitude notch and long-sample truncation.
+    /// Off by default; when off the swap path is byte-for-byte the current
+    /// behaviour. Can also be enabled process-wide by setting the
+    /// `PHONON_PRESERVE_VOICES` environment variable (to any value; read once at
+    /// graph construction).
+    pub fn set_preserve_voices_on_swap(&mut self, enabled: bool) {
+        self.preserve_voices_on_swap = enabled;
+    }
+
+    /// Transfer a VoiceManager into this graph **preserving** its live voices
+    /// (the G7 flag-on path). Unlike [`transfer_voice_manager`](Self::transfer_voice_manager),
+    /// which quick-releases every voice, this keeps held notes sounding across the
+    /// swap and bounds accumulation with a voice-stealing cap.
+    ///
+    /// The voice manager is installed first so validity is computed against *this*
+    /// (the new) graph's nodes: a synthesis voice keeps its identity only if its
+    /// `synthesis_node_id` still indexes a live node here, otherwise it is faded
+    /// and detached exactly as the flag-off path would. The stealing cap is this
+    /// graph's voice-pool ceiling — the natural pool bound.
+    pub fn transfer_voice_manager_preserving(
+        &mut self,
+        voice_manager: crate::voice_manager::VoiceManager,
+    ) {
+        // Install the incoming live voices, then apply the preservation policy
+        // against THIS graph's node table (self.nodes is the new graph).
+        *self.voice_manager.get_mut() = voice_manager;
+
+        let valid_synth_nodes: std::collections::HashSet<usize> = self
+            .nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, node)| node.as_ref().map(|_| idx))
+            .collect();
+
+        let vm = self.voice_manager.get_mut();
+        let cap = vm.voice_ceiling();
+        vm.preserve_voices_across_swap(&valid_synth_nodes, cap);
     }
 
     /// Get the number of nodes in the graph (for diagnostics)
@@ -23996,9 +24063,18 @@ impl crate::render_swap::RenderGraph for UnifiedSignalGraph {
         // Immutable-borrow transfers first (timing, then FX tails)...
         self.transfer_session_timing(prev);
         self.transfer_fx_states(prev);
+        // Carry the G7 preservation policy forward so a live session keeps it
+        // once enabled (the freshly-compiled `self` starts from its own default).
+        self.preserve_voices_on_swap |= prev.preserve_voices_on_swap;
         // ...then the mutable take, which ends only after the shared borrows above.
         let voices = prev.take_voice_manager();
-        self.transfer_voice_manager(voices);
+        if self.preserve_voices_on_swap {
+            // G7 flag on: held voices continue across the swap (no notch).
+            self.transfer_voice_manager_preserving(voices);
+        } else {
+            // Flag off: unchanged 10 ms fade — byte-for-byte the current behavior.
+            self.transfer_voice_manager(voices);
+        }
     }
 
     /// `Cmd::Hush` → silence every output channel without tearing down the graph,
@@ -24265,6 +24341,292 @@ mod render_owner_boundary_tests {
         );
         // Panic killed all voices.
         assert_eq!(cur.active_voice_count(), 0, "panic killed all voices");
+    }
+
+    // =====================================================================
+    // G7 — voice preservation across graph swap (feat-voice-preservation-swap)
+    //
+    // These drive the REAL render-owner swap path (`absorb_state` via the
+    // `render_swap` channel) with the preservation flag on vs off, proving the
+    // per-edit amplitude notch is removed when on and that the swap path is
+    // unchanged when off.
+    // =====================================================================
+    use super::{SignalNode, UnifiedSignalGraph as G};
+
+    /// Compile a **voice-based** graph: a `~synth` bus routed through a sample
+    /// trigger (`s "~synth"`) so audio flows through the VOICE path — the path
+    /// the per-swap notch actually afflicts — not the pure-DAG oscillator path.
+    /// No dirt-samples on disk are required, so this is deterministic anywhere.
+    fn synth_voice_graph() -> UnifiedSignalGraph {
+        let code = "~synth $ sine 220 * 0.5\nout $ s \"~synth\"";
+        let (rest, statements) =
+            crate::compositional_parser::parse_program(code).expect("parse");
+        assert!(rest.trim().is_empty(), "unconsumed input: {rest:?}");
+        crate::compositional_compiler::compile_program(statements, 44100.0, None)
+            .expect("compile")
+    }
+
+    /// Index of the (single) Sample node — the node the voice output routes to
+    /// and the graph output reads from `voice_buffers`.
+    fn sample_node_index(g: &UnifiedSignalGraph) -> usize {
+        g.nodes
+            .iter()
+            .enumerate()
+            .find_map(|(i, n)| match n.as_deref() {
+                Some(SignalNode::Sample { .. }) => Some(i),
+                _ => None,
+            })
+            .expect("graph has a Sample node")
+    }
+
+    /// Inject a SUSTAINED synthesis voice referencing the `~synth` bus, routed to
+    /// the Sample node so it is audible through `process_buffer`. A long release
+    /// keeps its amplitude roughly steady across the short measurement window, so
+    /// any post-swap dip is attributable to the swap policy, not natural decay.
+    fn inject_sustained_synth_voice(g: &mut UnifiedSignalGraph) {
+        let bus_node = g.buses.get("synth").expect("synth bus").0;
+        let sample_idx = sample_node_index(g);
+        let mut vm = g.voice_manager.borrow_mut();
+        vm.set_default_source_node(sample_idx);
+        // attack 10ms, release 100s ⇒ effectively held over the ms-scale window.
+        vm.trigger_synthesis_voice(bus_node, 1.0, 0.0, None, 0.01, 100.0, 0.0);
+    }
+
+    fn buffer_rms(buf: &[f32]) -> f32 {
+        if buf.is_empty() {
+            return 0.0;
+        }
+        (buf.iter().map(|s| s * s).sum::<f32>() / buf.len() as f32).sqrt()
+    }
+
+    /// L1 (through the real swap path): with the flag ON, a held synthesis
+    /// voice's identity (its `synthesis_node_id`) survives a recompile+swap — the
+    /// same voice→node mapping continues. With the flag OFF the voice is detached
+    /// (identity lost), reproducing current behavior.
+    #[test]
+    fn test_g7_voice_identity_survives_swap() {
+        let swap_and_get_synth_nodes = |preserve: bool| -> Vec<usize> {
+            let mut cur = Box::new(synth_voice_graph());
+            cur.enable_wall_clock_timing();
+            cur.set_preserve_voices_on_swap(preserve);
+            let bus_node = cur.buses.get("synth").expect("synth bus").0;
+            let sample_idx = sample_node_index(&cur);
+            {
+                let mut vm = cur.voice_manager.borrow_mut();
+                vm.set_default_source_node(sample_idx);
+                vm.trigger_synthesis_voice(bus_node, 1.0, 0.0, None, 0.01, 100.0, 0.0);
+            }
+            assert_eq!(cur.active_voice_count(), 1, "held voice before swap");
+
+            // Identical recompile ⇒ the ~synth node keeps the same index, so the
+            // preserved voice's node reference stays valid.
+            let mut incoming = Box::new(synth_voice_graph());
+            incoming.set_preserve_voices_on_swap(preserve);
+            let (mut tx, mut rsw, _grave) = render_swap_channel::<G>(8, 8);
+            assert!(tx.swap(incoming).is_ok());
+            assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+
+            let nodes: Vec<usize> = cur
+                .voice_manager
+                .borrow()
+                .get_active_synthesis_node_ids_with_pitch()
+                .into_iter()
+                .map(|(node_id, _pitch)| node_id)
+                .collect();
+            nodes
+        };
+
+        let bus_node_index = {
+            let g = synth_voice_graph();
+            g.buses.get("synth").expect("synth bus").0
+        };
+
+        // Flag ON: identity preserved — the same voice→node mapping still active.
+        let on = swap_and_get_synth_nodes(true);
+        assert!(
+            on.contains(&bus_node_index),
+            "flag ON: voice→node identity ({bus_node_index}) survives the swap: {on:?}"
+        );
+
+        // Flag OFF: the voice is detached (synthesis_node_id cleared) — current
+        // behavior, no identity carried across.
+        let off = swap_and_get_synth_nodes(false);
+        assert!(
+            !off.contains(&bus_node_index),
+            "flag OFF: voice detached across swap (current behavior): {off:?}"
+        );
+    }
+
+    /// L2: render a sustained note, swap mid-note through the real render-owner
+    /// path, and assert there is NO amplitude notch at the boundary with the flag
+    /// ON (RMS continuous, note not truncated) — contrasted against the flag-OFF
+    /// fade, which collapses the amplitude. Also covers L3 (finite / no click).
+    #[test]
+    fn test_g7_boundary_swap_no_amplitude_notch() {
+        const FRAMES: usize = 512;
+
+        // Returns (pre_rms, post_rms, boundary_delta, voices_after, all_finite).
+        let run = |preserve: bool| -> (f32, f32, f32, usize, bool) {
+            let mut cur = Box::new(synth_voice_graph());
+            cur.enable_wall_clock_timing();
+            cur.preload_samples();
+            cur.set_preserve_voices_on_swap(preserve);
+            inject_sustained_synth_voice(&mut cur);
+
+            let mut finite = true;
+            let mut pre_rms = 0.0;
+            let mut last_pre = 0.0f32;
+            for _ in 0..6 {
+                let mut buf = vec![0.0f32; FRAMES * 2];
+                cur.process_buffer(&mut buf);
+                finite &= buf.iter().all(|s| s.is_finite());
+                pre_rms = buffer_rms(&buf);
+                last_pre = buf[buf.len() - 2];
+            }
+
+            // Compile the identical incoming graph off the render thread.
+            let mut incoming = Box::new(synth_voice_graph());
+            incoming.enable_wall_clock_timing();
+            incoming.preload_samples();
+            incoming.set_preserve_voices_on_swap(preserve);
+
+            let (mut tx, mut rsw, _grave) = render_swap_channel::<G>(8, 8);
+            assert!(tx.swap(incoming).is_ok());
+            assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+            let voices_after = cur.active_voice_count();
+
+            let mut buf = vec![0.0f32; FRAMES * 2];
+            cur.process_buffer(&mut buf);
+            finite &= buf.iter().all(|s| s.is_finite());
+            let post_rms = buffer_rms(&buf);
+            let first_post = buf[0];
+            let boundary_delta = (first_post - last_pre).abs();
+
+            (pre_rms, post_rms, boundary_delta, voices_after, finite)
+        };
+
+        let (pre_on, post_on, delta_on, voices_on, finite_on) = run(true);
+        let (pre_off, post_off, _delta_off, _voices_off, finite_off) = run(false);
+
+        // Both paths produced audible sound before the swap.
+        assert!(pre_on > 0.01, "flag-ON pre-swap audible: rms={pre_on}");
+        assert!(pre_off > 0.01, "flag-OFF pre-swap audible: rms={pre_off}");
+
+        // L3: no NaN/Inf across the boundary either way, and no click with the
+        // flag on (the preserved voice continues smoothly).
+        assert!(finite_on && finite_off, "no non-finite samples across the swap");
+        assert!(
+            delta_on < 0.25,
+            "flag-ON boundary is click-free: |delta|={delta_on:.4}"
+        );
+
+        // Flag ON: RMS continuous across the swap (no notch) and voice preserved.
+        let ratio_on = post_on / pre_on;
+        assert!(
+            ratio_on > 0.7,
+            "flag ON: NO amplitude notch at swap (post/pre = {ratio_on:.3})"
+        );
+        assert!(
+            voices_on >= 1,
+            "flag ON: held note not truncated ({voices_on} voices survive)"
+        );
+
+        // Flag OFF (contrast): the 10 ms fade collapses the amplitude — a notch.
+        let ratio_off = post_off / pre_off;
+        assert!(
+            ratio_off < 0.5,
+            "flag OFF reproduces the fade notch (post/pre = {ratio_off:.3})"
+        );
+
+        // The flag makes a real, measurable difference: preservation removes the
+        // notch that the fade path leaves behind.
+        assert!(
+            ratio_on > ratio_off * 1.5,
+            "preservation removes the notch: on={ratio_on:.3} vs off={ratio_off:.3}"
+        );
+    }
+
+    /// Flag OFF must reproduce the current fade behavior EXACTLY: a swap through
+    /// the render-owner path detaches synthesis voices and quick-releases sample
+    /// voices, identical to `transfer_voice_manager`. This pins "no stability
+    /// regression when the feature is off".
+    #[test]
+    fn test_g7_flag_off_matches_current_fade() {
+        let mut cur = Box::new(synth_voice_graph());
+        cur.enable_wall_clock_timing();
+        // Flag OFF (the default).
+        assert!(!cur.preserve_voices_on_swap(), "off by default");
+        let bus_node = cur.buses.get("synth").expect("synth bus").0;
+        let sample_idx = sample_node_index(&cur);
+        {
+            let mut vm = cur.voice_manager.borrow_mut();
+            vm.set_default_source_node(sample_idx);
+            vm.trigger_synthesis_voice(bus_node, 1.0, 0.0, None, 0.01, 0.5, 0.0);
+        }
+
+        let incoming = Box::new(synth_voice_graph());
+        let (mut tx, mut rsw, _grave) = render_swap_channel::<G>(8, 8);
+        assert!(tx.swap(incoming).is_ok());
+        assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+
+        // Current behavior: the synthesis voice is detached (no active synth node).
+        let active_synth = cur
+            .voice_manager
+            .borrow()
+            .get_active_synthesis_node_ids_with_pitch();
+        assert!(
+            active_synth.is_empty(),
+            "flag OFF: synthesis voice detached exactly as today: {active_synth:?}"
+        );
+    }
+
+    /// L3 (preservation path): many consecutive swaps with the flag ON keep the
+    /// held note sounding, never produce NaN/Inf, and never let the voice count
+    /// grow past the pool ceiling (the stealing policy bounds accumulation). The
+    /// stress harness only exercises the flag-off fade, so this covers the
+    /// flag-on path under repeated edits.
+    #[test]
+    fn test_g7_repeated_swaps_bounded_and_finite() {
+        const FRAMES: usize = 256;
+        const EDITS: usize = 24;
+
+        let mut cur = Box::new(synth_voice_graph());
+        cur.enable_wall_clock_timing();
+        cur.preload_samples();
+        cur.set_preserve_voices_on_swap(true);
+        inject_sustained_synth_voice(&mut cur);
+        let ceiling = cur.voice_manager.borrow().voice_ceiling();
+
+        for edit in 0..EDITS {
+            let mut incoming = Box::new(synth_voice_graph());
+            incoming.enable_wall_clock_timing();
+            incoming.preload_samples();
+            incoming.set_preserve_voices_on_swap(true);
+
+            let (mut tx, mut rsw, _grave) = render_swap_channel::<G>(8, 8);
+            assert!(tx.swap(incoming).is_ok());
+            assert_eq!(rsw.apply_pending_commands(&mut cur), 1);
+
+            // Voice accumulation is bounded by the pool ceiling on every edit.
+            assert!(
+                cur.active_voice_count() <= ceiling,
+                "edit {edit}: voices bounded by pool ceiling ({} <= {ceiling})",
+                cur.active_voice_count()
+            );
+
+            let mut buf = vec![0.0f32; FRAMES * 2];
+            cur.process_buffer(&mut buf);
+            assert!(
+                buf.iter().all(|s| s.is_finite()),
+                "edit {edit}: output stays finite across the preserved swap"
+            );
+        }
+
+        // The held note survived all EDITS swaps — not truncated by any of them.
+        assert!(
+            cur.active_voice_count() >= 1,
+            "held note preserved across {EDITS} consecutive edits"
+        );
     }
 }
 
