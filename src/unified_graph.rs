@@ -2885,23 +2885,108 @@ impl Default for ParametricEQState {
     }
 }
 
+/// Process-global counter used to derive a fresh default seed for each noise
+/// generator constructed without an explicit seed.
+///
+/// The audio hot path must never call `rand::thread_rng()` (a TLS lookup + periodic
+/// reseed check — timing jitter on noise-heavy patches; improvement-plan P4 / rt F-11).
+/// Instead every noise node carries its own [`NoiseRng`], seeded **once** at
+/// construction and advanced per sample. Successive nodes — and successive graph
+/// builds — pull distinct counter values here, so their streams are decorrelated
+/// (independence) without touching thread-local RNG, while explicit `*_with_seed`
+/// / [`NoiseRng::from_seed`] constructors give reproducible streams (determinism).
+static NEXT_NOISE_SEED: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0xDEAD_BEEF_CAFE_BABE);
+
+/// Grab the next process-unique default seed (no `thread_rng()` / TLS involved).
+fn next_default_noise_seed() -> u64 {
+    // Advance by an odd constant (golden-ratio fractional bits) so consecutive draws
+    // are far apart; the splitmix64 avalanche in `NoiseRng::from_seed` decorrelates them.
+    NEXT_NOISE_SEED.fetch_add(0x9E37_79B9_7F4A_7C15, std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Fast, allocation-free, RT-safe per-node PRNG for noise generation.
+///
+/// Xorshift32 (Marsaglia) — period 2³²−1, adequate quality for white/pink/brown audio
+/// noise (the same generator family already used by `crate::nodes::noise_generators`).
+/// Seeded **once** at graph-build time and advanced per sample on the audio thread; it
+/// never calls `rand::thread_rng()`, so the render loop pays no TLS lookup or reseed
+/// check (improvement-plan P4 / rt F-11). Same seed → same stream (determinism);
+/// distinct seeds avalanche to decorrelated streams (independence).
+#[derive(Debug, Clone, Copy)]
+pub struct NoiseRng {
+    state: u32,
+}
+
+impl NoiseRng {
+    /// Construct from a 64-bit seed. A SplitMix64 avalanche mixes the seed so that
+    /// nearby seeds (e.g. consecutive node ids or counter draws) yield decorrelated
+    /// streams, and the result is forced non-zero (xorshift requires a non-zero state).
+    pub fn from_seed(seed: u64) -> Self {
+        let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        Self {
+            state: (z as u32) | 1, // odd ⇒ non-zero
+        }
+    }
+
+    /// A generator seeded from the process-global default counter (independence by
+    /// default, still no `thread_rng()`).
+    pub fn seeded_default() -> Self {
+        Self::from_seed(next_default_noise_seed())
+    }
+
+    /// Advance and return the next 32-bit value (xorshift32).
+    #[inline]
+    pub fn next_u32(&mut self) -> u32 {
+        let mut x = self.state;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        self.state = x;
+        x
+    }
+
+    /// Uniformly-distributed `f32` in `[-1.0, 1.0]` — the drop-in replacement for the
+    /// old `rand::thread_rng().gen_range(-1.0..1.0)` on the noise hot path.
+    #[inline]
+    pub fn next_bipolar(&mut self) -> f32 {
+        (self.next_u32() as f32 / u32::MAX as f32) * 2.0 - 1.0
+    }
+}
+
 /// Pink noise state (Voss-McCartney algorithm)
 /// Uses multiple octave bins updated at different rates
 #[derive(Debug, Clone)]
 pub struct PinkNoiseState {
-    bins: [f32; 16], // 16 octave bins for quality pink noise
-    counter: u32,    // Sample counter for bin update decisions
+    bins: [f32; 16],   // 16 octave bins for quality pink noise
+    counter: u32,      // Sample counter for bin update decisions
+    pub(crate) rng: NoiseRng, // Per-node PRNG (seeded once; no thread_rng on the hot path)
 }
 
 impl PinkNoiseState {
+    /// New pink-noise state seeded from the process-global default counter.
     pub fn new() -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        Self::from_rng(NoiseRng::seeded_default())
+    }
+
+    /// New pink-noise state with an explicit, reproducible seed (same seed → same stream).
+    pub fn with_seed(seed: u64) -> Self {
+        Self::from_rng(NoiseRng::from_seed(seed))
+    }
+
+    fn from_rng(mut rng: NoiseRng) -> Self {
         let mut bins = [0.0f32; 16];
         for bin in &mut bins {
-            *bin = rng.gen_range(-1.0..1.0);
+            *bin = rng.next_bipolar();
         }
-        Self { bins, counter: 0 }
+        Self {
+            bins,
+            counter: 0,
+            rng,
+        }
     }
 }
 
@@ -2915,12 +3000,25 @@ impl Default for PinkNoiseState {
 /// Uses leaky integrator to prevent DC drift
 #[derive(Debug, Clone)]
 pub struct BrownNoiseState {
-    accumulator: f32, // Current accumulated value
+    accumulator: f32,         // Current accumulated value
+    pub(crate) rng: NoiseRng, // Per-node PRNG (seeded once; no thread_rng on the hot path)
 }
 
 impl BrownNoiseState {
+    /// New brown-noise state seeded from the process-global default counter.
     pub fn new() -> Self {
-        Self { accumulator: 0.0 }
+        Self {
+            accumulator: 0.0,
+            rng: NoiseRng::seeded_default(),
+        }
+    }
+
+    /// New brown-noise state with an explicit, reproducible seed (same seed → same stream).
+    pub fn with_seed(seed: u64) -> Self {
+        Self {
+            accumulator: 0.0,
+            rng: NoiseRng::from_seed(seed),
+        }
     }
 }
 
@@ -3150,6 +3248,7 @@ pub struct KarplusStrongState {
     delay_line: Vec<f32>, // Circular buffer for string simulation
     write_pos: usize,     // Current write position
     initialized: bool,    // Whether delay line has been filled with noise
+    rng: NoiseRng,        // Per-node PRNG for the initial pluck (no thread_rng on the audio thread)
 }
 
 impl KarplusStrongState {
@@ -3158,15 +3257,18 @@ impl KarplusStrongState {
             delay_line: vec![0.0; buffer_size.max(2)], // Minimum 2 samples
             write_pos: 0,
             initialized: false,
+            rng: NoiseRng::seeded_default(),
         }
     }
 
-    /// Initialize delay line with noise (simulates initial pluck)
+    /// Initialize delay line with noise (simulates initial pluck).
+    ///
+    /// Uses the node-local [`NoiseRng`] rather than `rand::thread_rng()`: the pluck is
+    /// filled lazily on the first sample of a note, i.e. on the audio thread, so keeping
+    /// it off the thread-local RNG avoids a TLS lookup / reseed check mid-render.
     pub fn initialize_with_noise(&mut self) {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
         for sample in &mut self.delay_line {
-            *sample = rng.gen_range(-1.0..1.0);
+            *sample = self.rng.next_bipolar();
         }
         self.initialized = true;
         self.write_pos = 0;
@@ -5379,6 +5481,20 @@ pub struct UnifiedSignalGraph {
     /// discontinuities at buffer boundaries.
     prev_buffer_tail: Vec<f32>,
 
+    /// Per-node PRNG state for stateless [`SignalNode::WhiteNoise`] nodes, keyed by
+    /// node id (improvement-plan P4 / rt F-11). `WhiteNoise` carries no state struct of
+    /// its own (kept a unit variant so its construction sites outside this file are
+    /// untouched), so its [`NoiseRng`] lives here. Seeded lazily on first eval — from
+    /// [`Self::noise_seed_base`] when set (determinism), otherwise from the process-global
+    /// default counter (independence) — then advanced per sample with no `thread_rng()`.
+    white_noise_rng: RefCell<HashMap<usize, NoiseRng>>,
+
+    /// Optional base seed for white-noise nodes. `None` ⇒ each node draws an independent
+    /// default seed (decorrelated across builds). `Some(base)` ⇒ node seeds are derived
+    /// deterministically from `base` + node id, so the same graph re-renders identically.
+    /// Set via [`Self::set_noise_seed_base`].
+    noise_seed_base: Option<u64>,
+
     /// Plugin instance manager for external VST3/CLAP/AU plugins
     /// Shared between graph and editor via Arc<Mutex<>>
     /// None = plugins not available (headless mode, testing)
@@ -5484,6 +5600,10 @@ impl Clone for UnifiedSignalGraph {
             node_state_sanitize: self.node_state_sanitize,
             preserve_voices_on_swap: self.preserve_voices_on_swap,
             prev_buffer_tail: Vec::new(),
+            // Fresh per-node white-noise PRNG map; lazily reseeded on first eval. The base
+            // seed carries so an explicitly-seeded graph stays reproducible across clones.
+            white_noise_rng: RefCell::new(HashMap::new()),
+            noise_seed_base: self.noise_seed_base,
             // Plugin manager is shared via Arc
             plugin_manager: self.plugin_manager.clone(),
             // Mock plugins need fresh instances (they have internal state)
@@ -5586,6 +5706,8 @@ impl UnifiedSignalGraph {
             // without a code change; unset ⇒ false ⇒ exact current fade behavior.
             preserve_voices_on_swap: read_env_flag("PHONON_PRESERVE_VOICES"),
             prev_buffer_tail: Vec::new(),
+            white_noise_rng: RefCell::new(HashMap::new()),
+            noise_seed_base: None,
             plugin_manager: None, // No plugins by default
             mock_plugins: RefCell::new(HashMap::new()),
             #[cfg(feature = "vst3")]
@@ -5624,6 +5746,16 @@ impl UnifiedSignalGraph {
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    /// Fix the base seed for white-noise nodes, making their per-node PRNG streams
+    /// reproducible (same base + same graph structure → identical noise). Primarily for
+    /// deterministic tests / reproducible sound design; leave unset for independent
+    /// (decorrelated) noise across graph builds. Clears any already-seeded node PRNGs so
+    /// the new base takes effect on the next render.
+    pub fn set_noise_seed_base(&mut self, base: u64) {
+        self.noise_seed_base = Some(base);
+        self.white_noise_rng.borrow_mut().clear();
     }
 
     /// Current cycle position under the graph's own timing model.
@@ -12442,10 +12574,21 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::WhiteNoise => {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
-                // Generate uniformly distributed random sample in [-1, 1]
-                rng.gen_range(-1.0..1.0)
+                // Per-node PRNG seeded ONCE (lazily on first eval), then advanced per
+                // sample — no `rand::thread_rng()` on the audio hot path (P4 / rt F-11).
+                let base = self.noise_seed_base;
+                let id = node_id.0;
+                let mut map = self.white_noise_rng.borrow_mut();
+                let rng = map.entry(id).or_insert_with(|| match base {
+                    // Deterministic per-node seed derived from base + node id.
+                    Some(b) => NoiseRng::from_seed(
+                        b ^ (id as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15),
+                    ),
+                    // Independent stream from the process-global default counter.
+                    None => NoiseRng::seeded_default(),
+                });
+                // Uniformly distributed random sample in [-1, 1]
+                rng.next_bipolar()
             }
 
             SignalNode::Wedge => {
@@ -12518,8 +12661,9 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::PinkNoise { state } => {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
+                // Node-local PRNG (seeded once at construction) — no thread_rng on the
+                // hot path (P4 / rt F-11).
+                let mut rng = state.rng;
 
                 // Voss-McCartney algorithm: update bins based on counter bit patterns
                 // Each bin updates at 1/2^i rate (bin 0 every sample, bin 1 every 2, etc.)
@@ -12531,7 +12675,7 @@ impl UnifiedSignalGraph {
                     let mask = 1u32 << i;
                     if (counter & mask) == 0 {
                         // This bin should update (its bit is 0, was 1)
-                        bins[i] = rng.gen_range(-1.0..1.0);
+                        bins[i] = rng.next_bipolar();
                     }
                 }
 
@@ -12541,6 +12685,7 @@ impl UnifiedSignalGraph {
                     if let SignalNode::PinkNoise { state: s } = node {
                         s.bins = bins;
                         s.counter = counter.wrapping_add(1);
+                        s.rng = rng;
                     }
                 }
 
@@ -12550,13 +12695,14 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::BrownNoise { state } => {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
+                // Node-local PRNG (seeded once at construction) — no thread_rng on the
+                // hot path (P4 / rt F-11).
+                let mut rng = state.rng;
 
                 // Random walk / Brownian motion algorithm
                 // Add small random step to accumulator
                 let current = state.accumulator;
-                let step = rng.gen_range(-1.0..1.0) * 0.1; // Small random step
+                let step = rng.next_bipolar() * 0.1; // Small random step
                 let mut new_accumulator = current + step;
 
                 // Leaky integrator to prevent DC drift (decay toward zero)
@@ -12570,6 +12716,7 @@ impl UnifiedSignalGraph {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::BrownNoise { state: s } = node {
                         s.accumulator = new_accumulator;
+                        s.rng = rng;
                     }
                 }
 
@@ -21812,9 +21959,9 @@ impl UnifiedSignalGraph {
 
             SignalNode::PinkNoise { state } => {
                 // Voss-McCartney algorithm for pink noise (1/f spectrum)
-                // Maintains 16 octave bins updated at different rates
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
+                // Maintains 16 octave bins updated at different rates.
+                // Node-local PRNG (seeded once) — no thread_rng on the hot path (P4 / rt F-11).
+                let mut rng = state.rng;
 
                 // Get current state
                 let mut bins = state.bins;
@@ -21828,7 +21975,7 @@ impl UnifiedSignalGraph {
                         let mask = 1u32 << j;
                         if (counter & mask) == 0 {
                             // This bin should update (its bit is 0, was 1)
-                            bins[j] = rng.gen_range(-1.0..1.0);
+                            bins[j] = rng.next_bipolar();
                         }
                     }
 
@@ -21846,6 +21993,7 @@ impl UnifiedSignalGraph {
                     if let SignalNode::PinkNoise { state: s } = node {
                         s.bins = bins;
                         s.counter = counter;
+                        s.rng = rng;
                     }
                 }
             }
