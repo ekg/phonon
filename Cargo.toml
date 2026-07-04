@@ -9,6 +9,12 @@ description = "Phonon: A Rust-based live coding language combining TidalCycles p
 default = ["vst3"]
 vst3 = []  # Enable VST3 plugin support (requires VST3 SDK)
 vst2 = ["vst"]  # Enable VST2 plugin support
+# Ableton Link network tempo sync. OFF by default: pulls the native C++ Ableton
+# Link library (via `rusty_link`), whose core is GPLv2+. The stock build links
+# NONE of it (no native toolchain requirement, no GPL entanglement). Only a build
+# opting into `--features link` compiles src/link_backend_rusty.rs and the native
+# dep. See docs/audits/design-ableton-link-2026-07.md §3 (license) and §7 (matrix).
+link = ["dep:rusty_link"]
 
 [dependencies]
 libc = "0.2"
@@ -103,6 +109,12 @@ vst = { version = "0.3", optional = true }
 
 # Base64 encoding for preset state
 base64 = "0.22"
+
+# Ableton Link network tempo sync — OPTIONAL, behind the off-by-default `link`
+# feature (see [features]). Pulls a native C++ dependency (the Ableton Link core
+# is GPLv2+); the default build links none of it. Implements the source-agnostic
+# TempoSource adapter in src/link_clock.rs. design-ableton-link-2026-07.md §3.
+rusty_link = { version = "0.4.9", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

@@ -348,6 +348,8 @@ pub mod glicol_pattern_bridge;
 #[cfg(unix)]
 pub mod ipc;
 pub mod link_clock; // Source-agnostic tempo/phase adapter (Ableton Link model)
+#[cfg(feature = "link")]
+pub mod link_backend_rusty; // rusty_link (Ableton Link) TempoSource backend — off-by-default `link` feature
 pub mod live;
 pub mod midi_input;
 pub mod midi_output;
