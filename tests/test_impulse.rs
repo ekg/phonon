@@ -200,6 +200,9 @@ out $ impulse 5.0
 
     let (_, statements) = parse_program(dsl).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
+    // Bypass the master safety limiter (default -0.4dB brick-wall) so the raw
+    // impulse peak of 1.0 is not clamped to the 0.95 ceiling.
+    graph.set_master_limiter_ceiling(1.0);
 
     let samples = graph.render(SAMPLE_RATE as usize);
 

@@ -275,7 +275,15 @@ fn test_rlpf_no_dc_offset() {
         out $ saw 110 # rlpf 500 2.0
     "#;
 
-    let buffer = render_dsl(code, 2.0);
+    // This test measures the FILTER's DC behavior. The Q=2.0 resonance overshoots
+    // past +/-1.0, and the master safety limiter's hard clamp (-0.4dB) clips those
+    // peaks ASYMMETRICALLY, which itself injects a DC offset. Bypass the limiter
+    // (ceiling >= 1.0 disables it) so we measure the filter, not the clamp artifact.
+    let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
+    let mut graph =
+        compile_program(statements, 44100.0, None).expect("Failed to compile DSL code");
+    graph.set_master_limiter_ceiling(1.0);
+    let buffer = graph.render(2 * 44100);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
     assert!(

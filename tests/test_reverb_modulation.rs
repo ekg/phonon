@@ -36,26 +36,32 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 /// Test that reverb room_size modulation affects output
 #[test]
 fn test_reverb_room_size_modulation() {
-    // Test with low room size
+    // Room size affects the reverb TAIL, which is only observable when the source
+    // is a transient that stops (a continuous source has no tail to measure). Use a
+    // single short saw click (ad envelope, slow tempo so it fires once) and compare
+    // the energy remaining after the click has decayed.
     let code_low = r#"
-tempo: 0.5
-~src $ saw 220
-out $ ~src # reverb 0.1 0.5 0.5
+tempo: 0.25
+~env $ ad 0.001 0.05
+~src $ saw 220 * ~env
+out $ ~src # reverb 0.1 0.5 0.9
 "#;
 
     // Test with high room size
     let code_high = r#"
-tempo: 0.5
-~src $ saw 220
-out $ ~src # reverb 0.9 0.5 0.5
+tempo: 0.25
+~env $ ad 0.001 0.05
+~src $ saw 220 * ~env
+out $ ~src # reverb 0.9 0.5 0.9
 "#;
 
     let audio_low = render_audio(code_low, 44100);
     let audio_high = render_audio(code_high, 44100);
 
-    // Calculate RMS of the second half (where reverb tail would differ)
-    let tail_low = &audio_low[22050..];
-    let tail_high = &audio_high[22050..];
+    // Calculate RMS after the click has decayed (0.25s..1.0s) where only the
+    // room-size-dependent reverb tail remains.
+    let tail_low = &audio_low[11025..];
+    let tail_high = &audio_high[11025..];
 
     let rms_low = calculate_rms(tail_low);
     let rms_high = calculate_rms(tail_high);

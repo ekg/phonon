@@ -64,37 +64,40 @@ out $ s "bd ~"
 /// Test that reverb adds tail energy to the rest slot
 #[test]
 fn test_reverb_adds_tail_energy() {
-    // Compare with and without reverb at tempo 8.0
-    // Rest slot should have MORE energy with reverb (reverb tail)
+    // Fire a single BD (slow tempo => one hit within the render window) and measure
+    // energy in a LATE window, after the dry BD has fully decayed. There the dry
+    // signal is silent while the wet signal still carries the reverb tail. (A fast
+    // repeating pattern with a partial wet/dry mix is the wrong probe: the dry BD
+    // bleeds into every slot and the mix merely attenuates it.)
     let code_dry = r#"
-tempo: 8.0
-out $ s "bd ~"
+tempo: 0.25
+out $ s "bd ~ ~ ~"
 "#;
 
     let code_wet = r#"
-tempo: 8.0
-out $ s "bd ~" # reverb 0.95 0.2 0.5
+tempo: 0.25
+out $ s "bd ~ ~ ~" # reverb 0.95 0.2 0.9
 "#;
 
-    let audio_dry = render_audio(code_dry, 5512);  // One cycle (125ms)
-    let audio_wet = render_audio(code_wet, 5512);
+    let audio_dry = render_audio(code_dry, 44100); // 1 second
+    let audio_wet = render_audio(code_wet, 44100);
 
-    // Rest slot (second half of cycle)
-    let rest_dry = &audio_dry[2756..5512];
-    let rest_wet = &audio_wet[2756..5512];
+    // Late window (0.5s..1.0s): dry BD has decayed, only reverb tail remains.
+    let rest_dry = &audio_dry[22050..];
+    let rest_wet = &audio_wet[22050..];
 
     let rms_dry = calculate_rms(rest_dry);
     let rms_wet = calculate_rms(rest_wet);
 
     println!("Reverb tail energy test:");
-    println!("  Rest slot DRY: RMS = {:.6}", rms_dry);
-    println!("  Rest slot WET: RMS = {:.6}", rms_wet);
-    println!("  Wet/Dry ratio: {:.4}", rms_wet / rms_dry);
+    println!("  Late window DRY: RMS = {:.6}", rms_dry);
+    println!("  Late window WET: RMS = {:.6}", rms_wet);
 
-    // With reverb, rest slot should have MORE energy (reverb tail)
-    assert!(rms_wet > rms_dry * 1.1,
-        "Reverb should add tail energy! Wet={:.6}, Dry={:.6}, ratio={:.4}",
-        rms_wet, rms_dry, rms_wet / rms_dry);
+    // With reverb, the late window should have a clearly-audible tail while the dry
+    // signal is essentially silent there.
+    assert!(rms_wet > 0.001 && rms_wet > rms_dry * 1.1,
+        "Reverb should add tail energy! Wet={:.6}, Dry={:.6}",
+        rms_wet, rms_dry);
 }
 
 /// Test reverb tail persists after multiple cycles of silence

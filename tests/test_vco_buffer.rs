@@ -518,34 +518,59 @@ fn test_vco_pulse_width_modulation() {
 
 #[test]
 fn test_vco_polyblep_antialiasing() {
-    let mut graph = create_test_graph();
+    use phonon::unified_graph::Waveform;
 
-    // High frequency saw wave (near Nyquist)
-    let vco_id = graph.add_vco_node(
-        Signal::Value(5000.0),
+    // Anti-aliasing is verified by comparing the PolyBLEP VCO saw against a NAIVE
+    // (non-band-limited) saw at the same high frequency: PolyBLEP must reduce the
+    // reset discontinuity.
+    //
+    // NOTE: a jump threshold like "< 0.5" is physically wrong at 5kHz. With only
+    // ~8.8 samples per cycle, even an ideal band-limited saw (harmonics summed up
+    // to Nyquist) has a max sample-to-sample jump of ~1.54 — the waveform simply
+    // changes fast between samples. So we assert a RELATIVE reduction vs the naive
+    // saw, which is exactly what PolyBLEP is for.
+    let buffer_size = 512;
+    let freq = 5000.0;
+
+    let max_jump = |buf: &[f32]| -> f32 {
+        let mut m = 0.0f32;
+        for i in 1..buf.len() {
+            m = m.max((buf[i] - buf[i - 1]).abs());
+        }
+        m
+    };
+
+    // PolyBLEP-band-limited saw (VCO waveform 0).
+    let mut vco_graph = create_test_graph();
+    let vco_id = vco_graph.add_vco_node(
+        Signal::Value(freq),
         Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
+    let mut vco_out = vec![0.0; buffer_size];
+    vco_graph.eval_node_buffer(&vco_id, &mut vco_out);
+    let vco_jump = max_jump(&vco_out);
 
-    let buffer_size = 512;
-    let mut output = vec![0.0; buffer_size];
-    graph.eval_node_buffer(&vco_id, &mut output);
+    // Naive (aliased) saw at the same frequency for reference.
+    let mut naive_graph = create_test_graph();
+    let naive_id = naive_graph.add_oscillator(Signal::Value(freq), Waveform::Saw);
+    let mut naive_out = vec![0.0; buffer_size];
+    naive_graph.eval_node_buffer(&naive_id, &mut naive_out);
+    let naive_jump = max_jump(&naive_out);
 
-    // PolyBLEP should prevent extreme discontinuities
-    // Check that no sample-to-sample jump exceeds a threshold
-    let mut max_jump = 0.0f32;
-    for i in 1..output.len() {
-        let jump = (output[i] - output[i - 1]).abs();
-        max_jump = max_jump.max(jump);
-    }
-
-    // Without PolyBLEP, sawtooth resets would cause jumps ~2.0
-    // With PolyBLEP, even at phase reset, transition is smoothed
-    // At 5kHz, phase increment is ~0.113, so max smooth jump ~0.23
+    // Sanity: the VCO must actually produce audio.
     assert!(
-        max_jump < 0.5,
-        "PolyBLEP should reduce discontinuities, max_jump={}",
-        max_jump
+        calculate_rms(&vco_out) > 0.1,
+        "VCO saw should produce audio, RMS={}",
+        calculate_rms(&vco_out)
+    );
+
+    // PolyBLEP must reduce the reset discontinuity relative to the naive saw.
+    assert!(
+        vco_jump < naive_jump,
+        "PolyBLEP should reduce discontinuities: polyblep_jump={} vs naive_jump={}",
+        vco_jump,
+        naive_jump
     );
 }
 

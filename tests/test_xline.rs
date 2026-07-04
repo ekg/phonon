@@ -163,6 +163,9 @@ out $ xline 100.0 10.0 1.0
 
     let (_, statements) = parse_program(dsl).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
+    // xline sweeps 100.0 -> 10.0 as a raw control value; disable the master safety
+    // limiter (ceiling >= 1.0 disables it) so the values are not clamped to 0.95.
+    graph.set_master_limiter_ceiling(1.0);
 
     let samples = graph.render(SAMPLE_RATE as usize);
 

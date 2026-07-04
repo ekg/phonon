@@ -45,6 +45,9 @@ out $ ~ramp
 
     let (_, statements) = parse_program(dsl).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
+    // The raw envelope reaches 1.0; bypass the -0.4dB master safety limiter so the
+    // ramp endpoints are not clamped to 0.95.
+    graph.set_master_limiter_ceiling(1.0);
 
     // Render 1 full cycle (1 second at tempo 1.0)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -94,14 +97,19 @@ out $ ~ramp
 /// Test descending line
 #[test]
 fn test_line_descending() {
+    // `line` completes over one cycle; at tempo 2.0 one cycle is 0.5s, matching the
+    // 0.5s render window below so the ramp fully descends from 1 to 0.
     let dsl = r#"
-tempo: 0.5
+tempo: 2.0
 ~ramp $ line 1 0
 out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
+    // The raw envelope starts at 1.0; bypass the -0.4dB master safety limiter so the
+    // start value is not clamped to 0.95.
+    graph.set_master_limiter_ceiling(1.0);
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 second at tempo 2.0
 

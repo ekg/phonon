@@ -1831,6 +1831,16 @@ pub enum SignalNode {
         state: CompressorState,
     },
 
+    /// Transient shaper — independently boosts/cuts the attack (transient) and
+    /// sustain (body) portions of a signal. Uses two envelope followers (fast +
+    /// slow); their difference detects transients. Attack/sustain are gains in dB.
+    TransientShaper {
+        input: Signal,
+        attack_db: Signal,  // Attack (transient) gain in dB (-40.0 to 40.0)
+        sustain_db: Signal, // Sustain (body) gain in dB (-40.0 to 40.0)
+        state: TransientShaperState,
+    },
+
     /// Sidechain Compressor - compression controlled by external signal
     /// Analyzes sidechain signal but applies gain reduction to main input
     SidechainCompressor {
@@ -4001,6 +4011,70 @@ impl Default for CompressorState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Transient shaper state: two envelope followers (fast + slow) whose
+/// difference detects transients (attack) vs body (sustain).
+#[derive(Debug, Clone)]
+pub struct TransientShaperState {
+    fast_env: f32,
+    slow_env: f32,
+}
+
+impl TransientShaperState {
+    pub fn new() -> Self {
+        Self {
+            fast_env: 0.0,
+            slow_env: 0.0,
+        }
+    }
+}
+
+impl Default for TransientShaperState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// One-pole envelope-follower coefficients (fast + slow detectors) for the
+/// transient shaper, derived from the sample rate. Returns
+/// `(fast_attack, fast_release, slow_attack, slow_release)`.
+#[inline]
+fn transient_shaper_coeffs(sample_rate: f32) -> (f32, f32, f32, f32) {
+    let c = |t: f32| (-1.0 / (t * sample_rate)).exp();
+    // Fast detector reacts to transients; slow detector tracks the body.
+    (c(0.0005), c(0.020), c(0.015), c(0.080))
+}
+
+/// Process one transient-shaper sample. Updates the two envelope followers in
+/// place and returns the gain-shaped output. `attack_lin`/`sustain_lin` are the
+/// linear gains for the transient and sustain portions respectively.
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn transient_shaper_sample(
+    input_val: f32,
+    fast_env: &mut f32,
+    slow_env: &mut f32,
+    attack_lin: f32,
+    sustain_lin: f32,
+    fast_a: f32,
+    fast_r: f32,
+    slow_a: f32,
+    slow_r: f32,
+) -> f32 {
+    let x = input_val.abs();
+    // Fast envelope follower (attack when rising, release when falling).
+    let fc = if x > *fast_env { fast_a } else { fast_r };
+    *fast_env = fc * *fast_env + (1.0 - fc) * x;
+    // Slow envelope follower.
+    let sc = if x > *slow_env { slow_a } else { slow_r };
+    *slow_env = sc * *slow_env + (1.0 - sc) * x;
+    // Transient blend: fraction of the fast envelope that exceeds the slow one.
+    // t≈1 during a fresh transient, t≈0 during steady-state body.
+    let transient = (*fast_env - *slow_env).max(0.0);
+    let t = (transient / (*fast_env + 1e-6)).clamp(0.0, 1.0);
+    let gain = sustain_lin * (1.0 - t) + attack_lin * t;
+    input_val * gain
 }
 
 /// Expander state (upward expander - opposite of compressor)
@@ -8290,6 +8364,7 @@ impl UnifiedSignalGraph {
             | SignalNode::Chorus { input, .. }
             | SignalNode::Flanger { input, .. }
             | SignalNode::Compressor { input, .. }
+            | SignalNode::TransientShaper { input, .. }
             | SignalNode::Expander { input, .. }
             | SignalNode::LowPass { input, .. }
             | SignalNode::HighPass { input, .. }
@@ -11186,6 +11261,12 @@ impl UnifiedSignalGraph {
         // This was causing 4x slowdown in file rendering vs buffer processing.
         // TODO: Only clear cache when cycle position crosses event boundary
         // self.value_cache.clear();
+
+        // Clear stateful_value_cache every sample to prevent stateful nodes
+        // (oscillators, filters, envelopes) from being frozen at their first-sample
+        // value. Without this, eval_node returns the cached sample-0 result forever,
+        // so oscillator phase never advances and stereo output is silent/DC.
+        self.stateful_value_cache.clear();
 
         // Process voice manager ONCE per sample and cache per-node outputs
         // This separates outputs so each output only hears its own samples
@@ -14851,6 +14932,46 @@ impl UnifiedSignalGraph {
                 input_val * (1.0 - mix) + wet * mix
             }
 
+            SignalNode::TransientShaper {
+                input,
+                attack_db,
+                sustain_db,
+                state,
+            } => {
+                let input_val = self.eval_signal(input);
+                let attack_db_v = self.eval_signal(attack_db).clamp(-40.0, 40.0);
+                let sustain_db_v = self.eval_signal(sustain_db).clamp(-40.0, 40.0);
+                let attack_lin = 10.0_f32.powf(attack_db_v / 20.0);
+                let sustain_lin = 10.0_f32.powf(sustain_db_v / 20.0);
+                let (fast_a, fast_r, slow_a, slow_r) =
+                    transient_shaper_coeffs(self.sample_rate);
+
+                let mut fast_env = state.fast_env;
+                let mut slow_env = state.slow_env;
+                let out = transient_shaper_sample(
+                    input_val,
+                    &mut fast_env,
+                    &mut slow_env,
+                    attack_lin,
+                    sustain_lin,
+                    fast_a,
+                    fast_r,
+                    slow_a,
+                    slow_r,
+                );
+
+                // Persist envelope-follower state.
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::TransientShaper { state: s, .. } = node {
+                        s.fast_env = fast_env;
+                        s.slow_env = slow_env;
+                    }
+                }
+
+                out
+            }
+
             SignalNode::Compressor {
                 input,
                 threshold,
@@ -16421,9 +16542,28 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + tolerance;
 
                     if event_is_new {
-                        // Expand chord notation to multiple MIDI notes
+                        // Resolve the pattern value to one or more voice frequencies.
+                        // A bare numeric value (e.g. "440") is a frequency in Hz — this is
+                        // how the *_trig oscillators (sine_trig/saw_trig/square_trig/tri_trig)
+                        // specify pitch. Anything else is a note name / chord ("c4", "c4'maj").
+                        // Note names always contain a letter, so they never parse as f32,
+                        // keeping note/chord behavior unchanged.
                         use crate::pattern_tonal::note_to_midi_chord;
-                        let midi_notes = note_to_midi_chord(note_name);
+                        let note_frequencies: Vec<f32> = if let Ok(hz) = note_name.parse::<f32>() {
+                            // Frequency in Hz; apply n_val as a semitone transposition.
+                            vec![hz * 2.0_f32.powf(n_val / 12.0)]
+                        } else {
+                            note_to_midi_chord(note_name)
+                                .into_iter()
+                                .map(|midi_note| {
+                                    let transposed_midi = ((midi_note as f32 + n_val).round()
+                                        as i32)
+                                        .clamp(0, 127)
+                                        as u8;
+                                    midi_to_freq(transposed_midi) as f32
+                                })
+                                .collect()
+                        };
 
                         // Convert Waveform to SynthWaveform (once for all chord notes)
                         let synth_waveform = match waveform {
@@ -16456,7 +16596,7 @@ impl UnifiedSignalGraph {
 
                         // Scale gain by 1/sqrt(n) to prevent clipping when multiple voices sum
                         // Using sqrt gives perceptually correct loudness (RMS scaling)
-                        let chord_size = midi_notes.len();
+                        let chord_size = note_frequencies.len();
                         let chord_gain_scale = if chord_size > 1 {
                             1.0 / (chord_size as f32).sqrt()
                         } else {
@@ -16464,11 +16604,7 @@ impl UnifiedSignalGraph {
                         };
                         let scaled_gain = gain_val * chord_gain_scale;
 
-                        for midi_note in midi_notes {
-                            // Apply transposition (n_val is in semitones)
-                            let transposed_midi = ((midi_note as f32 + n_val).round() as i32).clamp(0, 127) as u8;
-                            let frequency = midi_to_freq(transposed_midi) as f32;
-
+                        for frequency in note_frequencies {
                             self.synth_voice_manager.borrow_mut().trigger_note(
                                 frequency,
                                 synth_waveform,
@@ -20154,6 +20290,7 @@ impl UnifiedSignalGraph {
                     | SignalNode::DattorroReverb { input, .. }
                     | SignalNode::Distortion { input, .. }
                     | SignalNode::Compressor { input, .. }
+                    | SignalNode::TransientShaper { input, .. }
                     | SignalNode::BitCrush { input, .. }
                     | SignalNode::Chorus { input, .. }
                     | SignalNode::Vibrato { input, .. }

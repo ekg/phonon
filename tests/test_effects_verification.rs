@@ -276,11 +276,14 @@ fn test_multitap_level2_actually_processes() {
 
 #[test]
 fn test_multitap_level3_characteristics() {
-    // Level 3: Verify multitap creates multiple delay taps
-    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    // Level 3: Verify multitap creates multiple delay taps.
+    // Fire a SINGLE bd (slow tempo => one hit in the window) and render long enough
+    // that the tap tail fits inside the buffer. A fast repeating pattern re-triggers
+    // bd every cycle, so the dry "tail" never ends and the buffer caps the wet tail.
+    let dry = render_dsl("bpm: 15\nout $ s \"bd ~ ~ ~\"", 4.0);
     let wet = render_dsl(
-        "bpm: 120\nout $ s \"bd ~ ~ ~\" # multitap 0.12 5 0.6 0.9",
-        2.0,
+        "bpm: 15\nout $ s \"bd ~ ~ ~\" # multitap 0.12 5 0.6 0.9",
+        4.0,
     );
 
     let sample_rate = 44100.0;
@@ -507,14 +510,18 @@ fn test_plate_level3_characteristics_tail() {
 
 #[test]
 fn test_plate_decay_parameter() {
-    // Verify decay parameter affects reverb length
+    // Verify decay parameter affects reverb length.
+    // The plate `decay` param maps over [0.1, 10.0] (-> internal feedback gain), so
+    // values must be spread across that range to see a clear difference — 0.3 vs 0.9
+    // both map to nearly the same gain (~0.41 vs ~0.44). Fire a single bd (slow
+    // tempo) and render long enough that neither tail is truncated by the buffer.
     let short_decay = render_dsl(
-        "bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 10 0.3 0.7 0.3 0.3 0.7",
-        2.0,
+        "bpm: 10\nout $ s \"bd ~ ~ ~\" # plate 10 0.5 0.7 0.3 0.3 0.9",
+        6.0,
     );
     let long_decay = render_dsl(
-        "bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 10 0.9 0.7 0.3 0.3 0.7",
-        2.0,
+        "bpm: 10\nout $ s \"bd ~ ~ ~\" # plate 10 8.0 0.7 0.3 0.3 0.9",
+        6.0,
     );
 
     let sample_rate = 44100.0;

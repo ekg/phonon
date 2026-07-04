@@ -76,6 +76,9 @@ fn test_sine_440_numerical_accuracy() {
     let code = "out $ sine 440";
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
+    // Bypass the master safety limiter (default -0.4dB brick-wall ceiling) so we
+    // compare against the raw synthesized waveform, not the speaker-protection clamp.
+    graph.set_master_limiter_ceiling(1.0);
     let actual = graph.render(num_samples);
 
     // Calculate error metrics
@@ -110,6 +113,9 @@ fn test_sine_phase_continuity_numerical() {
     let code = "out $ sine 440";
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
+    // Bypass the master safety limiter so phase continuity is measured on the raw
+    // waveform rather than the -0.4dB brick-wall clamp.
+    graph.set_master_limiter_ceiling(1.0);
 
     let buffer_size = 512;
     let buffer1 = graph.render(buffer_size);
@@ -295,6 +301,8 @@ fn test_multiple_frequencies_numerical() {
         let code = format!("out $ sine {}", frequency);
         let (_, statements) = parse_program(&code).expect("Parse failed");
         let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
+        // Bypass the master safety limiter so we compare the raw synthesized waveform.
+        graph.set_master_limiter_ceiling(1.0);
 
         let num_samples = 4410; // 0.1 second
         let expected = generate_expected_sine(frequency, sample_rate, num_samples);

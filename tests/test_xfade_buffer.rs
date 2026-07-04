@@ -367,6 +367,11 @@ fn test_xfade_inverted_signals() {
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
 
+    // signal_a and signal_b share the same oscillator node (b is a inverted).
+    // Enable the per-buffer node cache (as the production render path does) so the
+    // shared oscillator is evaluated ONCE per buffer; otherwise it would advance its
+    // phase twice and the two "identical" signals would not truly cancel.
+    graph.buffer_cache_enabled().set(true);
     graph.eval_node_buffer(&xfade_id, &mut output);
 
     // Should be near silence (signals cancel)

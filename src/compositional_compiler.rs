@@ -432,6 +432,8 @@ impl CompilerContext {
                 | "flanger"
                 | "compressor"
                 | "comp"
+                | "transient_shaper"
+                | "tshaper"
                 | "sidechain_compressor"
                 | "sidechain_comp"
                 | "sc_comp"
@@ -1102,6 +1104,7 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 "distort", "distortion", "dist", "delay",
                 "tapedelay", "tape", "multitap", "pingpong", "plate", "lush",
                 "chorus", "flanger", "compressor", "comp",
+                "transient_shaper", "tshaper",
                 "expander", "expand", "bitcrush", "coarse", "djf",
                 "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
                 "xfade", "mix", "select", "allpass",
@@ -3023,6 +3026,7 @@ fn compile_function_call(
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
+        "transient_shaper" | "tshaper" => compile_transient_shaper(ctx, args),
         "sidechain_compressor" | "sidechain_comp" | "sc_comp" => {
             compile_sidechain_compressor(ctx, args)
         }
@@ -3245,6 +3249,7 @@ fn compile_function_call(
                     "distort", "distortion", "dist", "delay",
                     "tapedelay", "tape", "multitap", "pingpong", "plate", "lush",
                     "chorus", "flanger", "compressor", "comp",
+                    "transient_shaper", "tshaper",
                     "sidechain_compressor", "sidechain_comp", "sc_comp",
                     "expander", "expand", "bitcrush", "coarse", "djf", "ring",
                     "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
@@ -6201,6 +6206,36 @@ fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         release: Signal::Node(release_node),
         makeup_gain: Signal::Node(makeup_node),
         state: CompressorState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile transient shaper effect.
+/// Syntax: `<input> # transient_shaper <attack_db> <sustain_db>`
+/// Independently boosts/cuts the attack (transient) and sustain (body) of a
+/// signal. Both parameters are gains in dB and are pattern-modulatable.
+fn compile_transient_shaper(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "transient_shaper requires 2 parameters (attack_db, sustain_db), got {}",
+            params.len()
+        ));
+    }
+
+    let attack_node = compile_expr(ctx, params[0].clone())?;
+    let sustain_node = compile_expr(ctx, params[1].clone())?;
+
+    use crate::unified_graph::TransientShaperState;
+
+    let node = SignalNode::TransientShaper {
+        input: input_signal,
+        attack_db: Signal::Node(attack_node),
+        sustain_db: Signal::Node(sustain_node),
+        state: TransientShaperState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
