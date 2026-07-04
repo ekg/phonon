@@ -22,6 +22,19 @@ fn render_code(code: &str, samples: usize) -> Vec<f32> {
     graph.render(samples)
 }
 
+/// Render with the master safety limiter disabled so tests can measure the true
+/// pre-limiter signal amplitude. The production render path clamps output to the
+/// master ceiling (default 0.95 / -0.4dB headroom), which would flatten any signal
+/// arithmetic that legitimately exceeds unity (e.g. summing two unity sines to 2x,
+/// or a `~* 2` gain bus). Setting the ceiling >= 1.0 bypasses the brick-wall
+/// limiter so amplitude-ratio assertions reflect the arithmetic, not the limiter.
+fn render_code_raw(code: &str, samples: usize) -> Vec<f32> {
+    let (_, stmts) = parse_program(code).expect("Parse failed");
+    let mut graph = compile_program(stmts, 44100.0, None).expect("Compile failed");
+    graph.set_master_limiter_ceiling(10.0);
+    graph.render(samples)
+}
+
 // ============================================================================
 // Context Detection Tests
 // ============================================================================
@@ -228,8 +241,8 @@ fn test_signal_add_produces_correct_sum() {
 ~b $ sine 440
 out $ ~a ~+ ~b
 "#;
-    let output_single = render_code(code_single, 4410);
-    let output_double = render_code(code_double, 4410);
+    let output_single = render_code_raw(code_single, 4410);
+    let output_double = render_code_raw(code_double, 4410);
 
     // Compare peak values - doubled should be ~2x amplitude
     let peak_single = output_single
@@ -302,8 +315,8 @@ fn test_function_bus_produces_correct_output() {
 ~osc $ sine 440
 out $ ~double ~osc
 "#;
-    let output_single = render_code(code_single, 4410);
-    let output_doubled = render_code(code_doubled, 4410);
+    let output_single = render_code_raw(code_single, 4410);
+    let output_doubled = render_code_raw(code_doubled, 4410);
 
     let peak_single = output_single
         .iter()
@@ -363,7 +376,7 @@ fn test_higher_order_bus_produces_audio() {
 ~result $ ~louder ~osc
 out $ ~result
 "#;
-    let output = render_code(code, 4410);
+    let output = render_code_raw(code, 4410);
 
     // Check it produces audio with reasonable amplitude
     let peak = output.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));

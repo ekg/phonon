@@ -11329,7 +11329,7 @@ impl UnifiedSignalGraph {
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
 
-        // OPTIMIZATION: Don't clear cache every sample!
+        // OPTIMIZATION: Don't clear value_cache every sample!
         // Pattern values only change at event boundaries, not per-sample.
         // Clearing every sample forces re-evaluation of the entire graph 44,100 times/second.
         // This was causing 4x slowdown in file rendering vs buffer processing.
@@ -15895,9 +15895,11 @@ impl UnifiedSignalGraph {
                         .cloned()
                         .collect::<Vec<_>>()
                 } else {
-                    // Fallback: Query pattern directly (shouldn't happen in normal operation)
-                    // Use full-cycle window to ensure transforms like degrade see all events
-                    // The event deduplication logic below prevents re-triggering
+                    // Fallback: Query pattern directly. This IS the live per-sample path
+                    // (process_sample -> eval_node), used by main.rs and osc_live_server,
+                    // so it must produce the same event annotations as the buffer path.
+                    // Use full-cycle window to ensure transforms like degrade see all events;
+                    // the event deduplication logic below prevents re-triggering.
                     let current_cycle_start = self.get_cycle_position().floor();
                     let state = State {
                         span: TimeSpan::new(
@@ -15906,7 +15908,13 @@ impl UnifiedSignalGraph {
                         ),
                         controls: HashMap::new(),
                     };
-                    pattern.query(&state)
+                    let mut events = pattern.query(&state);
+                    // Annotate inter-onset `delta` so each voice auto-releases at its slot
+                    // boundary (the buffer path does this in precompute_pattern_events).
+                    // Without it, sample voices keep the default 10s release tail and
+                    // accumulate in active_voice_count() over successive cycles.
+                    self.annotate_event_deltas(&mut events);
+                    events
                 };
 
                 // Check if we've crossed into a new cycle
@@ -19574,6 +19582,82 @@ impl UnifiedSignalGraph {
         self.buffer_cache_enabled.set(false);
     }
 
+    /// Annotate each queried event with its `delta` (inter-onset time to the next
+    /// event, in seconds), matching Tidal/SuperDirt semantics. The Sample-node
+    /// trigger reads this `delta` to auto-release each voice at its slot boundary
+    /// instead of holding the default 10s release tail.
+    ///
+    /// This MUST be applied to every set of pattern events used for triggering,
+    /// regardless of which path produced them. The buffer path routes through
+    /// `precompute_pattern_events`; the per-sample fallback path in the Sample-node
+    /// eval (used by `process_sample`, a live path) previously skipped it, causing
+    /// sample voices to linger for ~10s and inflate `active_voice_count()` even
+    /// though the audio was unaffected (voice-accumulation bug).
+    fn annotate_event_deltas(&self, events: &mut [crate::pattern::Hap<String>]) {
+        if events.len() > 1 {
+            // Sort by event start time
+            events.sort_by(|a, b| {
+                let a_start = a
+                    .whole
+                    .as_ref()
+                    .map(|w| w.begin.to_float())
+                    .unwrap_or_else(|| a.part.begin.to_float());
+                let b_start = b
+                    .whole
+                    .as_ref()
+                    .map(|w| w.begin.to_float())
+                    .unwrap_or_else(|| b.part.begin.to_float());
+                a_start
+                    .partial_cmp(&b_start)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            for i in 0..events.len() {
+                let current_start = events[i]
+                    .whole
+                    .as_ref()
+                    .map(|w| w.begin.to_float())
+                    .unwrap_or_else(|| events[i].part.begin.to_float());
+
+                let next_start = if i + 1 < events.len() {
+                    events[i + 1]
+                        .whole
+                        .as_ref()
+                        .map(|w| w.begin.to_float())
+                        .unwrap_or_else(|| events[i + 1].part.begin.to_float())
+                } else {
+                    // Last event: prefer this event's own slot end so the note fills
+                    // its slot; fall back to the next cycle boundary STRICTLY after
+                    // the onset (see precompute_pattern_events for the bugfix rationale).
+                    events[i]
+                        .whole
+                        .as_ref()
+                        .map(|w| w.end.to_float())
+                        .filter(|&end| end > current_start + 1e-9)
+                        .unwrap_or_else(|| (current_start + 1.0).floor().max(current_start + 0.001))
+                };
+
+                let delta_cycles = (next_start - current_start).max(0.001);
+                let delta_seconds = delta_cycles / self.cps as f64;
+                events[i]
+                    .context
+                    .insert("delta".to_string(), delta_seconds.to_string());
+            }
+        } else if events.len() == 1 {
+            // Single event: delta is 1 cycle (or to next cycle boundary)
+            let current_start = events[0]
+                .whole
+                .as_ref()
+                .map(|w| w.begin.to_float())
+                .unwrap_or_else(|| events[0].part.begin.to_float());
+            let delta_cycles = (current_start.ceil() - current_start).max(1.0);
+            let delta_seconds = delta_cycles / self.cps as f64;
+            events[0]
+                .context
+                .insert("delta".to_string(), delta_seconds.to_string());
+        }
+    }
+
     /// Pre-compute pattern events for the entire buffer (Option B optimization)
     /// This eliminates 512 pattern.query() calls per buffer by querying once
     fn precompute_pattern_events(&mut self, buffer_len: usize) {
@@ -19660,72 +19744,9 @@ impl UnifiedSignalGraph {
                         }
                     }
 
-                    // Calculate delta (inter-onset time) for each event
-                    // This matches Tidal/SuperDirt behavior - delta is time to next event
-                    if events.len() > 1 {
-                        // Sort by event start time
-                        events.sort_by(|a, b| {
-                            let a_start = a.whole.as_ref().map(|w| w.begin.to_float())
-                                .unwrap_or_else(|| a.part.begin.to_float());
-                            let b_start = b.whole.as_ref().map(|w| w.begin.to_float())
-                                .unwrap_or_else(|| b.part.begin.to_float());
-                            a_start.partial_cmp(&b_start).unwrap_or(std::cmp::Ordering::Equal)
-                        });
-
-                        // Calculate delta for each event
-                        for i in 0..events.len() {
-                            let current_start = events[i].whole.as_ref()
-                                .map(|w| w.begin.to_float())
-                                .unwrap_or_else(|| events[i].part.begin.to_float());
-
-                            let next_start = if i + 1 < events.len() {
-                                events[i + 1].whole.as_ref()
-                                    .map(|w| w.begin.to_float())
-                                    .unwrap_or_else(|| events[i + 1].part.begin.to_float())
-                            } else {
-                                // For the last event in the query window we don't know when
-                                // the next event is. Prefer this event's own slot end (its
-                                // `whole` duration) so the note fills its slot -- exactly
-                                // like the single-event branch below. Fall back to the next
-                                // cycle boundary STRICTLY after the onset.
-                                //
-                                // BUGFIX: the old `current_start.ceil()` collapsed to
-                                // `current_start` when the onset landed exactly on an integer
-                                // cycle boundary (e.g. the first hit of every cycle N>0 in a
-                                // buffer that straddles the boundary), yielding delta ~= 0.001
-                                // cycles. That set a near-instant auto-release which truncated
-                                // every cross-cycle sample voice to a ~2ms blip. Using the
-                                // whole-note end (or the next boundary via `+ 1.0).floor()`)
-                                // restores the full slot duration.
-                                events[i].whole.as_ref()
-                                    .map(|w| w.end.to_float())
-                                    .filter(|&end| end > current_start + 1e-9)
-                                    .unwrap_or_else(|| {
-                                        (current_start + 1.0).floor().max(current_start + 0.001)
-                                    })
-                            };
-
-                            let delta_cycles = (next_start - current_start).max(0.001);
-                            // Convert delta to seconds for convenience
-                            let delta_seconds = delta_cycles / self.cps as f64;
-
-                            events[i].context.insert(
-                                "delta".to_string(),
-                                delta_seconds.to_string(),
-                            );
-                        }
-                    } else if events.len() == 1 {
-                        // Single event: delta is 1 cycle (or to next cycle boundary)
-                        let current_start = events[0].whole.as_ref()
-                            .map(|w| w.begin.to_float())
-                            .unwrap_or_else(|| events[0].part.begin.to_float());
-                        let delta_cycles = (current_start.ceil() - current_start).max(1.0);
-                        let delta_seconds = delta_cycles / self.cps as f64;
-                        events[0].context.insert(
-                            "delta".to_string(),
-                            delta_seconds.to_string(),
-                        );
-                    }
+                    // Calculate delta (inter-onset time) for each event.
+                    // This matches Tidal/SuperDirt behavior - delta is time to next event.
+                    self.annotate_event_deltas(&mut events);
 
                     // Cache events for this node
                     self.pattern_event_cache.insert(NodeId(node_idx), events);

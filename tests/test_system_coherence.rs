@@ -457,6 +457,12 @@ fn test_realtime_parameter_modulation() {
 
     graph.set_output(output);
 
+    // This test measures dynamic range (power variation across the filter sweep). The
+    // master safety limiter (0.95 brick-wall) clamps the loud windows, compressing the
+    // dynamics (ratio drops from ~2.1 to ~1.36) and masking the modulation depth.
+    // Disable it so the measurement reflects the actual filter-sweep modulation.
+    graph.set_master_limiter_ceiling(10.0);
+
     let buffer = graph.render(44100);
 
     // Analyze modulation depth

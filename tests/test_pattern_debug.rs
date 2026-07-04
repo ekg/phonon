@@ -19,6 +19,12 @@ fn test_pattern_signal_directly() {
 
     graph.set_output(pattern_node);
 
+    // This test inspects the raw control-signal value of a value pattern (110/220 Hz)
+    // routed directly to output. The production render path applies the master safety
+    // limiter (clamps to 0.95), which would flatten these numeric values to ~0.95.
+    // Disable it so the assertion sees the true pattern value, not the audio ceiling.
+    graph.set_master_limiter_ceiling(10.0);
+
     // Render 1 full cycle = 0.5 seconds at CPS=2.0 = 22050 samples
     let buffer = graph.render(22050);
 

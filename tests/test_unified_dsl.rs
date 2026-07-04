@@ -7,7 +7,7 @@ fn test_parse_and_compile_dsl() {
     let dsl_code = r#"
         ~lfo: sine 0.5 * 0.5 + 0.5
         ~cutoff: ~lfo * 2000 + 500
-        ~bass: saw 110 >> lpf(~cutoff, 0.8)
+        ~bass: saw 110 # lpf ~cutoff 0.8
         out $ ~bass * 0.4
     "#;
 
@@ -77,10 +77,10 @@ fn test_complex_modulation_dsl() {
 
     let dsl_code = r#"
         ~mod_freq: sine 0.1 * 2 + 3
-        ~mod: sine(~mod_freq) * 100
-        ~carrier: sine(440 + ~mod)
+        ~mod: sine ~mod_freq * 100
+        ~carrier: sine (440 + ~mod)
         ~env_speed: 4
-        ~env: sine(~env_speed) * 0.5 + 0.5
+        ~env: sine ~env_speed * 0.5 + 0.5
         out $ ~carrier * ~env * 0.3
     "#;
 
@@ -135,7 +135,7 @@ fn test_arithmetic_in_dsl() {
         ~sum: ~a + ~b
         ~product: ~a * 2
         ~complex: (~a + ~b) * 0.5 - 100
-        out $ sine(~complex)
+        out $ sine ~complex
     "#;
 
     let parse_result = parse_dsl(dsl_code);

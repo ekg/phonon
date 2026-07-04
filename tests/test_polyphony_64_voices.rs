@@ -69,7 +69,10 @@ fn test_voice_stealing_at_65th_voice() {
     let bd_sample = bank.get_sample("bd").expect("BD sample should load");
     let sn_sample = bank.get_sample("sn").expect("SN sample should load");
 
-    let mut vm = VoiceManager::new();
+    // The default voice ceiling was raised from 64 to 512 (DEFAULT_VOICE_CEILING),
+    // so stealing no longer kicks in at 64 with VoiceManager::new(). Configure an
+    // explicit 64-voice cap to exercise the voice-stealing mechanism at the cap.
+    let mut vm = VoiceManager::with_max_voices(64);
 
     // Trigger 64 BD samples
     for _ in 0..64 {
@@ -241,7 +244,8 @@ fn test_voice_stealing_steals_oldest() {
     let mut bank = SampleBank::new();
     let sample = bank.get_sample("bd").expect("BD sample should load");
 
-    let mut vm = VoiceManager::new();
+    // Explicit 64-voice cap so stealing engages at the cap (default is now 512).
+    let mut vm = VoiceManager::with_max_voices(64);
 
     // Fill all 64 voices
     for _ in 0..64 {

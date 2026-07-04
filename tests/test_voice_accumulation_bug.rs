@@ -43,22 +43,39 @@ fn test_voice_count_does_not_accumulate() {
         );
     }
 
-    // Check if voice count is growing unboundedly
-    // After the first few cycles, voice count should stabilize
-    let early_avg = voice_counts[2]; // Cycle 2
-    let late_avg = voice_counts[num_cycles - 1]; // Last cycle
+    // The definitive accumulation check: peak simultaneous voices must stay
+    // bounded. If voices leaked (failed to auto-release at their slot boundary),
+    // the peak would climb every cycle. A stable peak means old voices are being
+    // reclaimed before the next hits arrive.
+    let late_peak = peak_voice_counts[num_cycles - 1];
+    assert!(
+        late_peak <= 2,
+        "Peak voice count grew to {} by cycle {} — voices are accumulating (not being cleaned up).",
+        late_peak,
+        num_cycles - 1
+    );
+
+    // Average-voice check. NOTE: the pattern `bd(<3 5>,8)` deliberately alternates
+    // hit density every cycle (3 hits on even cycles, 5 hits on odd), so the average
+    // active-voice count naturally alternates too (~0.31 vs ~0.52). Comparing across
+    // the alternation (e.g. cycle 2 vs cycle 7) measures the 3->5 density change, not
+    // voice accumulation. Compare SAME-PARITY cycles so density is held constant and
+    // any growth reflects true voice leakage.
+    let early_avg = voice_counts[2]; // even cycle (3 hits)
+    let late_avg = voice_counts[num_cycles - 2]; // cycle 6, also even (3 hits)
 
     let growth_ratio = late_avg / early_avg.max(0.1);
 
     println!(
-        "\nVoice count growth ratio (cycle 7 / cycle 2): {:.2}x",
+        "\nVoice count growth ratio (cycle {} / cycle 2, same parity): {:.2}x",
+        num_cycles - 2,
         growth_ratio
     );
     println!("Early average (cycle 2): {:.2}", early_avg);
-    println!("Late average (cycle 7): {:.2}", late_avg);
+    println!("Late average (cycle {}): {:.2}", num_cycles - 2, late_avg);
 
-    // Voice count should NOT grow significantly
-    // Allow up to 1.5x growth for natural variation, but not more
+    // Voice count should NOT grow significantly across same-parity cycles.
+    // Allow up to 1.5x growth for natural variation, but not more.
     assert!(
         growth_ratio < 1.5,
         "Voice count is accumulating! Grew from {:.2} to {:.2} ({:.2}x growth). This indicates voices are not being cleaned up properly.",

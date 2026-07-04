@@ -556,9 +556,15 @@ fn test_auto_routing_when_no_out() {
         22050,
     );
     let rms = calculate_rms(&audio);
+    // Two `sine * 0.3` buses (RMS ~0.21 each) sum to ~0.30 RMS, then the Priority-4
+    // plain-bus auto-route deliberately applies AUTO_ROUTE_HEADROOM_GAIN (-12 dB,
+    // 0.25x) so a no-`out` bus-only chunk doesn't blast the DAC at full scale (audit
+    // finding U1 in compositional_compiler.rs). Expected auto-routed RMS ~= 0.075.
+    // Assert the mix is clearly audible (non-silent) rather than the pre-headroom
+    // 0.1 threshold, which predates the intentional attenuation.
     assert!(
-        rms > 0.1,
-        "Auto-routing should mix all buses when no out is specified, got RMS: {}",
+        rms > 0.05,
+        "Auto-routing should mix all buses (attenuated by design) when no out is specified, got RMS: {}",
         rms
     );
 }

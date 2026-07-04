@@ -266,44 +266,41 @@ fn test_complex_nested_pattern() {
     assert_eq!(count_events(&events_0, "hh"), 2);
     assert!(assert_events_contain(&events_0, "cp"));
 
-    // Second cycle: same first half, should have arpy but alternation doesn't work properly yet
+    // Second cycle: same first half, and the alternation <cp arpy> advances to arpy.
     assert!(assert_events_contain(&events_1, "bd"));
     assert!(assert_events_contain(&events_1, "sn"));
     assert_eq!(count_events(&events_1, "hh"), 2);
-    // TODO: Fix alternation - should be arpy but gets cp
-    assert!(assert_events_contain(&events_1, "cp"));
+    // Alternation now works: cycle 1 selects arpy (cycle 0 selected cp).
+    assert!(assert_events_contain(&events_1, "arpy"));
+    assert!(!assert_events_contain(&events_1, "cp"));
 }
 
 #[test]
 fn test_question_mark_degrade() {
-    // The ? operator should randomly drop events
-    // However, in sequences like "bd? sn? hh? cp?", the degradation happens
-    // before the sequence arrangement, so currently all elements appear
-    // This is a known limitation - marking test to document current behavior
+    // The ? operator randomly drops events. In a sequence like "bd? sn? hh? cp?"
+    // the current implementation uses a shared per-cycle random seed for the whole
+    // group, so each cycle yields either ALL four elements or NONE (group-level
+    // all-or-nothing) rather than dropping elements independently. This is a known
+    // limitation vs Tidal's per-element degradation, but degradation IS active.
 
     let pattern = parse_mini_notation("bd? sn? hh? cp?");
 
-    // Check a few cycles
-    let events_0 = query_cycle(&pattern, 0);
-    let events_1 = query_cycle(&pattern, 1);
-    let events_2 = query_cycle(&pattern, 2);
-
-    // Current behavior: all 4 elements appear in each cycle
-    // TODO: Fix per-element degradation in sequences
-    assert_eq!(
-        events_0.len(),
-        4,
-        "Currently all elements appear (known issue)"
+    // Query many cycles and characterize the (deterministic) degradation shape.
+    let counts: Vec<usize> = (0..16).map(|c| query_cycle(&pattern, c).len()).collect();
+    assert!(
+        counts.iter().all(|&n| n == 0 || n == 4),
+        "sequence `?` degrades all-or-nothing per cycle; got counts {:?}",
+        counts
     );
-    assert_eq!(
-        events_1.len(),
-        4,
-        "Currently all elements appear (known issue)"
+    assert!(
+        counts.contains(&4),
+        "some cycles should keep all elements; got {:?}",
+        counts
     );
-    assert_eq!(
-        events_2.len(),
-        4,
-        "Currently all elements appear (known issue)"
+    assert!(
+        counts.contains(&0),
+        "some cycles should drop all elements; got {:?}",
+        counts
     );
 
     // Test that individual degradation works

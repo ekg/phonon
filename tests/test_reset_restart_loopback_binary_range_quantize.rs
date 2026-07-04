@@ -448,7 +448,7 @@ fn test_range_and_quantize() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfout $ sine 0.5 $ range 100.0 1000.0
+~lfo1 $ sine 0.5 $ range 100.0 1000.0
 ~lfo2 $ sine 1.0 $ quantize 4.0
 ~filtered $ saw 110 # lpf ~lfo1 0.8
 out $ ~filtered * ~lfo2

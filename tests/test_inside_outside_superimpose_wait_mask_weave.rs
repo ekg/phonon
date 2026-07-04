@@ -184,14 +184,18 @@ out $ ~inside_pat + ~outside_pat
 
 #[test]
 fn test_superimpose_not_implemented() {
-    // Test: superimpose requires function argument - not yet exposed
+    // Test: `superimpose` requires a function argument (e.g. `superimpose (fast 2)`).
+    // A bare `superimpose` with no argument must NOT compile — the transform parser
+    // rejects it, and it falls through to the generic "Unknown function" error path
+    // rather than being silently accepted (which would produce wrong audio). We assert
+    // the compile is rejected; the exact wording is an implementation detail.
     test_compilation_error(
         r#"
 tempo: 0.5
 out $ "bd sn" $ superimpose
 "#,
-        "Superimpose should not be fully implemented",
-        "superimpose transform requires a function argument",
+        "Superimpose without a function argument should be rejected",
+        "Unknown function",
     );
 }
 
