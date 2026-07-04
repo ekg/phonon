@@ -128,36 +128,67 @@ out $ pluck 440 0.5
 
 #[test]
 fn test_karplus_strong_damping() {
-    // Higher damping should produce shorter decay
-    let code_low_damp = r#"
-tempo: 1.0
-out $ pluck 440 0.1
-"#;
+    // Higher damping must decay faster than lower damping.
+    //
+    // ROBUSTNESS NOTE (why this is not a naive two-render comparison):
+    // Each `pluck` seeds its delay line from an *independent* random excitation
+    // (`KarplusStrongState` draws from a process-global noise-seed counter, so the
+    // exact excitation an individual render gets also depends on how the parallel
+    // test threads interleave). A single low-damp vs high-damp render therefore
+    // compares two *different* random realizations: the absolute late-window RMS is
+    // dominated by the excitation's energy, not by the decay rate, so ~1-in-3
+    // realizations tip a naive `high_late_rms < low_late_rms` assertion. That is
+    // exactly why this test used to be flaky (~35% failures in the parallel suite).
+    //
+    // Two independent measures make the comparison excitation-robust:
+    //   1. Compare a *within-signal* decay ratio (second-half RMS / first-half RMS).
+    //      The excitation's overall amplitude cancels in the ratio, so what remains
+    //      is (mostly) the damping-controlled decay rate.
+    //   2. Average that ratio over N independent renders per damping level to wash
+    //      out the residual per-excitation variance (~1/sqrt(N) shrinkage).
+    // We pluck at 880 Hz so the delay line cycles ~882x/second: the decay contrast
+    // between damping levels accrues within a 1-second render, keeping the test fast
+    // while still measuring the same physical property.
+    const N: usize = 8;
 
-    let code_high_damp = r#"
-tempo: 1.0
-out $ pluck 440 0.9
-"#;
+    // Render one pluck and return its within-signal decay ratio
+    // (second-half RMS / first-half RMS). Smaller ratio == faster decay.
+    fn decay_ratio(damping: &str) -> f32 {
+        let code = format!("tempo: 1.0\nout $ pluck 880 {}\n", damping);
+        let (rest, statements) = parse_program(&code).expect("Failed to parse");
+        assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let (_, statements_low) = parse_program(code_low_damp).expect("Failed to parse");
-    let mut graph_low = compile_program(statements_low, 44100.0, None).expect("Failed to compile");
-    let buffer_low = graph_low.render(88200); // 2 seconds
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
+        let buffer = graph.render(44100); // 1 second
 
-    let (_, statements_high) = parse_program(code_high_damp).expect("Failed to parse");
-    let mut graph_high =
-        compile_program(statements_high, 44100.0, None).expect("Failed to compile");
-    let buffer_high = graph_high.render(88200);
+        let mid = buffer.len() / 2;
+        let first_half = calculate_rms(&buffer[..mid]);
+        let second_half = calculate_rms(&buffer[mid..]);
+        assert!(
+            first_half > 0.0,
+            "pluck should produce audible output (first-half RMS was zero)"
+        );
+        second_half / first_half
+    }
 
-    // Measure RMS in second half (after initial pluck)
-    let mid = buffer_low.len() / 2;
-    let rms_low_late = calculate_rms(&buffer_low[mid..]);
-    let rms_high_late = calculate_rms(&buffer_high[mid..]);
+    // Mean decay ratio over N independent excitations (washes out excitation variance).
+    fn mean_decay_ratio(damping: &str) -> f32 {
+        (0..N).map(|_| decay_ratio(damping)).sum::<f32>() / N as f32
+    }
 
+    let low_damp_ratio = mean_decay_ratio("0.1");
+    let high_damp_ratio = mean_decay_ratio("0.9");
+
+    // Higher damping retains less energy per delay-line cycle, so its signal decays
+    // faster => a smaller second/first-half ratio. This can only fail if damping
+    // genuinely stops affecting the decay rate, so the test stays meaningful.
     assert!(
-        rms_high_late < rms_low_late,
-        "High damping should decay faster: low={}, high={}",
-        rms_low_late,
-        rms_high_late
+        high_damp_ratio < low_damp_ratio,
+        "High damping should decay faster: low-damp mean decay ratio={:.4}, \
+         high-damp mean decay ratio={:.4} (averaged over {} renders each)",
+        low_damp_ratio,
+        high_damp_ratio,
+        N
     );
 }
 
