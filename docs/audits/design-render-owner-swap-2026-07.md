@@ -18,6 +18,19 @@ context).
 > the audits describe. Where the current tree differs from the audit, this document reflects
 > the current tree.
 
+> **✅ Implementation status (added 2026-07-04, `verify-feature-wave2`).** This design has
+> since been **fully implemented** — the entire §7 follow-on plan landed: `src/render_swap.rs`
+> (the render-thread-owned swap primitive: SPSC command ring → `RenderSwap` → `absorb_state`
+> at a buffer boundary → graveyard janitor, exactly as §4 specifies, and it cross-references
+> this doc's §4.1/§4.2/§5/§2.4), plus `render-owner-{race-harness,core-channel,conformance-suite,transfer-boundary}`
+> and the three `migrate-{phonon-audio,phonon-live,modal-editor}-render-owner` tasks, validated
+> by `verify-render-owner-swap`. **Consequently the §1/§2 "current state" below is now
+> historical:** the root race it identifies is **closed** — `unsafe impl Sync for
+> UnifiedSignalGraph` and the `unsafe impl Sync for GraphCell` cited in §1/§2.4 have been
+> **removed** (`UnifiedSignalGraph` is now `Send`-only, `unified_graph.rs:5420`). Read §1–§3 as
+> the problem statement that motivated the fix, and §4–§7 as the design that shipped. Authoritative
+> render-owner status lives with `verify-render-owner-swap`.
+
 ---
 
 ## 1. Executive Summary

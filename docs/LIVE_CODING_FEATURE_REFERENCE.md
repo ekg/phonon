@@ -312,27 +312,37 @@ here for wave-3 planning (see [§10](#10-known-gaps)).
 
 ---
 
-## 10. Known gaps
+## 10. Wave-2 status — what landed, what's still open
 
-Genuinely absent today, each with its filed wave-2 task. (Verified absent by render:
-`scale` → *"Unknown function: scale"*; `splice`/`stitch` → compile error; note-names in
-`n`/`note` → numbers only.)
+**Update (2026-07-04, `verify-feature-wave2`):** every feature listed as a "gap" when this
+reference was first written has since **landed and is verified**. The table below now
+reflects the post-wave-2 code. (Re-verified this pass by render + the cited test suites; e.g.
+`n "0 2 4" # scale "minor"` and `note "c4'maj"` render non-silent, `splice`/`stitch` compile
+and render.) The one genuine remaining gap is OSC CLI wiring.
 
-| Gap | Symptom | Filed task |
+**Landed this wave (each with the suite that guards it):**
+
+| Feature | Reaches the user as | Verifying suite |
 |---|---|---|
-| Scale quantization in DSL (`# scale "minor"`) | `Unknown function: scale` | `feat-scale-quantization` |
-| Note names in mini-notation (`note "c e g"`) | numbers only; names not pitched | `feat-scale-quantization` |
-| Chords (`n "c'maj"`, `chord`) | no chord parsing | `feat-chord-support` |
-| `splice` (speed-to-fit slicing) | compile error | `feat-splice-stitch` |
-| `stitch` (boolean interleave) | keyword only, no compiler | `feat-splice-stitch` |
-| Continuous patterns at sample rate (T3) | ~86 Hz zipper on modulated params | `promote-t3-continuous-patterns` |
-| `f32` trigger timekeeping (T2) | onset drift on multi-hour sets | `promote-t2-trigger-f64` |
-| Voice preservation across graph swap (G7) | amplitude notch on every `C-x` | `feat-voice-preservation-swap` |
-| Render-owner graph swap (architecture) | design pass only | `design-render-owner-swap` |
-| OSC live control not CLI-wired | `/eval` `/hush` `/panic` exist but unreachable | *see below* |
+| Scale quantization in DSL | `n "0 2 4" # scale "minor"` | `tests/test_scale_quantization_dsl.rs` (10) |
+| Note names in `n` / `note` | `note "c e g"`, `n "c4 e4 g4"` | `tests/test_scale_quantization_dsl.rs` |
+| Chords in mini-notation | `n "c'maj"`, `note "c4'maj"`, `# chord "maj"` | `tests/test_chord_dsl.rs` (18) |
+| `splice` (speed-to-fit slicing) | `s "brk" $ splice 8 "0 1 2 …"` | `tests/test_splice_stitch.rs` (25) |
+| `stitch` (boolean interleave) | `stitch "t f t f" "hh*2" "oh"` | `tests/test_splice_stitch.rs` |
+| Resonant filters (RLPF/RHPF/Resonz) | `# rlpf cutoff Q` (RBJ biquad) | `tests/test_rlpf*.rs`, `test_rhpf*.rs`, `test_resonz.rs` (119) |
+| Continuous patterns at sample rate (T3) | LFO on any `#` param — no ~86 Hz zipper | `tests/t3_continuous_patterns.rs` (6) |
+| `f64` trigger timekeeping (T2) | sample-accurate onsets on multi-hour sets | `tests/t2_trigger_precision_f64.rs` (3) + in-crate L1 |
+| Voice preservation across swap (G7) | no amplitude notch on `C-x` (`PHONON_PRESERVE_VOICES`) | `unified_graph.rs` in-crate `test_g7_*` |
+| Render-owner graph swap (architecture) | render-thread-owned swap, C1 root race closed | `src/render_swap.rs`, `render_owner_*` suites |
 
-All feature tasks above converge on the verification task **`verify-feature-wave2`**
-(full test suite + three-level audio + stress).
+The combined end-to-end join is **`verify-feature-wave2`** (full test suite + three-level
+audio audit + stress-harness seeds + the `examples/wave2_integration.ph` integration render).
+
+**Still open:**
+
+| Gap | Symptom | Status |
+|---|---|---|
+| OSC live control not CLI-wired | `/eval` `/hush` `/panic` handlers exist + are tested but there is no `phonon osc` / `--osc` flag | wave-3 candidate (see §9) |
 
 Deferred to wave-3 (per `feature-gap-2026-07.md` §5): Gate/Expander/Stereo-Width polish,
 Ableton Link / network tempo sync, heavy Tier-2 DSP (pitch/time-stretch, FFT/PV, convolution
