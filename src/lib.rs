@@ -347,6 +347,7 @@ pub mod glicol_parser_v2;
 pub mod glicol_pattern_bridge;
 #[cfg(unix)]
 pub mod ipc;
+pub mod link_clock; // Source-agnostic tempo/phase adapter (Ableton Link model)
 pub mod live;
 pub mod midi_input;
 pub mod midi_output;
