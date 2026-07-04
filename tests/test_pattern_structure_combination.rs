@@ -1,6 +1,22 @@
-/// Comprehensive tests for Tidal-style pattern structure combination
-/// In Tidal, the # operator takes structure from the RIGHT side
-/// s "bd" # note "c4 e4 g4" should produce 3 triggers (structure from note pattern)
+/// Tests for combining a sample pattern with `#` value-modifier patterns.
+///
+/// In Phonon (as in Tidal), `#` is the modifier/parameter operator: rhythmic
+/// STRUCTURE comes from the audio source on the LEFT, and the pattern on the
+/// RIGHT is *sampled* at each trigger to supply per-trigger VALUES. This is
+/// Tidal's `#` == `|>` (structure-from-left). So `s "bd" # note "c4 e4 g4"`
+/// triggers `bd` once per cycle (structure from `s "bd"`), taking whatever note
+/// value is active at each trigger — it does NOT produce one trigger per note.
+/// (Compare CLAUDE.md's `saw 55 # lpf ...`: `#` modifies the source, it does not
+/// restructure it.)
+///
+/// Timing: these tests render 1.0s and `bpm: 120` => cps = 2.0, so 1.0s spans
+/// 2 cycles. A single-event source like `s "bd"` therefore fires 2 triggers
+/// (2 onsets); a two-event source like `s "bd sn"` fires 4.
+///
+/// History: the onset thresholds here were originally calibrated against a buggy
+/// `detect_audio_events` helper that inflated onset counts 10-100x (a false
+/// onset every hop, ~400/sec; fixed in bc7f92e). With the corrected detector
+/// the thresholds now reflect the true structure-from-left trigger counts.
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
@@ -26,7 +42,9 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 }
 
 /// Test: s "bd" # note "c4 e4 g4"
-/// Should trigger 3 times (structure from note pattern on right)
+/// `#` takes structure from the LEFT (`s "bd"`): `bd` fires once per cycle, and
+/// the note pattern only supplies the per-trigger value. Over 2 cycles (1.0s at
+/// 2 cps) that is 2 triggers, so 2 onsets — NOT one onset per note.
 #[test]
 fn test_note_provides_structure() {
     let code = r#"
@@ -36,21 +54,23 @@ out $ s "bd" # note "c4 e4 g4"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
-    // Should have multiple onsets (at least 3 for the 3 notes in one cycle)
-    // Note: detect_audio_events detects RMS changes, so may find multiple per sample
+    // Structure from left (`s "bd"`): 1 trigger/cycle * 2 cycles = 2 onsets.
+    // The note pattern supplies per-trigger values, not extra structure.
     assert!(
-        onsets.len() >= 3,
-        "s \"bd\" # note \"c4 e4 g4\" should have at least 3 onsets, got {}",
+        onsets.len() >= 2,
+        "s \"bd\" # note \"c4 e4 g4\" should have 2 onsets (bd fires once per cycle, 2 cycles), got {}",
         onsets.len()
     );
 
     let rms = calculate_rms(&audio);
     assert!(rms > 0.01, "Should produce sound");
-    println!("note structure: {} onsets (>= 3 expected), RMS = {}", onsets.len(), rms);
+    println!("note structure: {} onsets (2 expected, structure from left), RMS = {}", onsets.len(), rms);
 }
 
 /// Test: s "bd" # gain "0.5 1.0 0.8 0.3"
-/// Should trigger 4 times (structure from gain pattern)
+/// `#` takes structure from the LEFT (`s "bd"`): `bd` fires once per cycle and
+/// the gain pattern only scales each trigger. Over 2 cycles that is 2 onsets —
+/// the 4-event gain pattern does NOT add structure.
 #[test]
 fn test_gain_provides_structure() {
     let code = r#"
@@ -60,16 +80,19 @@ out $ s "bd" # gain "0.5 1.0 0.8 0.3"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
+    // Structure from left (`s "bd"`): 1 trigger/cycle * 2 cycles = 2 onsets.
     assert!(
-        onsets.len() >= 4,
-        "s \"bd\" # gain \"0.5 1.0 0.8 0.3\" should have at least 4 onsets, got {}",
+        onsets.len() >= 2,
+        "s \"bd\" # gain \"0.5 1.0 0.8 0.3\" should have 2 onsets (bd fires once per cycle, 2 cycles), got {}",
         onsets.len()
     );
-    println!("gain structure: {} onsets (>= 4 expected)", onsets.len());
+    println!("gain structure: {} onsets (2 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd" # pan "-1 0 1"
-/// Should trigger 3 times (structure from pan pattern)
+/// `#` takes structure from the LEFT (`s "bd"`): `bd` fires once per cycle and
+/// the pan pattern only positions each trigger. Over 2 cycles that is 2 onsets —
+/// the 3-event pan pattern does NOT add structure.
 #[test]
 fn test_pan_provides_structure() {
     let code = r#"
@@ -79,16 +102,18 @@ out $ s "bd" # pan "-1 0 1"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
+    // Structure from left (`s "bd"`): 1 trigger/cycle * 2 cycles = 2 onsets.
     assert!(
-        onsets.len() >= 3,
-        "s \"bd\" # pan \"-1 0 1\" should have at least 3 onsets, got {}",
+        onsets.len() >= 2,
+        "s \"bd\" # pan \"-1 0 1\" should have 2 onsets (bd fires once per cycle, 2 cycles), got {}",
         onsets.len()
     );
-    println!("pan structure: {} onsets (>= 3 expected)", onsets.len());
+    println!("pan structure: {} onsets (2 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd sn" # note "c4 e4 g4 d4"
-/// Both sides have patterns - right side should dominate (4 triggers from note)
+/// Structure comes from the LEFT source `s "bd sn"` (2 events/cycle), NOT from
+/// the note pattern. Over 2 cycles (1.0s at 2 cps) that is 4 triggers = 4 onsets.
 #[test]
 fn test_both_sides_have_patterns() {
     let code = r#"
@@ -98,17 +123,19 @@ out $ s "bd sn" # note "c4 e4 g4 d4"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
+    // `s "bd sn"` = 2 triggers/cycle * 2 cycles = 4 onsets (structure from left).
     assert!(
         onsets.len() >= 4,
-        "s \"bd sn\" # note \"c4 e4 g4 d4\" should have at least 4 onsets (from note), got {}",
+        "s \"bd sn\" # note \"c4 e4 g4 d4\" should have 4 onsets (bd sn, 2 cycles), got {}",
         onsets.len()
     );
-    println!("both patterns: {} onsets (>= 4 expected)", onsets.len());
+    println!("both patterns: {} onsets (4 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd" # note "c4 e4" # gain "0.5 1.0"
-/// Multiple modifiers - should combine all structures
-/// note has 2 events, gain has 2 events -> should have 2 events total
+/// Chained modifiers never change structure: it stays with the LEFT source
+/// `s "bd"`. Over 2 cycles that is 2 onsets regardless of how many modifiers or
+/// how many events each modifier pattern has.
 #[test]
 fn test_multiple_modifiers() {
     let code = r#"
@@ -118,19 +145,20 @@ out $ s "bd" # note "c4 e4" # gain "0.5 1.0"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
-    // After first #note, we have 2 triggers
-    // After second #gain, we still have 2 triggers (both have same structure)
+    // `#note` then `#gain` only supply per-trigger values; structure stays with
+    // `s "bd"` = 1 trigger/cycle * 2 cycles = 2 onsets.
     assert!(
         onsets.len() >= 2,
-        "Multiple modifiers with same structure should have at least 2 onsets, got {}",
+        "Chained modifiers keep the sample structure: should have 2 onsets, got {}",
         onsets.len()
     );
-    println!("multiple modifiers: {} onsets (>= 2 expected)", onsets.len());
+    println!("multiple modifiers: {} onsets (2 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd" # note "c4 e4" # gain "0.5 1.0 0.8"
-/// Multiple modifiers with different structures
-/// note has 2 events, gain has 3 events -> final result should have 3 events
+/// Even when chained modifiers have DIFFERENT event counts (note: 2, gain: 3),
+/// neither provides structure — it stays with the LEFT source `s "bd"`. Over
+/// 2 cycles that is 2 onsets; the modifiers do not "dominate" the structure.
 #[test]
 fn test_multiple_modifiers_different_structure() {
     let code = r#"
@@ -140,14 +168,14 @@ out $ s "bd" # note "c4 e4" # gain "0.5 1.0 0.8"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
-    // After first #note, we have 2 triggers
-    // After second #gain, we should have 3 triggers (structure from gain)
+    // Structure stays with `s "bd"` = 1 trigger/cycle * 2 cycles = 2 onsets,
+    // independent of the differing modifier event counts.
     assert!(
-        onsets.len() >= 3,
-        "Multiple modifiers - last one should dominate structure, got {}",
+        onsets.len() >= 2,
+        "Chained modifiers keep the sample structure: should have 2 onsets, got {}",
         onsets.len()
     );
-    println!("multiple modifiers (different): {} onsets (>= 3 expected)", onsets.len());
+    println!("multiple modifiers (different): {} onsets (2 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd sn hh" without modifiers
@@ -210,7 +238,9 @@ out $ s "bd" # note "c4 ~ e4"
 }
 
 /// Test: s "bd" # note "c4*2 e4"
-/// Subdivision in note pattern
+/// Subdivision inside the note pattern (`c4*2 e4` = 3 note events/cycle) does
+/// NOT subdivide the trigger structure: `#` keeps structure from the LEFT source
+/// `s "bd"` = 1 trigger/cycle. Over 2 cycles that is 2 onsets.
 #[test]
 fn test_subdivision_in_note() {
     let code = r#"
@@ -220,13 +250,14 @@ out $ s "bd" # note "c4*2 e4"
     let audio = render_dsl(code, 1.0);
     let onsets = detect_audio_events(&audio, 44100.0, 0.01);
 
-    // "c4*2 e4" = c4 twice in first half, e4 in second half = 3 events
+    // Note-side subdivision is ignored for structure; `s "bd"` gives
+    // 1 trigger/cycle * 2 cycles = 2 onsets.
     assert!(
-        onsets.len() >= 3,
-        "s \"bd\" # note \"c4*2 e4\" should have at least 3 onsets, got {}",
+        onsets.len() >= 2,
+        "s \"bd\" # note \"c4*2 e4\" should have 2 onsets (bd fires once per cycle, 2 cycles), got {}",
         onsets.len()
     );
-    println!("subdivision in note: {} onsets (>= 3 expected)", onsets.len());
+    println!("subdivision in note: {} onsets (2 expected, structure from left)", onsets.len());
 }
 
 /// Test: s "bd" # note "[c4, e4, g4]"
