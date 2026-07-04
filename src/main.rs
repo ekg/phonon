@@ -1053,6 +1053,14 @@ out sine(440) * 0.2
                 }
             };
 
+            // Network tempo sync (Ableton Link model, design §5). A control-side
+            // reader thread is the single writer to a lock-free ArcSwap<LinkSnapshot>
+            // that the render loop loads once per buffer. `None` unless a tempo
+            // source is configured — with no source this is a no-op and the render
+            // path stays byte-identical to pre-change. Moved into the synth thread
+            // below so the render thread stays the sole mutator of its LiveClock.
+            let mut link_follower: Option<LinkFollower> = configure_link_follower();
+
             // Background synthesis thread: the single owner of the live graph
             // (render-owner model). It continuously renders samples into the ring
             // buffer and applies swaps — arriving via the render-owner command ring
@@ -1128,6 +1136,24 @@ out sine(440) * 0.2
                                     // between the transferred and the true position.
                                     cur.set_cycle_position(c.position());
                                 }
+                            }
+                        }
+
+                        // Network tempo sync (design §4.3/§5). When a Link source is
+                        // configured, fold its latest published snapshot into the
+                        // clock BEFORE advancing: a bounded varispeed nudge via
+                        // set_cps every buffer, and a single deliberate set_position
+                        // reseek ONLY at join / large phase error — never a per-buffer
+                        // teleport (T1). With no source configured `link_follower` is
+                        // None and this is skipped, so the render path is unchanged.
+                        if let Some(follower) = link_follower.as_mut() {
+                            let c = clock.as_mut().unwrap();
+                            if follower.fold(c) {
+                                // A join / large-error reseek moved the clock: seed the
+                                // graph's node timing to the new position so it
+                                // continues from there instead of re-triggering the
+                                // skipped span (mirrors the swap-seed above).
+                                cur.set_cycle_position(c.position());
                             }
                         }
 
@@ -1611,5 +1637,333 @@ fn truncate_string(s: &str, max_len: usize) -> String {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
+}
+
+// ============================================================================
+// Network tempo sync (Ableton Link model) — `main.rs` render-loop integration.
+//
+// See docs/audits/design-ableton-link-2026-07.md §4.3 (phase: controlled
+// convergence, never a per-buffer snap) and §5 (thread-safety vs the render-
+// owner model). The pure cps/phase math lives in `phonon::link_clock`; this
+// file adds ONLY the control-side reader thread and the render-thread fold, so
+// that:
+//   * the render thread stays the sole mutator of its `LiveClock` (no `&mut`
+//     crosses a thread),
+//   * the single writer to the lock-free `ArcSwap<LinkSnapshot>` is the reader
+//     thread, and the render loop `.load()`s it once per buffer (no `.lock()`
+//     on the render path),
+//   * no Link handle is attached to `UnifiedSignalGraph`, so the graph stays
+//     `Send`-only, not `Sync` (C1 — `render_owner_graph_is_send_but_not_sync`).
+// ============================================================================
+use arc_swap::ArcSwap;
+use phonon::link_clock::{
+    needs_hard_reseek, nudged_cps, snapshot_from_source, LinkSnapshot, MockTempoSource,
+    TempoSource, DEFAULT_BEATS_PER_CYCLE,
+};
+use phonon::unified_graph::LiveClock;
+use std::sync::Arc;
+
+/// Render-thread follower that folds a network tempo+phase into the live clock.
+///
+/// Holds the read side of the lock-free snapshot the control-side reader thread
+/// publishes. Lives on the render thread and is the render thread's private
+/// per-buffer state — it never shares a `&mut` clock across threads. Present
+/// (`Some`) only when a tempo source is configured; otherwise the render loop
+/// never constructs one and its path is byte-identical to pre-change.
+struct LinkFollower {
+    /// Read handle to the snapshot published by the single-writer reader thread.
+    snapshot: Arc<ArcSwap<LinkSnapshot>>,
+    /// Whether we have performed the one-time join reseek yet. Before the first
+    /// join the phase is unknown, so the first valid snapshot always reseeks.
+    joined: bool,
+}
+
+impl LinkFollower {
+    /// Load the latest published snapshot and fold it into `clock` for this
+    /// buffer. Returns `true` iff a `set_position` reseek was performed (join or
+    /// large error). A not-yet-published sentinel (`epoch == 0`) or a stopped
+    /// transport is an exact no-op that leaves the clock untouched.
+    fn fold(&mut self, clock: &mut LiveClock) -> bool {
+        // Lock-free load (arc-swap), once per buffer — the only Link read on the
+        // render path. `LinkSnapshot: Copy`, so this copies the POD out and drops
+        // the guard immediately.
+        let snap: LinkSnapshot = **self.snapshot.load();
+        if snap.epoch == 0 || !snap.playing {
+            return false;
+        }
+        fold_link_snapshot(clock, &snap, &mut self.joined)
+    }
+}
+
+/// Fold one valid, playing Link snapshot into the live clock for a buffer.
+///
+/// Steady state (`joined` and small error): apply tempo plus a bounded varispeed
+/// phase correction via `set_cps` ONLY, so the position stays accumulated and
+/// monotonic (T1). Join (`!joined`) or a large phase error (`needs_hard_reseek`):
+/// a single deliberate `set_position` reseek to the network phase, the same
+/// controlled-rebase category as `setCycle` / post-underrun (design §4.3).
+///
+/// Returns `true` iff a `set_position` reseek happened, so the caller can seed
+/// the graph's node timing and tests can assert steady buffers never teleport.
+fn fold_link_snapshot(clock: &mut LiveClock, snap: &LinkSnapshot, joined: &mut bool) -> bool {
+    // Phase error in cycles: how far the network is ahead of our accumulated
+    // position. `set_cps`/`set_position` are the only clock mutators used here —
+    // no new clock method is introduced (design §4.2/§4.3).
+    let err = snap.target_cycle - clock.position();
+
+    if !*joined || needs_hard_reseek(err) {
+        // Join / large-error fallback: reseek once to the network phase. Set the
+        // tempo exactly (no nudge — we are re-anchoring the position anyway).
+        clock.set_cps(snap.cps as f32);
+        clock.set_position(snap.target_cycle);
+        *joined = true;
+        true
+    } else {
+        // Steady state: fold the (bounded, <=0.5 %) phase correction into the
+        // going-forward tempo. Position keeps accumulating monotonically while it
+        // converges on the network — never a per-buffer teleport.
+        clock.set_cps(nudged_cps(snap.cps, err) as f32);
+        false
+    }
+}
+
+/// Spawn the control-side Link reader thread — the SINGLE writer to `snapshot`.
+///
+/// It samples `source` every `poll_interval` and publishes a derived
+/// [`LinkSnapshot`] via `snapshot.store(..)`; the render loop loads it lock-free
+/// once per buffer. This is the sole mutation channel from Link to the render
+/// clock: no lock touches the render path and no Link handle is attached to the
+/// graph (design §5). The thread is detached (daemon-style, like the graveyard
+/// janitor) and dies with the process.
+fn spawn_link_reader<S: TempoSource + Send + 'static>(
+    source: S,
+    snapshot: Arc<ArcSwap<LinkSnapshot>>,
+    beats_per_cycle: f64,
+    poll_interval: std::time::Duration,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        // Generation counter; starts at 1 so `epoch == 0` stays a "no source yet"
+        // sentinel the render side skips. Monotonic (wrap is unreachable in any
+        // real session).
+        let mut epoch: u64 = 0;
+        loop {
+            epoch = epoch.wrapping_add(1);
+            let snap =
+                snapshot_from_source(&source, std::time::Instant::now(), beats_per_cycle, epoch);
+            snapshot.store(Arc::new(snap));
+            std::thread::sleep(poll_interval);
+        }
+    })
+}
+
+/// Build the render-loop [`LinkFollower`] from configuration, spawning the reader
+/// thread when a tempo source is configured.
+///
+/// Returns `None` when no source is configured, so the render path is an exact
+/// no-op and output is byte-identical to pre-change. The real `rusty_link` and
+/// zero-dep OSC backends implement [`TempoSource`] in their own tasks (design
+/// §3/§7); until then a source is configured via `PHONON_LINK_BPM=<bpm>`, which
+/// installs a static in-process leader — enough to exercise the follow path
+/// end-to-end without a network.
+fn configure_link_follower() -> Option<LinkFollower> {
+    let bpm: f64 = std::env::var("PHONON_LINK_BPM").ok()?.trim().parse().ok()?;
+    if !(bpm.is_finite() && bpm > 0.0) {
+        eprintln!("⚠️  PHONON_LINK_BPM must be a positive tempo; ignoring");
+        return None;
+    }
+
+    // Sentinel snapshot until the reader publishes its first sample.
+    let snapshot = Arc::new(ArcSwap::from_pointee(LinkSnapshot {
+        cps: 0.0,
+        target_cycle: 0.0,
+        epoch: 0,
+        playing: false,
+    }));
+
+    // Interim static leader. ~10 ms cadence is well finer than a buffer at any
+    // sane rate, so the render loop always sees a fresh phase.
+    let source = MockTempoSource::new(bpm);
+    spawn_link_reader(
+        source,
+        Arc::clone(&snapshot),
+        DEFAULT_BEATS_PER_CYCLE,
+        std::time::Duration::from_millis(10),
+    );
+    println!("🔗 Link: following static leader at {bpm:.3} BPM (PHONON_LINK_BPM)");
+
+    Some(LinkFollower {
+        snapshot,
+        joined: false,
+    })
+}
+
+#[cfg(test)]
+mod link_sync_tests {
+    //! Render-loop integration tests for network tempo sync (Ableton Link model).
+    //!
+    //! These guard the T1 no-teleport invariant on the `main.rs` Link path
+    //! (design `docs/audits/design-ableton-link-2026-07.md` §4.3 / §6): a mock
+    //! `TempoSource` with a fixed phase offset drives the fold-per-buffer step and
+    //! we assert (a) `LiveClock::position()` is monotonic non-decreasing every
+    //! steady buffer, (b) `set_position` fires ONLY at join / large error, never
+    //! per steady buffer, and (c) with no source the fold is an exact no-op.
+
+    use super::*;
+    use arc_swap::ArcSwap;
+    use phonon::link_clock::{
+        snapshot_from_source, LinkSnapshot, MockTempoSource, DEFAULT_BEATS_PER_CYCLE,
+        HARD_RESEEK_THRESHOLD_CYCLES,
+    };
+    use phonon::unified_graph::LiveClock;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    const SR: f32 = 48_000.0;
+    const FRAMES: usize = 512;
+    const BPC: f64 = DEFAULT_BEATS_PER_CYCLE;
+
+    /// Wall-clock instant of buffer `i`'s presentation, advancing the network
+    /// timeline deterministically by exactly one buffer (no real-time reads, so
+    /// the test is not flaky under load).
+    fn buffer_instant(base: Instant, i: usize) -> Instant {
+        base + Duration::from_secs_f64(i as f64 * FRAMES as f64 / SR as f64)
+    }
+
+    /// The marquee no-teleport test (design §6): a fixed-offset network drives the
+    /// per-buffer fold; position stays monotone, the reseek happens once (join).
+    #[test]
+    fn test_link_fold_join_then_steady_is_monotone_no_reseek() {
+        // Network is a fixed 0.05 cycle ahead of the clock at t=0: beat 0.2 at
+        // 4 beats/cycle -> target_cycle 0.05, clock starts at 0.0.
+        let base = Instant::now();
+        let src = MockTempoSource::with_origin(120.0, BPC, base, 0.2);
+        let mut clock = LiveClock::new(SR, 0.5, 0.0);
+        let mut joined = false;
+
+        let n = 20_000usize;
+        let mut reseeks = 0usize;
+        let mut reseek_buffers = Vec::new();
+        let mut prev_pos = f64::NEG_INFINITY;
+
+        for i in 0..n {
+            let snap = snapshot_from_source(&src, buffer_instant(base, i), BPC, (i + 1) as u64);
+            let did_reseek = fold_link_snapshot(&mut clock, &snap, &mut joined);
+            if did_reseek {
+                reseeks += 1;
+                reseek_buffers.push(i);
+            }
+            // Render step: advance by exactly one buffer of samples.
+            clock.advance_buffer(FRAMES);
+
+            // T1: the accumulated position never runs backwards. The join reseek is
+            // a forward seek (network is ahead), so this holds on every buffer.
+            let pos = clock.position();
+            assert!(
+                pos >= prev_pos - 1e-12,
+                "position teleported backwards at buffer {i}: {prev_pos} -> {pos}"
+            );
+            prev_pos = pos;
+        }
+
+        // set_position fired exactly once, on the join buffer, and never in steady state.
+        assert_eq!(reseeks, 1, "set_position must fire only at join, not per buffer");
+        assert_eq!(reseek_buffers, vec![0], "the only reseek is the join at buffer 0");
+
+        // (c) The bounded varispeed actually tracked the network: the residual phase
+        // error converged well below the 0.05-cycle start offset.
+        let end_target =
+            snapshot_from_source(&src, buffer_instant(base, n), BPC, 0).target_cycle;
+        let final_err = (end_target - clock.position()).abs();
+        assert!(
+            final_err < 0.05 * 0.5,
+            "varispeed did not converge: start 0.05 -> final {final_err}"
+        );
+    }
+
+    /// After the join, a large phase error (network jumps > half a cycle) is
+    /// corrected by a single hard reseek, not a slow slew (design §4.3 regime 3).
+    #[test]
+    fn test_link_fold_large_error_triggers_hard_reseek() {
+        let mut clock = LiveClock::new(SR, 0.5, 0.0);
+        let mut joined = false;
+
+        // Join at target 0.0 (clock already there): reseek #1.
+        let join = LinkSnapshot { cps: 0.5, target_cycle: 0.0, epoch: 1, playing: true };
+        assert!(fold_link_snapshot(&mut clock, &join, &mut joined));
+
+        // A small error stays in the soft band: no reseek.
+        let small = LinkSnapshot { cps: 0.5, target_cycle: 0.1, epoch: 2, playing: true };
+        assert!(!fold_link_snapshot(&mut clock, &small, &mut joined));
+
+        // A > half-cycle error forces a hard reseek to the network phase.
+        let far_target = clock.position() + HARD_RESEEK_THRESHOLD_CYCLES + 0.25;
+        let big = LinkSnapshot { cps: 0.5, target_cycle: far_target, epoch: 3, playing: true };
+        assert!(fold_link_snapshot(&mut clock, &big, &mut joined));
+        assert!((clock.position() - far_target).abs() < 1e-9, "hard reseek snaps to target");
+    }
+
+    /// A `LinkFollower` over a sentinel (no source published yet) or a stopped
+    /// transport is an exact no-op: the clock is untouched. This is the byte-
+    /// identical "no source configured" render path.
+    #[test]
+    fn test_link_follower_noop_paths_leave_clock_untouched() {
+        let mut clock = LiveClock::new(SR, 0.5, 3.25);
+
+        // Sentinel snapshot (epoch 0): reader has not published -> no-op.
+        let sentinel = LinkSnapshot { cps: 0.0, target_cycle: 999.0, epoch: 0, playing: false };
+        let mut follower = LinkFollower {
+            snapshot: Arc::new(ArcSwap::from_pointee(sentinel)),
+            joined: false,
+        };
+        assert!(!follower.fold(&mut clock), "sentinel is not a reseek");
+        assert_eq!(clock.position(), 3.25, "sentinel must not move the clock");
+        assert!(!follower.joined, "sentinel must not mark joined");
+
+        // Stopped transport (playing == false): also a no-op.
+        follower
+            .snapshot
+            .store(Arc::new(LinkSnapshot { cps: 0.5, target_cycle: 999.0, epoch: 5, playing: false }));
+        assert!(!follower.fold(&mut clock));
+        assert_eq!(clock.position(), 3.25, "stopped transport must not move the clock");
+        assert!(!follower.joined);
+    }
+
+    /// The `LinkFollower` end-to-end: a real published snapshot joins once, then
+    /// steady snapshots nudge without any further reseek, position monotone.
+    #[test]
+    fn test_link_follower_joins_once_then_tracks() {
+        let base = Instant::now();
+        let src = MockTempoSource::with_origin(120.0, BPC, base, 0.2);
+        let mut clock = LiveClock::new(SR, 0.5, 0.0);
+
+        let snapshot = Arc::new(ArcSwap::from_pointee(LinkSnapshot {
+            cps: 0.0,
+            target_cycle: 0.0,
+            epoch: 0,
+            playing: false,
+        }));
+        let mut follower = LinkFollower {
+            snapshot: Arc::clone(&snapshot),
+            joined: false,
+        };
+
+        let mut reseeks = 0usize;
+        let mut prev_pos = f64::NEG_INFINITY;
+        for i in 0..5_000usize {
+            // The reader thread's job, done inline & deterministically here.
+            let snap = snapshot_from_source(&src, buffer_instant(base, i), BPC, (i + 1) as u64);
+            snapshot.store(Arc::new(snap));
+
+            if follower.fold(&mut clock) {
+                reseeks += 1;
+            }
+            clock.advance_buffer(FRAMES);
+            let pos = clock.position();
+            assert!(pos >= prev_pos - 1e-12, "follower teleported at buffer {i}");
+            prev_pos = pos;
+        }
+        assert_eq!(reseeks, 1, "follower joins exactly once");
+        assert!(follower.joined);
     }
 }
