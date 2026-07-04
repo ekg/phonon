@@ -1077,7 +1077,7 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         last_value: f32,
-        last_trigger_time: f32, // Cycle position of last trigger
+        last_trigger_time: f64, // Cycle position of last trigger
     },
 
     /// Signal as a pattern source (audio→pattern modulation)
@@ -1105,7 +1105,7 @@ pub enum SignalNode {
     Sample {
         pattern_str: String,
         pattern: Pattern<String>,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         last_cycle: i32, // Track which cycle we processed last
         playback_positions: HashMap<String, usize>,
         gain: Signal,
@@ -1128,7 +1128,7 @@ pub enum SignalNode {
     SynthPattern {
         pattern_str: String,
         pattern: Pattern<String>,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         waveform: Waveform,
         attack: Signal,          // ADSR attack time in seconds (pattern-modulatable)
         decay: Signal,           // ADSR decay time in seconds (pattern-modulatable)
@@ -1204,7 +1204,7 @@ pub enum SignalNode {
         input: Signal,
         pattern_str: String,
         pattern: Pattern<String>,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         last_cycle: i32,
         attack: Signal,          // ADSR attack time (pattern-modulatable)
         decay: Signal,           // ADSR decay time (pattern-modulatable)
@@ -1220,7 +1220,7 @@ pub enum SignalNode {
         input: Signal,
         bool_pattern_str: String,
         bool_pattern: Pattern<bool>,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         last_cycle: i32,
         attack: Signal,          // ADSR attack time (pattern-modulatable)
         decay: Signal,           // ADSR decay time (pattern-modulatable)
@@ -1237,7 +1237,7 @@ pub enum SignalNode {
         pattern: Pattern<bool>,
         attack: Signal,
         release: Signal,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         last_cycle: i32,
         state: EnvState,
     },
@@ -1251,7 +1251,7 @@ pub enum SignalNode {
         decay: Signal,
         sustain: Signal,
         release: Signal,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
         last_cycle: i32,
         state: EnvState,
     },
@@ -1268,7 +1268,7 @@ pub enum SignalNode {
     PatternTrigger {
         pattern_str: String,
         pattern: Pattern<bool>,
-        last_trigger_time: f32,
+        last_trigger_time: f64,
     },
 
     /// Voice output - outputs mixed audio from all triggered samples
@@ -6841,7 +6841,7 @@ impl UnifiedSignalGraph {
                         ..
                     } => {
                         *last_cycle = current_cycle;
-                        *last_trigger_time = old_cycle_pos as f32;
+                        *last_trigger_time = old_cycle_pos;
                     }
                     SignalNode::CycleTrigger { last_cycle, .. } => {
                         *last_cycle = current_cycle;
@@ -6849,7 +6849,7 @@ impl UnifiedSignalGraph {
                     SignalNode::Pattern {
                         last_trigger_time, ..
                     } => {
-                        *last_trigger_time = old_cycle_pos as f32;
+                        *last_trigger_time = old_cycle_pos;
                     }
                     SignalNode::PluginInstance {
                         last_note_cycle,
@@ -8613,7 +8613,7 @@ impl UnifiedSignalGraph {
                 } = node
                 {
                     if *last_cycle < 0 {
-                        *last_trigger_time = buffer_start_cycle as f32 - 0.001;
+                        *last_trigger_time = buffer_start_cycle - 0.001;
                         *last_cycle = buffer_start_cycle.floor() as i32;
                     }
                 }
@@ -9958,7 +9958,7 @@ impl UnifiedSignalGraph {
                         ..
                     } => {
                         *last_cycle = current_cycle;
-                        *last_trigger_time = position as f32;
+                        *last_trigger_time = position;
                     }
                     SignalNode::CycleTrigger { last_cycle, .. } => {
                         *last_cycle = current_cycle;
@@ -9966,7 +9966,7 @@ impl UnifiedSignalGraph {
                     SignalNode::Pattern {
                         last_trigger_time, ..
                     } => {
-                        *last_trigger_time = position as f32;
+                        *last_trigger_time = position;
                     }
                     _ => {}
                 }
@@ -15853,7 +15853,7 @@ impl UnifiedSignalGraph {
                                 node_id.0, *lt
                             );
                         }
-                        *lt as f64
+                        *lt
                     } else {
                         -1.0
                     }
@@ -16429,7 +16429,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = node
                         {
-                            *lt = latest_triggered_start as f32;
+                            *lt = latest_triggered_start;
                             *lc = current_cycle;
                         }
                     }
@@ -16512,7 +16512,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                        *lt as f64
+                        *lt
                     } else {
                         -1.0
                     }
@@ -16632,7 +16632,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = node
                         {
-                            *lt = latest_triggered_start as f32;
+                            *lt = latest_triggered_start;
                         }
                     }
                 }
@@ -17907,7 +17907,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = &**node
                         {
-                            (*lt as f64, *lc)
+                            (*lt, *lc)
                         } else {
                             (-1.0, -1)
                         }
@@ -18046,7 +18046,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = node
                     {
-                        *lt = latest_triggered_start as f32;
+                        *lt = latest_triggered_start;
                         *lc = current_cycle;
                     }
                 }
@@ -18097,7 +18097,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = &**node
                         {
-                            (*lt as f64, *lc)
+                            (*lt, *lc)
                         } else {
                             (-1.0, -1)
                         }
@@ -18233,7 +18233,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = node
                     {
-                        *lt = latest_triggered_start as f32;
+                        *lt = latest_triggered_start;
                         *lc = current_cycle;
                     }
                 }
@@ -18276,7 +18276,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = &**node
                         {
-                            (*lt as f64, *lc)
+                            (*lt, *lc)
                         } else {
                             (-1.0, -1)
                         }
@@ -18356,7 +18356,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = node
                     {
-                        *lt = latest_triggered_start as f32;
+                        *lt = latest_triggered_start;
                         *lc = current_cycle;
                     }
                 }
@@ -18401,7 +18401,7 @@ impl UnifiedSignalGraph {
                             ..
                         } = &**node
                         {
-                            (*lt as f64, *lc)
+                            (*lt, *lc)
                         } else {
                             (-1.0, -1)
                         }
@@ -18508,7 +18508,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = node
                     {
-                        *lt = latest_triggered_start as f32;
+                        *lt = latest_triggered_start;
                         *lc = current_cycle;
                     }
                 }
@@ -18561,7 +18561,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                        *lt as f64
+                        *lt
                     } else {
                         -1.0
                     }
@@ -18599,7 +18599,7 @@ impl UnifiedSignalGraph {
                         ..
                     } = node
                     {
-                        *lt = latest_triggered as f32;
+                        *lt = latest_triggered;
                     }
                 }
 
@@ -19644,7 +19644,7 @@ impl UnifiedSignalGraph {
             // Get last trigger time for deduplication
             let last_trigger_time = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
                 if let SignalNode::Sample { last_trigger_time, .. } = &**node_rc {
-                    *last_trigger_time as f64
+                    *last_trigger_time
                 } else {
                     -1.0
                 }
@@ -19781,7 +19781,7 @@ impl UnifiedSignalGraph {
                     // set `last_cycle` to the current cycle (>= 0) to suppress re-trigger,
                     // so they are correctly left untouched here.
                     if *last_cycle < 0 {
-                        *last_trigger_time = buffer_start_cycle as f32 - 0.001;
+                        *last_trigger_time = buffer_start_cycle - 0.001;
                         *last_cycle = buffer_start_cycle.floor() as i32;
                     }
                 }
@@ -24207,5 +24207,123 @@ mod render_owner_boundary_tests {
         );
         // Panic killed all voices.
         assert_eq!(cur.active_voice_count(), 0, "panic killed all voices");
+    }
+}
+
+#[cfg(test)]
+mod t2_trigger_precision_tests {
+    //! T2 — `last_trigger_time` widened `f32` -> `f64` (audit pt-F3 /
+    //! `docs/audits/improvement-plan-2026-07.md` T2).
+    //!
+    //! `last_trigger_time` holds an ABSOLUTE cycle position. At a large position
+    //! (a long live set) an `f32` timestamp is pinned to its ~2^-7 ulp — about
+    //! 0.008 cycle at cycle 1e5, i.e. ~4 ms at 2 cps — which is ~170 audio
+    //! samples, far coarser than the one-sample accuracy the dedup logic assumes.
+    //! That quantization drops/doubles triggers and weakens swap dedup on long
+    //! sessions. `f64`'s ulp at 1e5 is ~1e-11 cycle: exact for any realistic set.
+    //!
+    //! These tests drive the REAL `SignalNode::Sample` trigger bookkeeping through
+    //! `process_buffer` and read the stored timestamp back (in-crate private
+    //! access), so they assert on the field that this task widens.
+    use super::{SignalNode, UnifiedSignalGraph};
+    use crate::pattern::{Fraction, State, TimeSpan};
+    use std::collections::HashMap;
+
+    /// Read the stored `last_trigger_time` of the single Sample node, plus the
+    /// sorted TRUE event-start cycle positions of that node's own pattern over
+    /// `[lo, hi)` (queried from the identical pattern object, so any mismatch is
+    /// storage precision, not pattern divergence).
+    fn sample_state(g: &UnifiedSignalGraph, lo: f64, hi: f64) -> (f64, Vec<f64>) {
+        for node in g.nodes.iter().flatten() {
+            if let SignalNode::Sample {
+                last_trigger_time,
+                pattern,
+                ..
+            } = &**node
+            {
+                let state = State {
+                    span: TimeSpan::new(Fraction::from_float(lo), Fraction::from_float(hi)),
+                    controls: HashMap::new(),
+                };
+                let mut starts: Vec<f64> = pattern
+                    .query(&state)
+                    .into_iter()
+                    .filter_map(|h| {
+                        let s = h
+                            .whole
+                            .as_ref()
+                            .map(|w| w.begin.to_float())
+                            .unwrap_or_else(|| h.part.begin.to_float());
+                        if s >= lo && s < hi {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                starts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                return (*last_trigger_time, starts);
+            }
+        }
+        panic!("graph has no Sample node");
+    }
+
+    /// Level 1: a trigger recorded at a large absolute cycle position must stay
+    /// sample-accurate. `bd*3` places events on cycle THIRDS (1/3, 2/3), which
+    /// are NOT dyadic and so are not exactly f32-representable even at a whole
+    /// offset — exposing the quantization that `bd*4` (quarters) would hide.
+    #[test]
+    fn last_trigger_time_stays_sample_accurate_at_large_cycle() {
+        let sr = 44100.0f32;
+        let cps = 0.5f64;
+        let (_, stmts) = crate::compositional_parser::parse_program("out $ s \"bd*3\"")
+            .expect("parse bd*3");
+        let mut g = crate::compositional_compiler::compile_program(stmts, sr, None)
+            .expect("compile bd*3");
+        g.set_cps(cps as f32);
+
+        // ~1e5 cycles ≈ 14 h at 2 cps — the audit's ~4 ms-cliff point.
+        let start = 100_000.0f64;
+        g.set_cycle(start);
+
+        // Render one full cycle in realtime-sized 512-sample buffers so all three
+        // events fire; the stored timestamp then equals the last fired event.
+        let one_cycle_samples = (sr as f64 / cps).round() as usize; // 88_200
+        let mut done = 0usize;
+        while done < one_cycle_samples {
+            let chunk = 512.min(one_cycle_samples - done);
+            let mut buf = vec![0.0f32; chunk * 2];
+            g.process_buffer(&mut buf);
+            done += chunk;
+        }
+
+        let (stored, true_starts) = sample_state(&g, start, start + 1.0);
+        assert!(
+            !true_starts.is_empty(),
+            "bd*3 should have events in cycle {start}"
+        );
+
+        // A real event (not just the init sentinel `start - 0.001`) must have
+        // fired, so the stored timestamp is at/after the first event.
+        assert!(
+            stored >= start - 1e-9,
+            "no real trigger recorded: stored={stored} < start={start} (still at init sentinel)"
+        );
+
+        // The stored timestamp must coincide with one true event position to
+        // within a single audio sample. f32 misses by ~0.008 cycle (~4 ms); f64
+        // is exact.
+        let one_sample_cycles = cps / sr as f64; // ~1.13e-5 cycle
+        let nearest = true_starts
+            .iter()
+            .map(|&e| (stored - e).abs())
+            .fold(f64::INFINITY, f64::min);
+        assert!(
+            nearest < one_sample_cycles,
+            "last_trigger_time quantized: stored={stored}, nearest true event off by \
+             {nearest} cycle (~{:.2} ms at {cps} cps) — exceeds one sample \
+             ({one_sample_cycles} cycle). f32 precision cliff; f64 must keep it exact.",
+            nearest / cps * 1000.0
+        );
     }
 }
