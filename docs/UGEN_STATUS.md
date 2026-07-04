@@ -1,11 +1,33 @@
 # UGen Implementation Status
 ## Tracking Progress Toward CSound/SuperCollider Parity
 
-**Last Updated**: 2025-11-13
-**Total UGens**: 90 planned
-**Implemented**: 53 (59%)
+**Last Updated**: 2026-07-04
+**Total UGens**: 91 planned
+**Implemented**: 72 (79%)
 **In Progress**: 0
-**Remaining**: 37
+**Remaining**: 19
+
+> **Recount 2026-07-04 (wave3-doc-status-refresh).** The prior header ("53/90,
+> 59%", dated 2025-11-13) *undercounted its own tables* (which held 56 ✅) and
+> had gone stale: the resonant filters (RLPF / RHPF / Resonz), SVF, Biquad,
+> Allpass, the convolution/plate reverbs, pitch-shift, vocoder, the Gate /
+> Expander dynamics, the stereo widener, and `Select` all landed since. This
+> recount was verified against the actual code at HEAD — the DSL function
+> dispatch table in `src/compositional_compiler.rs` (the `compile_*` arms,
+> ~L2943–3142), the `SignalNode` enum in `src/unified_graph.rs`, and the
+> `AudioNode` node modules in `src/nodes/`, each corroborated by a test file.
+> `TransientShaper` is a real post-roadmap effect (`compile_transient_shaper`,
+> `test_transient_shaper_dsl.rs`), so it is added as a tracked row (+1 planned).
+>
+> The **wave-2 melodic surface** also landed as DSL *modifiers* rather than UGen
+> rows and so is not counted in the table below, but is now live and rendered by
+> `examples/wave3_showcase.ph`: scale quantization (`compile_scale_modifier`),
+> chords (`compile_chord_modifier`), and note names (`compile_note_modifier`).
+>
+> **One honest caveat:** `Stereo Width` is implemented as a code-complete,
+> unit-tested node (`src/nodes/stereo_widener.rs`, Mid/Side) but is **not yet
+> wired to a DSL name** — usable programmatically, not yet from a `.ph` patch.
+> Marked ✅ (code + tests) with that caveat; a follow-up task tracks the wiring.
 
 ---
 
@@ -47,7 +69,7 @@
 
 ---
 
-## Filters (8/15 = 53%)
+## Filters (14/15 = 93%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -56,15 +78,15 @@
 | BPF | ✅ | - | - | - | Band-pass filter |
 | Notch | ✅ | - | - | - | Complete - State Variable Filter (Chamberlin) for band-reject |
 | Comb | ✅ | - | - | - | Complete - Feedback delay line for physical modeling & resonance |
-| Allpass | ⏳ | | 2h | - | Phase shift |
-| Formant | ⏳ | | 4h | - | Vowel formants |
+| Allpass | ✅ | - | - | - | Complete - `compile_allpass`, `test_allpass.rs` |
+| Formant | ✅ | - | - | - | Complete - vowel/formant filter (`compile_formant`/`compile_vowel`, `test_formant.rs`) |
 | Moog Ladder | ✅ | - | - | - | Complete - 4-pole 24dB/oct lowpass with resonance |
-| SVF | ⏳ | | 3h | - | State variable filter |
-| Biquad | ⏳ | | 2h | - | Use `biquad` crate |
-| Resonz | ⏳ | | 2h | - | Resonant bandpass |
-| RLPF | ⏳ | | 2h | - | Resonant LPF |
-| RHPF | ⏳ | | 2h | - | Resonant HPF |
-| Median | ⏳ | | 3h | - | Median filter |
+| SVF | ✅ | - | - | - | Complete - `svf_lp`/`hp`/`bp`/`notch` modes, `test_svf.rs` |
+| Biquad | ✅ | - | - | - | Complete - `bq_lp`/`hp`/`bp`/`notch` (RBJ), `test_biquad.rs` |
+| Resonz | ✅ | - | - | - | Complete - resonant bandpass, `compile_resonz`, `test_resonz.rs` |
+| RLPF | ✅ | - | - | - | Complete - resonant LPF (RBJ biquad), `compile_rlpf`, `test_rlpf.rs` |
+| RHPF | ✅ | - | - | - | Complete - resonant HPF (RBJ biquad), `compile_rhpf`, `test_rhpf.rs` |
+| Median | ⏳ | | 3h | - | Median filter (no `compile_median`, no node — still unimplemented) |
 | Lag | ✅ | - | - | - | Complete - Exponential slew limiter (portamento/smoothing) |
 
 ---
@@ -84,7 +106,7 @@
 
 ---
 
-## Effects (13/25 = 52%)
+## Effects (21/26 = 81%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -96,23 +118,24 @@
 | Bitcrush | ✅ | - | - | - | Complete |
 | Ring Mod | ✅ | - | - | - | Complete with sideband verification (sum/difference frequencies) |
 | Limiter | ✅ | - | - | - | Complete with brick-wall clamping verification |
-| Convolution Reverb | ⏳ | | 12h | 📚 | IR-based, complex |
-| Plate Reverb | ⏳ | | 8h | 📚 | Dattorro algorithm |
-| Spring Reverb | ⏳ | | 6h | - | Physical model |
+| Convolution Reverb | ✅ | - | - | - | Complete - IR-based, `convolve`/`convolution`, `test_convolution.rs` |
+| Plate Reverb | ✅ | - | - | - | Complete - `compile_plate`, `test_effects_verification.rs` (level1/2/3) |
+| Spring Reverb | ⏳ | | 6h | - | Physical model (no node / compile fn yet) |
 | Flanger | ✅ | - | - | - | Complete with delay modulation, feedback, and pattern-modulated depth/rate |
 | Phaser | ✅ | - | - | - | Complete with pattern-modulated rate, depth, feedback, stages |
 | Tremolo | ✅ | - | - | - | Complete with pattern-modulated rate and depth |
 | Vibrato | ✅ | - | - | - | Complete with pattern-modulated rate and depth |
-| Freq Shift | ⏳ | | 4h | 📚 | Hilbert transform |
-| Pitch Shift | ⏳ | | 8h | 📚 | Time stretch + resample |
-| Time Stretch | ⏳ | | 8h | 📚 | Phase vocoder |
-| Vocoder | ⏳ | | 12h | 📚 | FFT-based |
-| Gate | ⏳ | | 2h | - | Noise gate |
-| Expander | ⏳ | | 2h | - | Upward compression |
-| Multiband Comp | ⏳ | | 8h | 🔗 | Needs filters |
+| Freq Shift | ⏳ | | 4h | 📚 | Hilbert transform (no compile fn yet) |
+| Pitch Shift | ✅ | - | - | - | Complete - `compile_pitch_shift`, `test_pitch_shifter.rs` |
+| Time Stretch | ⏳ | | 8h | 📚 | Phase vocoder (no compile fn yet) |
+| Vocoder | ✅ | - | - | - | Complete - `compile_vocoder`, `test_vocoder.rs` |
+| Gate | ✅ | - | - | - | Complete - `gate "..."` pattern -> 0/1 gate signal (`compile_gate`); `NoiseGateNode` dynamics also implemented (`test_noise_gate.rs`) |
+| Expander | ✅ | - | - | - | Complete - upward expansion, `expander`/`expand` (`compile_expander`), `test_expander_buffer.rs` |
+| Multiband Comp | ⏳ | | 8h | 🔗 | Needs filters (no compile fn yet) |
 | EQ (Parametric) | ✅ | - | - | - | Complete - 3-band peaking EQ with pattern modulation |
-| Graphic EQ | ⏳ | | 6h | - | Fixed bands |
-| Stereo Width | ⏳ | | 2h | 🔗 | Needs stereo |
+| Graphic EQ | ⏳ | | 6h | - | Fixed bands (no compile fn yet) |
+| Stereo Width | ✅ | - | - | ⚠️ | Node complete + unit-tested (`src/nodes/stereo_widener.rs`, Mid/Side) but **not yet DSL-wired** (no `compile_*` name) — usable programmatically only. Follow-up filed |
+| Transient Shaper | ✅ | - | - | - | Complete (post-roadmap) - `transient_shaper`/`tshaper` (`compile_transient_shaper`), `test_transient_shaper_dsl.rs` |
 
 ---
 
@@ -135,7 +158,7 @@
 
 ---
 
-## Spatial & Routing (3/10 = 30%)
+## Spatial & Routing (4/10 = 40%)
 
 **NOTE**: Multi-channel architecture now implemented!
 
@@ -144,12 +167,12 @@
 | Pan2 | ✅ | - | - | - | Complete - Equal-power panning with stereo rendering |
 | XFade | ✅ | - | - | - | Complete - Linear crossfader with pattern-modulated position |
 | Mix | ✅ | - | - | - | Complete - Sums variable number of signals together |
+| Select | ✅ | - | - | - | Complete - signal multiplexer, `compile_select` |
 | Pan4 | ⏳ | | 4h | 🔗 | Needs quad arch |
 | Rotate2 | ⏳ | | 3h | 🔗 | Stereo rotation |
 | Binaural | ⏳ | | 12h | 📚 | HRTF database |
 | Ambisonics | ⏳ | | 16h | 📚 | Complex spatial |
 | Splay | ⏳ | | 2h | 🔗 | Spread signals |
-| Select | ⏳ | | 2h | - | Route signals |
 | NumChannels | ⏳ | | 2h | 🔗 | Channel adapter |
 
 ---
@@ -176,10 +199,12 @@
 **Total: 27 hours over 2 weeks - Completed ahead of schedule! 🎉**
 
 ### Tier 2: Advanced (20 UGens) - Target: 6 months
-**Status**: Not started
+**Status**: In progress (2026-07-04 recount) — resonant filters (RLPF/RHPF/Resonz),
+SVF, Biquad, Allpass, convolution/plate reverb, pitch-shift, vocoder, Gate/Expander
+dynamics, and the transient shaper have all landed. See the per-category tables above.
 
 ### Tier 3: Specialized (10 UGens) - Target: 6 months
-**Status**: Not started
+**Status**: Not started (FFT/PV_*, pitch/beat-track, ambisonics, binaural still open)
 
 ---
 

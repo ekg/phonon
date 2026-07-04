@@ -59,6 +59,31 @@ handful of Tidal sampler ops, and one deferred timing bug that undermines the co
 
 ### 1a. Genuinely missing / partial (verified absent in the code)
 
+> **⚠️ SUPERSEDED (2026-07-04, wave3-doc-status-refresh) — see
+> [`wave3-scope-2026-07.md` §2](wave3-scope-2026-07.md).** Several rows below were
+> accurate on 2026-07-03 but landed during wave 2 / wave 3 and are now DONE. The
+> historical table is left intact for the audit trail; corrected status:
+> - **Scale quantization / Note names / Chords** — DONE. `compile_scale_modifier`,
+>   `compile_chord_modifier`, `compile_note_modifier` are wired
+>   (`compositional_compiler.rs:3078-3080`); `test_note_modifier.rs`,
+>   `test_chord_dsl.rs`, `test_scale_quantization_dsl.rs`.
+> - **Resonant filters** RLPF / RHPF / Resonz / SVF / Allpass / Biquad — DONE.
+>   `compile_rlpf`/`rhpf`/`resonz`, `svf_lp..notch`, `bq_lp..notch`,
+>   `compile_allpass`; `test_rlpf.rs`, `test_rhpf.rs`, `test_resonz.rs`,
+>   `test_svf.rs`, `test_biquad.rs`, `test_allpass.rs`.
+> - **Effects: Gate / Expander** — DONE and DSL-wired. `compile_gate:10778`
+>   (`gate "..."` → 0/1 signal), `compile_expander:6281` (`expander`/`expand`);
+>   `test_noise_gate.rs`, `test_expander_buffer.rs`.
+> - **Stereo-Width** — PARTIAL: node code-complete + unit-tested
+>   (`src/nodes/stereo_widener.rs`, Mid/Side) but **not yet wired to a DSL name**
+>   (usable programmatically only; follow-up filed).
+> - **`splice` / `stitch`** — DONE since this audit: `compile_stitch` is wired
+>   (`compositional_compiler.rs:2525`) and `splice` routes via the slice family.
+>
+> Still genuinely open (unchanged): T2/T3/G7 (deferred stability), Ableton Link,
+> Median filter, and the heavy Tier-2 DSP listed in §5. See
+> [`UGEN_STATUS.md`](../UGEN_STATUS.md) for the full recount (72/91 implemented).
+
 | Feature | State | Evidence |
 |---|---|---|
 | **Scale quantization in the DSL** (`n "0 2 4" # scale "minor"`) | MISSING (machinery exists, NOT wired). A full `Scale` type with `major/minor/dorian/mixolydian/...` and `midi_to_note_name` lives in `src/midi_input.rs:90,949-958`, but there is **no `scale` function in the DSL function table** and no `compile_scale` | `grep compile_scale` -> none; `midi_input.rs:949` |
@@ -92,6 +117,12 @@ not rhythmic:
 ### Dimension 2 — Synthesis / UGen coverage
 **53/90 UGens** (`UGEN_STATUS.md`), Tier-1 complete. What a live coder reaches for and
 does **not** find, ranked by reach:
+
+> **⚠️ SUPERSEDED (2026-07-04, wave3-doc-status-refresh).** The **53/90** count is
+> stale — the 2026-07-04 recount is **72/91** (`UGEN_STATUS.md`). The three
+> bulleted gaps below (resonant filters, Allpass/Biquad, Gate/Expander/Stereo-
+> Width) have since landed; see §1a's banner for per-item evidence.
+
 - **Resonant filters** (RLPF/RHPF/Resonz/SVF) — the resonant-sweep is a live-coding staple
   and the current LPF is non-resonant. **High value, medium effort.**
 - **Allpass / Biquad** — building blocks; medium value.
@@ -218,6 +249,13 @@ claims to be code-verified.
 ---
 
 ## 5. Deferred (next waves) with rationale
+
+> **⚠️ SUPERSEDED IN PART (2026-07-04, wave3-doc-status-refresh) — see
+> [`wave3-scope-2026-07.md` §2](wave3-scope-2026-07.md).** The **Gate / Expander /
+> Stereo-Width** bullet below is no longer deferred: Gate & Expander are DSL-wired
+> + tested and Stereo-Width has a code-complete node (DSL wiring still pending —
+> follow-up filed). See §1a's banner and `UGEN_STATUS.md` for evidence. The
+> remaining bullets (Link, heavy Tier-2 DSP, T4/T5/T6, P3/P4, I3/I4) stand.
 
 - **Gate / Expander / Stereo-Width** (wave-3) — low effort, medium value; deferred only to
   keep this wave at the ~10-task cap. Good first wave-3 batch (all `unified_graph.rs` +
