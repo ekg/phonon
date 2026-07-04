@@ -449,6 +449,8 @@ impl CompilerContext {
                 | "vib"
                 | "phaser"
                 | "ph"
+                | "widener"
+                | "width"
                 | "xfade"
                 | "mix"
         )
@@ -1107,6 +1109,7 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 "transient_shaper", "tshaper",
                 "expander", "expand", "bitcrush", "coarse", "djf",
                 "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
+                "widener", "width",
                 "xfade", "mix", "select", "allpass",
                 "svf_lp", "svf_hp", "svf_bp", "svf_notch",
                 "bq_lp", "bq_hp", "bq_bp", "bq_notch",
@@ -3038,6 +3041,7 @@ fn compile_function_call(
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "vibrato" | "vib" => compile_vibrato(ctx, args),
         "phaser" | "ph" => compile_phaser(ctx, args),
+        "widener" | "width" => compile_widener(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
         "if" => compile_if(ctx, args),
@@ -3253,6 +3257,7 @@ fn compile_function_call(
                     "sidechain_compressor", "sidechain_comp", "sc_comp",
                     "expander", "expand", "bitcrush", "coarse", "djf", "ring",
                     "tremolo", "trem", "vibrato", "vib", "phaser", "ph",
+                    "widener", "width",
                     "xfade", "mix", "if", "select", "allpass",
                     "svf_lp", "svf_hp", "svf_bp", "svf_notch",
                     "bq_lp", "bq_hp", "bq_bp", "bq_notch",
@@ -6173,6 +6178,30 @@ fn compile_flanger(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         rate: Signal::Node(rate_node),
         feedback: Signal::Node(feedback_node),
         state: FlangerState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile stereo widener effect.
+/// Syntax: `<input> # widener <width>` (alias `# width <width>`).
+/// `width` is pattern-modulatable: 0.0 = mono/narrow, 1.0 = unchanged
+/// (pass-through), 2.0 = maximum pseudo-stereo width.
+fn compile_widener(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // width is optional and defaults to 1.0 (pass-through / normal stereo).
+    let extractor = ParamExtractor::new(params);
+    let width_expr = extractor.get_optional(0, "width", 1.0);
+    let width_node = compile_expr(ctx, width_expr)?;
+
+    use crate::unified_graph::StereoWidenerState;
+
+    let node = SignalNode::StereoWidener {
+        input: input_signal,
+        width: Signal::Node(width_node),
+        state: StereoWidenerState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

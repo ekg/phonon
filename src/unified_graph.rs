@@ -1820,6 +1820,20 @@ pub enum SignalNode {
         state: FlangerState,
     },
 
+    /// Stereo widener — controls stereo width / spread.
+    ///
+    /// Since the graph is currently mono, this creates pseudo-stereo width by
+    /// blending in a phase-shifted (all-pass filtered) copy of the signal.
+    /// `width` is pattern-modulatable: 0.0 = mono/narrow, 1.0 = unchanged
+    /// (pass-through), 2.0 = maximum width. Mirrors
+    /// [`crate::nodes::StereoWidenerNode`], now reachable from the DSL as
+    /// `# widener <width>` / `# width <width>`.
+    StereoWidener {
+        input: Signal,
+        width: Signal, // 0.0 = mono, 1.0 = normal, 2.0 = ultra-wide
+        state: StereoWidenerState,
+    },
+
     /// Compressor (dynamic range compression)
     Compressor {
         input: Signal,
@@ -2441,6 +2455,45 @@ pub struct AllpassState {
 impl Default for AllpassState {
     fn default() -> Self {
         Self { x1: 0.0, y1: 0.0 }
+    }
+}
+
+/// Sample rate the widener's all-pass coefficients are computed for by default.
+/// Rebuilt lazily on first eval if the graph runs at a different rate.
+const WIDENER_DEFAULT_SR: f32 = 44100.0;
+
+/// Build the biquad all-pass coefficients used by the stereo widener.
+/// A fixed ~800 Hz, Q=0.707 all-pass produces a smooth, perceptible phase
+/// shift without harshness (matches `StereoWidenerNode`).
+fn widener_allpass_coeffs(sample_rate: f32) -> biquad::Coefficients<f32> {
+    use biquad::{Coefficients, ToHertz};
+    Coefficients::<f32>::from_params(
+        biquad::Type::AllPass,
+        sample_rate.hz(),
+        800.0.hz(),
+        0.707,
+    )
+    .expect("valid all-pass coefficients for stereo widener")
+}
+
+/// Stereo widener state — a biquad all-pass filter used to synthesise the
+/// phase-shifted "side" signal for pseudo-stereo width in mono mode.
+#[derive(Debug, Clone)]
+pub struct StereoWidenerState {
+    /// All-pass filter producing the phase-shifted copy.
+    pub allpass: biquad::DirectForm2Transposed<f32>,
+    /// Sample rate the coefficients were built for (for lazy re-init).
+    pub sample_rate: f32,
+}
+
+impl Default for StereoWidenerState {
+    fn default() -> Self {
+        Self {
+            allpass: biquad::DirectForm2Transposed::<f32>::new(widener_allpass_coeffs(
+                WIDENER_DEFAULT_SR,
+            )),
+            sample_rate: WIDENER_DEFAULT_SR,
+        }
     }
 }
 
@@ -5896,6 +5949,15 @@ impl UnifiedSignalGraph {
                 *state = AllpassState::default();
             }
 
+            SignalNode::StereoWidener { state, .. } => {
+                use biquad::Biquad;
+                // Rebuild the all-pass at the graph's sample rate, clearing its
+                // internal delay memory.
+                state.allpass.update_coefficients(widener_allpass_coeffs(sr));
+                state.sample_rate = sr;
+                state.allpass.reset_state();
+            }
+
             // --- Delay lines (buffer + write index) ---
             SignalNode::Delay { buffer, write_idx, .. }
             | SignalNode::MultiTapDelay { buffer, write_idx, .. } => {
@@ -7933,6 +7995,12 @@ impl UnifiedSignalGraph {
                 collect!(coefficient);
             }
 
+            // === Stereo widener ===
+            SignalNode::StereoWidener { input, width, .. } => {
+                collect!(input);
+                collect!(width);
+            }
+
             // === AmpFollower (envelope follower) ===
             SignalNode::AmpFollower {
                 input,
@@ -8569,6 +8637,7 @@ impl UnifiedSignalGraph {
             | SignalNode::Convolution { input, .. }
             | SignalNode::Chorus { input, .. }
             | SignalNode::Flanger { input, .. }
+            | SignalNode::StereoWidener { input, .. }
             | SignalNode::Compressor { input, .. }
             | SignalNode::TransientShaper { input, .. }
             | SignalNode::Expander { input, .. }
@@ -14477,6 +14546,60 @@ impl UnifiedSignalGraph {
                     if let SignalNode::Allpass { state, .. } = node {
                         state.x1 = x;
                         state.y1 = y;
+                    }
+                }
+
+                y
+            }
+
+            SignalNode::StereoWidener { input, width, .. } => {
+                use biquad::Biquad;
+
+                let x = self.eval_signal(input);
+                let width = self.eval_signal(width).clamp(0.0, 2.0);
+                let sr = self.sample_rate;
+
+                // Load a working copy of the all-pass filter state, rebuilding
+                // its coefficients if the graph runs at a different sample rate
+                // than the state was initialised for.
+                let (mut allpass, mut state_sr) =
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::StereoWidener { state, .. } = &**node_rc {
+                            (state.allpass, state.sample_rate)
+                        } else {
+                            (
+                                biquad::DirectForm2Transposed::<f32>::new(
+                                    widener_allpass_coeffs(sr),
+                                ),
+                                sr,
+                            )
+                        }
+                    } else {
+                        (
+                            biquad::DirectForm2Transposed::<f32>::new(widener_allpass_coeffs(sr)),
+                            sr,
+                        )
+                    };
+
+                if (state_sr - sr).abs() > f32::EPSILON {
+                    allpass.update_coefficients(widener_allpass_coeffs(sr));
+                    state_sr = sr;
+                }
+
+                // Phase-shifted copy forms the pseudo-stereo "side" signal.
+                let phase_shifted = allpass.run(x);
+
+                // Blend between original and phase-shifted copy. `mix` is 0.0 at
+                // width=1.0 (pass-through) and grows toward the extremes.
+                let mix = (width - 1.0).abs();
+                let y = x * (1.0 - mix * 0.3) + phase_shifted * mix * 0.3;
+
+                // Persist the advanced filter state.
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::StereoWidener { state, .. } = node {
+                        state.allpass = allpass;
+                        state.sample_rate = state_sr;
                     }
                 }
 

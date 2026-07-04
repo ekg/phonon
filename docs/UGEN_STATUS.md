@@ -24,10 +24,13 @@
 > `examples/wave3_showcase.ph`: scale quantization (`compile_scale_modifier`),
 > chords (`compile_chord_modifier`), and note names (`compile_note_modifier`).
 >
-> **One honest caveat:** `Stereo Width` is implemented as a code-complete,
-> unit-tested node (`src/nodes/stereo_widener.rs`, Mid/Side) but is **not yet
-> wired to a DSL name** — usable programmatically, not yet from a `.ph` patch.
-> Marked ✅ (code + tests) with that caveat; a follow-up task tracks the wiring.
+> **Update 2026-07-04 (wire-stereowidener-into).** `Stereo Width` is now fully
+> DSL-wired: it is reachable from a `.ph` patch as `# widener <width>` (alias
+> `# width <width>`) via `compile_widener` and the `SignalNode::StereoWidener`
+> variant in `src/unified_graph.rs`, verified end-to-end by
+> `tests/test_widener_dsl.rs` (three-level: pattern query / pass-through &
+> modulation / render characteristics). The earlier "node-only, not DSL-wired"
+> caveat is resolved.
 
 ---
 
@@ -134,7 +137,7 @@
 | Multiband Comp | ⏳ | | 8h | 🔗 | Needs filters (no compile fn yet) |
 | EQ (Parametric) | ✅ | - | - | - | Complete - 3-band peaking EQ with pattern modulation |
 | Graphic EQ | ⏳ | | 6h | - | Fixed bands (no compile fn yet) |
-| Stereo Width | ✅ | - | - | ⚠️ | Node complete + unit-tested (`src/nodes/stereo_widener.rs`, Mid/Side) but **not yet DSL-wired** (no `compile_*` name) — usable programmatically only. Follow-up filed |
+| Stereo Width | ✅ | - | - | - | Complete + DSL-wired - `# widener <width>` / `# width <width>` (`compile_widener`, `SignalNode::StereoWidener`); node in `src/nodes/stereo_widener.rs` (Mid/Side); `test_widener_dsl.rs` + node unit tests |
 | Transient Shaper | ✅ | - | - | - | Complete (post-roadmap) - `transient_shaper`/`tshaper` (`compile_transient_shaper`), `test_transient_shaper_dsl.rs` |
 
 ---
