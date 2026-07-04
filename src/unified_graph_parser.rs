@@ -1717,30 +1717,29 @@ fn preprocess_multiline(input: &str) -> String {
         // A definition line has the pattern: identifier followed by $, #, or : (for tempo/bpm/outmix)
         // Examples: tempo:, out $, o1 $, d1 #, ~bus $, fn name = ..., etc.
         // Standalone commands: hush, hush1, hush2, panic
-        let is_definition = if let Some(dollar_pos) = trimmed.find('$') {
-            let before_dollar = trimmed[..dollar_pos].trim();
-            // Check if what's before $ looks like an identifier (bus/output)
-            let is_valid_identifier = before_dollar
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_dollar.is_empty();
-            is_valid_identifier
-        } else if let Some(hash_pos) = trimmed.find('#') {
-            let before_hash = trimmed[..hash_pos].trim();
-            // Check if what's before # looks like an identifier (bus/output with chaining)
-            let is_valid_identifier = before_hash
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_hash.is_empty();
-            is_valid_identifier
-        } else if let Some(colon_pos) = trimmed.find(':') {
-            let before_colon = &trimmed[..colon_pos];
-            // Check if what's before : looks like an identifier (tempo, bpm, outmix)
-            let is_valid_identifier = before_colon
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
-                && !before_colon.is_empty();
-            is_valid_identifier
+        //
+        // We classify on the EARLIEST of `$`, `#`, `:` — the actual definition
+        // separator — not `$`-first. A line such as `~b # struct "pat" $ src`
+        // contains both `#` (its real separator) and a later `$` (source
+        // injection inside the modifier-bus RHS). Prioritizing `$` computed the
+        // prefix `~b # struct "pat"` (not a bare identifier), misclassified the
+        // line as a continuation, and silently merged it into the previous
+        // statement — dropping it plus everything after it. Using the earliest
+        // separator makes the modifier-bus path reach parity with the audio-bus
+        // (`$`-first) path in every statement position.
+        let first_sep = ['$', '#', ':']
+            .iter()
+            .filter_map(|&c| trimmed.find(c))
+            .min();
+        let is_definition = if let Some(sep_pos) = first_sep {
+            let before_sep = trimmed[..sep_pos].trim();
+            // What precedes the separator must look like a bare identifier
+            // (bus name `~x`, output `out`/`o1`/`d1`, or config `tempo`/`bpm`/
+            // `cps`/`outmix`).
+            !before_sep.is_empty()
+                && before_sep
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
         } else if trimmed.starts_with("fn ") {
             // Function definitions also start a new statement
             true

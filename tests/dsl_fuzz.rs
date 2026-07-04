@@ -202,13 +202,13 @@ fn valid_statement() -> impl Strategy<Value = String> {
                 s
             }
         ),
-        // modifier bus. NOTE: uses `source()` (no struct injection), NOT
-        // `audio_source()`. `# struct "pat" $ src` is a KNOWN silent-drop BUG in
-        // parse_dsl's modifier-bus path (tracked by follow-up task
-        // `fix-parse-dsl-2`; reproduced by the #[ignore]d test below). Re-enable
-        // struct injection here — swap `source()` -> `audio_source()` — once that
-        // fix lands, so the silent-drop property covers the modifier path too.
-        (bus_name(), source()).prop_map(|(bus, src)| format!("{bus} # {src}")),
+        // modifier bus. Uses `audio_source()` so `# struct "pat" $ src` (source
+        // injection inside the modifier-bus RHS) is covered by the silent-drop
+        // property. This was a silent-drop BUG in parse_dsl's line classifier
+        // (misclassified `~b # struct "pat" $ src` as a continuation), fixed by
+        // `fix-parse-dsl-2`; the live regression guard is
+        // `test_dsl_fuzz_known_bug_modifier_bus_struct_chaining_drops` below.
+        (bus_name(), audio_source()).prop_map(|(bus, src)| format!("{bus} # {src}")),
         // scalar config
         number().prop_map(|n| format!("tempo: {n}")),
         number().prop_map(|n| format!("bpm: {n}")),
@@ -444,18 +444,20 @@ fn test_dsl_fuzz_no_silent_statement_drop() {
 }
 
 // ---------------------------------------------------------------------------
-// KNOWN BUG reproducer (discovered by this harness), tracked by follow-up task
-// `fix-parse-dsl-2`. `fix-parse-dsl` repaired `$`-source injection for the AUDIO
-// bus, but the `#` MODIFIER bus path still SILENTLY DROPS the `$ src` tail (and
-// every statement after it) for `# struct "pat" $ src` when it is not the first
-// statement. This test asserts the FIXED behavior, so it FAILS on current `main`
-// and is #[ignore]d until the follow-up lands. When fixing the parser, remove the
-// `#[ignore]` (turning this into a live regression guard) and re-enable the
-// `# struct` generator arm in `valid_statement`.
+// REGRESSION guard (formerly a KNOWN BUG reproducer discovered by this harness,
+// fixed by `fix-parse-dsl-2`). `fix-parse-dsl` repaired `$`-source injection for
+// the AUDIO bus; `fix-parse-dsl-2` fixed the remaining silent drop on the `#`
+// MODIFIER bus path. The root cause was in `preprocess_multiline`: a line such as
+// `~b # struct "pat" $ src` contains BOTH `#` (its real separator) and a later
+// `$`, and the line classifier tested `$` first — computing the prefix
+// `~b # struct "pat"` (not a bare identifier), misclassifying the line as a
+// continuation, and silently merging it into the previous statement (dropping it
+// and everything after it). The fix classifies on the EARLIEST of `$`/`#`/`:`.
+// This test asserts the FIXED behavior (all statements survive, no unparsed tail)
+// and now runs live as a permanent regression guard.
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "known parser bug, tracked by fix-parse-dsl-2: # modifier-bus struct chaining drops following statements"]
 fn test_dsl_fuzz_known_bug_modifier_bus_struct_chaining_drops() {
     // A struct-chained MODIFIER bus followed by a trailing `out` statement. The
     // trailing statement must survive once the modifier-bus path reaches parity
